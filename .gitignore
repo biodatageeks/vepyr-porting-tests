@@ -1,0 +1,16 @@
+# Session-local Claude Code state: worktrees, transient skills, command scratch.
+.claude/
+
+# Rust
+/target/
+
+# Python
+.venv/
+__pycache__/
+.pytest_cache/
+
+# Local credentials — never committed.
+.env
+
+# ./run_tests reports (LEDGER.md, verdict.json, step logs) — local, never committed.
+.run_tests/
