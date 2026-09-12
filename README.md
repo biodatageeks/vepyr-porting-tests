@@ -10,15 +10,12 @@ one curated assertion at a time: each checks that vepyr produces predictable
 results on real annotation data.
 
 The sections below describe the **porting method** used to extract, classify,
-and implement those tests. Code and ledger fragments are **illustrative**
-(sourced from the sitekwb porting-tests method/corpus). They are not present
-in this repository yet.
+and implement those tests. Code and ledger fragments are **illustrative**.
 
 ## Porting method
 
-From the Ensembl VEP test suite, **1970** assertions across **49** `t/*.t`
-files were extracted as a source corpus (context for the method, not a claim
-about files in this clone).
+In the Ensembl VEP test suite there are 1970 assertions across 49 `t/*.t`
+files. They were all extracted as a source corpus.
 
 ```mermaid
 flowchart LR
@@ -105,4 +102,4 @@ fn provider_accepts_a_v84_shaped_cache_root() {
 ```
 
 This repository will carry a curated subset of those ports as data-problem
-tests, one issue and pull request at a time.
+tests.
