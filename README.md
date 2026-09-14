@@ -57,11 +57,7 @@ run_tests: data-problem runs are not implemented yet; give --cache-dir to materi
 
 ## tests/common (cache helpers)
 
-`tests/common` is the only bridge future data-problem tests use to open the
-HF cache under `$VEPYR_CACHE_ROOT`. Point that env var at the same directory
-you pass to `./run_tests --cache-dir`. Helpers check `PROVENANCE.json` against
-`PINS.toml`, enforce per-assertion `required_contigs` shards, and locate the
-GRCh38 FASTA. They panic with a `Run:` repair command; they never skip.
+Fetch a cache, then point `$VEPYR_CACHE_ROOT` at the same directory:
 
 ```bash
 ./run_tests --cache-dir /mnt/hf-cache --add-contigs chr21,chrMT
