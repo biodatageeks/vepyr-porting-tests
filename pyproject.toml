@@ -3,7 +3,9 @@ name = "vepyr-port-tools"
 version = "0.1.0"
 description = "Tooling for curated VEP→vepyr data-problem porting tests"
 requires-python = ">=3.12"
-dependencies = []
+dependencies = [
+    "huggingface-hub>=1.31,<2",
+]
 
 [dependency-groups]
 dev = [
