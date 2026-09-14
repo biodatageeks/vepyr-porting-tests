@@ -1,102 +1,151 @@
 # Design: Issue #16 — Runner n=16 consequence content
 
-**Repo:** biodatageeks/vepyr-porting-tests  
-**Issue:** [#16](https://github.com/biodatageeks/vepyr-porting-tests/issues/16)  
-**Date:** 2026-09-14  
-**Status:** Approved for implementation (human Step 1 gate closed on the issue)
+**Repo:** biodatageeks/vepyr-porting-tests
+**Issue:** [#16](https://github.com/biodatageeks/vepyr-porting-tests/issues/16)
+**Date:** 2026-09-14, rewritten 2026-09-15 against the finalized issue
+**Status:** Implemented on `data-test/issue-16-consequence-content`
 
 ## Goal
 
-Port one curated **data-problem** test: for a fixed SNV, vepyr’s emitted CSQ carries predictable consequence **content** for named transcripts under the pinned VEP 116 Hugging Face corpus (full or `--add-contigs`), not under a committed micro-cache.
+Port one curated **data-problem** test: for the fixed SNV `chr21:25585733 C>T`
+(rs142513484), vepyr's emitted CSQ must match the native Ensembl VEP 116 reference
+run field-for-field, under the pinned VEP 116 Hugging Face corpus
+(`--add-contigs chr21`), not under a committed micro-cache.
+
+## Owner decisions this design implements
+
+The issue carried three open questions; all three were closed by the owner on
+2026-09-15 and this document is the rewrite that follows them.
+
+| # | Decision | Consequence here |
+|---|----------|------------------|
+| DECIDED 1 | Canonical oracle is the **`default`** VEP 116 run, not `--everything` | Expected values come from the 23-field `default` CSQ layout; the default `AnnotateVcfConfig` *is* the oracle, no field overrides |
+| DECIDED 2 | Input contig spelling is **`chr21`** (reverses the earlier `21` proposal) | One spelling in the input VCF `#CHROM` and in `required_contigs`; no harness-level `chr21` → `21` renaming |
+| DECIDED 3 | Assertion scope is the **full 34-group inventory, field-for-field** | Not "3 named transcripts + a count": 34 groups × 23 fields, all asserted |
 
 ## Non-goals
 
 - Ledger rows n=17 (order) and n=50 (distance count) — separate issues if ever ported
-- Harness work (#14 helpers, #15 `./run_tests` run path) — parallel PR; this change only consumes that API
+- Fixing the harness follow-ups #21/#22/#25 that block `./run_tests --vepyr REF`
 - Engine SHA/tag pin in the repository (`--vepyr REF` remains a run-time parameter)
 - Micro-cache, smoke tests, sitekwb overlays
-
-## Approach (locked)
-
-**Thin consumer (Approach A):** one `tests/data_*.rs` file with n=16 assertions only. Call shared helpers from #14 (`cache`, `ledger`, `annotate`, `csq`). No inlined CSQ/annotate duplicates. Worktree branched from `master`; rebase onto harness after #14+#15 merge; re-measure literals on VEP 116 before hardening expects.
+- The `cdna_position_follows_the_committed_shards_utr_length` parquet control —
+  deliberately **not** ported: cDNA is measured directly on the pin by this test,
+  so a second, parquet-reading explanation of the same number is redundant.
 
 ## Layout
 
 | Item | Value |
 |------|--------|
 | Worktree | `biodatageeks-vepyr-porting-tests-issue-16` |
-| Branch | `data-test/issue-16-consequence-content` (from `master`) |
+| Branch | `data-test/issue-16-consequence-content` |
 | Source | `sitekwb-vepyr-porting-tests/tests/port_runner_consequence_content.rs` → `buffer_to_output_renders_the_three_named_consequences` |
-| Target | `tests/data_runner_consequence_content.rs` (matches #15 discovery glob `data_*.rs`) |
-| Flavour | `ensembl` |
-| Contigs | `required_contigs = ["chr21"]` — exactly the contig of the asserted locus, not a wider genome |
+| Ledger row | `Runner.ledger.toml` n=16 (`perl/Runner.t:244-289`), category `analog-port` |
+| Target | `tests/data_runner_consequence_content.rs` (matches the `data_*.rs` discovery glob) |
+| Flavour | `ensembl` (**not** `merged`: `merged` yields 41 groups at this locus) |
+| Contigs | `required_contigs = ["chr21"]` — exactly the contig of the asserted locus |
+
+## Branch dependency (read this before rebasing)
+
+This branch is built **on top of the still-unmerged PR #20**
+(`harness/issue-14-15-run-tests`, closes #14/#15), not on `master`, because every
+helper it consumes lives only there. **A second rebase onto `master` is required once
+#20 merges** — that step is part of this work, not an optional tidy-up.
+
+PR #20 also carries 11 open follow-ups (#21–#31). Two matter here:
+
+- **#21** — duplicate `datafusion-bio-format-*` crate versions break the cargo patch
+  table, so `./run_tests --vepyr REF` cannot currently run the data-tests. This
+  affects only the `--vepyr` wrapper path.
+- **#22 / #25 / #30** — stale/unsanitized `--vepyr` engine checkout, same path.
+
+Neither affects a direct `cargo test` against `$VEPYR_CACHE_ROOT`, which is how this
+test was verified (see *Verification* below).
 
 ## Contig rule
 
-Contigs are **not** algorithmically derived by tooling. They are declared to match the CHROM values of asserted loci.
+Contigs are **not** derived by tooling; they are declared to match the CHROM values of
+the asserted loci. For this row that is `chr21` only. Fetch with
+`./run_tests --cache-dir DIR --add-contigs chr21 --flavours ensembl`. Lookup is per
+`(entity, chrom)`; shards for other chromosomes do not affect CSQ at this locus.
 
-For this row the Perl input is `21 25585733 25585733 C/T + rs142513484` → required contig **`chr21`** only. Fetch with `./run_tests --cache-dir DIR --add-contigs chr21`. Lookup is per `(entity, chrom)`; shards for other chromosomes do not affect CSQ on this locus.
+## Helper surface consumed (from PR #20)
+
+| Surface | Use here |
+|---------|----------|
+| `common::cache::full_cache(Flavour::Ensembl)` | Locate + revision-check the pinned `ensembl` flavour under `$VEPYR_CACHE_ROOT` |
+| `common::cache::{Entity, Flavour}` | `entities = &[Entity::Transcript]` — the only entity this oracle reads |
+| `common::ledger` (via `annotate_vcf`) | Reads `required_contigs` from the embedded `[[assertion]]` fragment and enforces the shards |
+| `common::annotate::annotate_vcf` | `annotate_to_vcf` over the checked cache; returns `(Result<usize, String>, output text, TempDir)` |
+| `common::annotate_config!` | The one construction path for the `#[non_exhaustive]` `AnnotateVcfConfig`; called as `annotate_config! {}` (DECIDED 1) |
+| `common::csq::{csq_layout, csq_groups, data_lines, field, group_for, distinct}` | Parse and address the emitted CSQ |
 
 ## Data flow
 
-1. Open the `ensembl` flavour under `$VEPYR_CACHE_ROOT` via `tests/common` (#5).
-2. Enforce `required_contigs = ["chr21"]` (hard panic + repair command naming `./run_tests … --add-contigs chr21` if shards/manifests are missing). Never skip.
-3. Annotate a single-record VCF for `21 25585733 rs142513484 C T` through #14 annotate helpers.
-4. Parse CSQ via #14 `csq` helpers.
-5. Assert content for the three named transcripts and an exact Feature inventory measured on the **pinned VEP 116** corpus.
+1. `cache::full_cache(Flavour::Ensembl)` — panics with a repair command if
+   `$VEPYR_CACHE_ROOT` is unset or the revision disagrees with `PINS.toml`.
+2. `annotate::annotate_vcf(&cache, &[Entity::Transcript], ASSERTION_TOML, INPUT_VCF, &config)`
+   — enforces `required_contigs = ["chr21"]` (hard panic naming
+   `./run_tests … --add-contigs chr21`; never a skip), then annotates.
+3. `csq::csq_layout` / `csq::csq_groups` parse the emitted CSQ.
+4. Assert, in falsifier-cost order: row identity → group count → Feature set →
+   every field of every group.
 
-## Assertions (shape)
+## Assertions
 
-Keep the same observation point as sitekwb (CSQ via annotate → VCF), not Perl `_buffer_to_output` / VEP-tab:
+Same observation point as sitekwb (CSQ via annotate → VCF), not Perl
+`_buffer_to_output` / VEP-tab.
 
-- Row identity: CHROM/POS/ID/REF/ALT = `21`, `25585733`, `rs142513484`, `C`, `T`
-- Per Feature `ENST00000307301`, `ENST00000352957`, `ENST00000567517`: Gene, Feature, Feature_type, Consequence, cDNA/CDS/protein positions, Amino_acids, Codons, IMPACT, STRAND (empty slots where Perl had blanks)
-- `DISTANCE` on `ENST00000567517` — expect `2407` only if re-measure confirms the same transcript end on v116
-- Exact sorted set of CSQ `Feature` values = the three named transcripts plus any extras present on the **v116** pin (do **not** copy `EXTRA_V115_TRANSCRIPTS` or cDNA `997` from sitekwb without re-measurement)
+1. `written == Ok(1)` — one record annotated and written.
+2. Row identity: CHROM/POS/ID/REF/ALT = `chr21`, `25585733`, `rs142513484`, `C`, `T`.
+3. `groups.len() == 34` — cheapest falsifier first.
+4. `distinct(layout, groups, "Feature")` equals the sorted 34 expected Feature IDs —
+   so a swapped/missing/extra transcript reports as a set difference rather than as a
+   `group_for` panic inside the per-field loop.
+5. For each of the 34 groups, all 23 CSQ fields via `csq::field` / `csq::group_for` —
+   **including** the ones empty in every oracle row (`HGVSc`, `HGVSp`,
+   `Existing_variation`, `FLAGS`), so an engine change that starts populating them
+   also fails loud (DECIDED 3).
 
-## Re-measure protocol
+### Where the literals come from
 
-After #14+#15 are available on the branch tip:
+All 34 × 23 literals are transcribed verbatim from the `default` VEP 116 CSQ block
+recorded on
+[issue #16 comment](https://github.com/biodatageeks/vepyr-porting-tests/issues/16#issuecomment-5671600272)
+(the `chr21`-spelled run is CSQ-identical to the `21`-spelled one). Nothing is copied
+from Perl v84 or from sitekwb's v115 material — in particular sitekwb's 11-entry
+`EXTRA_V115_TRANSCRIPTS` is replaced outright by the full v116 inventory, since
+GENCODE 50 raises the group count from 14 (v115) to 34.
 
-```text
-./run_tests --cache-dir DIR --add-contigs chr21 --vepyr REF
-# or: VEPYR_CACHE_ROOT=DIR ./run_tests --vepyr REF
-```
-
-Dump CSQ groups for this locus; fill EXTRA inventory and missense cDNA (and DISTANCE if needed); only then commit hardened `assert_eq!` literals. Until measured, leave explicit TODOs or intentionally failing placeholders — never silent v115 copy.
-
-## Optional control (out of default scope)
-
-`cdna_position_follows_the_committed_shards_utr_length` (parquet `cdna_coding_start`) is **not** part of the first commit. Revisit only if v116 cDNA still disagrees with Perl and needs an executable fixture explanation.
+The table in the test source is written through a small positional macro so each row
+reads like the `|`-delimited CSQ dump it was copied from and can be diffed against the
+issue by eye.
 
 ## Error handling
 
-Missing `$VEPYR_CACHE_ROOT`, wrong provenance/revision, or missing `chr21` shards → panic with repair text (same contract as #5/#14). No `#[ignore]`, no skip-on-missing-cache.
+Missing `$VEPYR_CACHE_ROOT`, wrong provenance/revision, or missing `chr21` shards →
+panic with repair text (same contract as `tests/common/cache.rs`). No `#[ignore]`,
+no skip-on-missing-cache.
 
-## Git / PR workflow
+## Verification
 
-1. Implement only in the issue-16 worktree.
-2. Small English commits: scaffold + assertion shape; then post-rebase re-measure fill.
-3. Rebase onto `master` after harness merge; wire real helper paths; green run.
-4. Draft PR → Bugbot → fixes → ready for human review. `Closes #16`. Do not merge without owner OK.
-5. Update issue #16 Step 2 on GitHub (SSOT): not provisional; flavour `ensembl`; AC matching this doc. README only if user-facing CLI changes (a lone `data_*.rs` usually needs no README churn once #15 documents discovery).
+```text
+./run_tests --cache-dir DIR --add-contigs chr21 --flavours ensembl   # exit 0
+export VEPYR_CACHE_ROOT=DIR
+cargo test --test data_runner_consequence_content -- --nocapture     # exit 0
+cargo check --tests                                                  # exit 0
+```
+
+The issue's end-to-end acceptance commands
+(`VEPYR_CACHE_ROOT=DIR ./run_tests --vepyr REF [--list]`) stay blocked on **#21**
+until that lands; the direct `cargo test` above exercises the same test binary against
+the same pinned corpus and is the falsifiable proof in the meantime.
 
 ## Acceptance (human before merge)
 
-- [ ] `required_contigs` is exactly `chr21`
-- [ ] Three named ENST\* field tuples + DISTANCE + exact Feature inventory come from **v116** measurement
-- [ ] No micro-cache path; no smoke
-- [ ] Green under `$VEPYR_CACHE_ROOT` / `--cache-dir` + `--vepyr REF`
-- [ ] Owner compared asserted fields to a known-good annotate on the same pin
-
-## Dependency on parallel harness
-
-| Surface (from #14+#15 plan) | Use in #16 |
-|-----------------------------|------------|
-| `tests/common/annotate.rs` | Annotate wrapper / config |
-| `tests/common/csq.rs` | Layout, groups, `field`, `group_for` |
-| `tests/common` cache + ledger | Root + `required_contigs` |
-| `./run_tests --vepyr REF` | Engine ladder + `cargo test --test data_*` |
-| Glob `tests/data_*.rs` | Discovery / `--list` |
-
-Until that PR lands, this branch may not compile against `master` alone; that is accepted. Integration testing waits for the harness ship, then rebase + re-measure.
+- [ ] `required_contigs` is exactly `["chr21"]`, and the input VCF is spelled `chr21`
+- [ ] All 34 × 23 asserted values come from the v116 `default` run on the issue
+- [ ] No micro-cache path; no smoke test; no ported parquet cDNA control
+- [ ] Green under `$VEPYR_CACHE_ROOT` (`cargo test`), and under
+      `./run_tests --vepyr REF` once #21 lands
+- [ ] Rebased onto `master` after #20 merges
