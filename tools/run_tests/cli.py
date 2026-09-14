@@ -235,14 +235,32 @@ def _summary(
     )
 
 
+@dataclass(frozen=True, slots=True, kw_only=True)
+class _Fetchers:
+    """The injectable Hub-side callables, carried as one bundle."""
+
+    lister: fetch.Lister
+    downloader: fetch.Downloader
+    fasta_fetcher: Callable[[str, Path], None]
+
+
+def _print_error(exc: RunTestsError) -> None:
+    """Report ``exc`` on stderr, verbatim for argparse-shaped usage errors."""
+    if exc.verbatim:
+        print(str(exc), file=sys.stderr)
+    else:
+        print(
+            f"run_tests: error ({exc.code.name.lower()}, exit {int(exc.code)}): {exc}",
+            file=sys.stderr,
+        )
+
+
 def _run_fetch(
     inv: Invocation,
     argv: Sequence[str],
     *,
     cache_root: Path,
-    lister: fetch.Lister,
-    downloader: fetch.Downloader,
-    fasta_fetcher: Callable[[str, Path], None],
+    fetchers: _Fetchers,
 ) -> tuple[Exit, str | None]:
     pins_toml = _repo_root() / "PINS.toml"
     if inv.fast:
@@ -253,9 +271,9 @@ def _run_fetch(
         selection,
         pins,
         fasta_pin,
-        lister=lister,
-        downloader=downloader,
-        fasta_fetcher=fasta_fetcher,
+        lister=fetchers.lister,
+        downloader=fetchers.downloader,
+        fasta_fetcher=fetchers.fasta_fetcher,
         argv=argv,
         pins_toml=pins_toml,
         tool=f"tools/run_tests/fetch.py@{fetch.git_sha(_repo_root())}",
@@ -328,153 +346,123 @@ def _run_data_tests(
     )
 
 
-def main(
-    argv: Sequence[str] | None = None,
-    *,
-    lister: fetch.Lister = fetch.hub_lister,
-    downloader: fetch.Downloader = fetch.hub_downloader,
-    fasta_fetcher: Callable[[str, Path], None] = fetch.url_fetcher,
-    cargo_runner: CargoRunner = _default_cargo,
-    gh_api: engine.GhApi | None = None,
-) -> int:
-    """Entry point: returns the exit code."""
-    argv = list(sys.argv[1:] if argv is None else argv)
+def _parse_phase(argv: Sequence[str]) -> Invocation | int:
+    """Parse ``argv``; on a usage failure report it and return the exit code."""
     try:
-        inv = parse_args(argv)
+        return parse_args(argv)
     except SystemExit as exc:
-        code = exc.code
-        if code is None or code is False:
-            return int(Exit.OK)
-        if code is True:
-            return 1
-        return int(code)
+        match exc.code:
+            case None | False:
+                return int(Exit.OK)
+            case True:
+                return 1
+            case code:
+                return int(code)
     except RunTestsError as exc:
-        if exc.verbatim:
-            print(str(exc), file=sys.stderr)
-        else:
-            print(f"run_tests: error (usage, exit 2): {exc}", file=sys.stderr)
+        _print_error(exc)
         return int(Exit.USAGE)
 
-    repo = _repo_root()
-    targets = tests.data_targets(repo)
 
-    if inv.list_only:
-        print(tests.list_table(targets), end="")
-        return int(Exit.OK)
+def _dry_run_phase(
+    inv: Invocation,
+    argv: Sequence[str],
+    *,
+    cache_root: Path,
+    targets: Sequence[str],
+    fetchers: _Fetchers,
+) -> int:
+    """Fetch-only ``--dry-run``: list the selection, touch neither engine nor cargo."""
+    try:
+        code, detail = _run_fetch(inv, argv, cache_root=cache_root, fetchers=fetchers)
+    except RunTestsError as exc:
+        code, detail = exc.code, str(exc)
+        _print_error(exc)
+    print(_summary(inv, code, detail, cache_dir=cache_root, targets=targets), end="")
+    return int(code)
 
-    cache_root = _resolve_cache_root(inv)
 
-    # Fetch-only dry-run: no cargo / no engine. Gated on the *resolved* root so
-    # ``$VEPYR_CACHE_ROOT`` honours --dry-run exactly like --cache-dir (#27).
-    if cache_root is not None and inv.dry_run:
-        try:
-            code, detail = _run_fetch(
-                inv,
-                argv,
-                cache_root=cache_root,
-                lister=lister,
-                downloader=downloader,
-                fasta_fetcher=fasta_fetcher,
-            )
-        except RunTestsError as exc:
-            code, detail = exc.code, str(exc)
-            print(
-                f"run_tests: error ({code.name.lower()}, exit {int(code)}): {exc}",
-                file=sys.stderr,
-            )
-        print(
-            _summary(inv, code, detail, cache_dir=cache_root, targets=targets), end=""
-        )
+def _fetch_phase(
+    inv: Invocation,
+    argv: Sequence[str],
+    *,
+    cache_root: Path,
+    targets: Sequence[str],
+    fetchers: _Fetchers,
+) -> str | int | None:
+    """Materialise ``--cache-dir``.
+
+    Returns:
+        The fetch detail line on success, or an ``int`` exit code when the run is
+        over (the summary has then already been printed).
+    """
+    try:
+        code, detail = _run_fetch(inv, argv, cache_root=cache_root, fetchers=fetchers)
+    except RunTestsError as exc:
+        _print_error(exc)
+        print(_summary(inv, exc.code, str(exc), targets=targets), end="")
+        return int(exc.code)
+    if code is not Exit.OK:
+        print(_summary(inv, code, detail, targets=targets), end="")
         return int(code)
+    return detail
 
-    fetched = False
-    detail: str | None = None
-    code = Exit.OK
-    vepyr_resolved: str | None = None
 
-    if inv.cache_dir is not None:
-        assert cache_root is not None
+def _no_targets_phase(
+    inv: Invocation,
+    *,
+    cache_root: Path,
+    targets: Sequence[str],
+    detail: str | None,
+    fetched: bool,
+) -> int:
+    """Nothing to run: fetch (if any) succeeded, but no ``tests/data_*.rs`` exists."""
+    if not fetched:
+        # Env-only with zero targets: still prove the cache looks sane.
         try:
-            code, detail = _run_fetch(
-                inv,
-                argv,
-                cache_root=cache_root,
-                lister=lister,
-                downloader=downloader,
-                fasta_fetcher=fasta_fetcher,
-            )
-            fetched = True
+            tests.precheck_cache(cache_root, pins_toml=_repo_root() / "PINS.toml")
         except RunTestsError as exc:
-            code, detail = exc.code, str(exc)
+            _print_error(exc)
             print(
-                f"run_tests: error ({code.name.lower()}, exit {int(code)}): {exc}",
-                file=sys.stderr,
+                _summary(
+                    inv, exc.code, str(exc), cache_dir=cache_root, targets=targets
+                ),
+                end="",
             )
-            print(_summary(inv, code, detail, targets=targets), end="")
-            return int(code)
-        if code is not Exit.OK:
-            print(_summary(inv, code, detail, targets=targets), end="")
-            return int(code)
+            return int(exc.code)
+    zero_detail = "0 data-problem target(s); nothing to run"
+    if detail:
+        zero_detail = f"{detail}; {zero_detail}"
+    print(
+        _summary(inv, Exit.OK, zero_detail, cache_dir=cache_root, targets=targets),
+        end="",
+    )
+    return int(Exit.OK)
 
-    if cache_root is None:
-        print(MISSING_CACHE, file=sys.stderr)
-        return int(Exit.USAGE)
 
-    # No data-tests yet: fetch (if any) succeeded; nothing to run.
-    if not targets:
-        if not fetched:
-            # Env-only with zero targets: still prove the cache looks sane.
-            try:
-                tests.precheck_cache(
-                    cache_root,
-                    pins_toml=repo / "PINS.toml",
-                )
-            except RunTestsError as exc:
-                print(
-                    f"run_tests: error ({exc.code.name.lower()}, "
-                    f"exit {int(exc.code)}): {exc}",
-                    file=sys.stderr,
-                )
-                print(
-                    _summary(
-                        inv,
-                        exc.code,
-                        str(exc),
-                        cache_dir=cache_root,
-                        targets=targets,
-                    ),
-                    end="",
-                )
-                return int(exc.code)
-        zero_detail = "0 data-problem target(s); nothing to run"
-        if detail:
-            zero_detail = f"{detail}; {zero_detail}"
-        print(
-            _summary(
-                inv,
-                Exit.OK,
-                zero_detail,
-                cache_dir=cache_root,
-                targets=targets,
-            ),
-            end="",
-        )
-        return int(Exit.OK)
+def _missing_vepyr_phase(
+    inv: Invocation, *, cache_root: Path, targets: Sequence[str]
+) -> int:
+    """Targets exist but no ``--vepyr REF`` was given."""
+    print(MISSING_VEPYR, file=sys.stderr)
+    print(
+        _summary(
+            inv, Exit.USAGE, MISSING_VEPYR, cache_dir=cache_root, targets=targets
+        ),
+        end="",
+    )
+    return int(Exit.USAGE)
 
-    if inv.vepyr is None:
-        print(MISSING_VEPYR, file=sys.stderr)
-        print(
-            _summary(
-                inv,
-                Exit.USAGE,
-                MISSING_VEPYR,
-                cache_dir=cache_root,
-                targets=targets,
-            ),
-            end="",
-        )
-        return int(Exit.USAGE)
 
+def _data_test_phase(
+    inv: Invocation,
+    *,
+    cache_root: Path,
+    targets: Sequence[str],
+    cargo_runner: CargoRunner,
+    gh_api: engine.GhApi | None,
+) -> int:
+    """Run the discovered data-tests under the patched engine ladder."""
+    vepyr_resolved: str | None = None
     try:
         code, detail, vepyr_resolved = _run_data_tests(
             inv,
@@ -485,11 +473,7 @@ def main(
         )
     except RunTestsError as exc:
         code, detail = exc.code, str(exc)
-        print(
-            f"run_tests: error ({code.name.lower()}, exit {int(code)}): {exc}",
-            file=sys.stderr,
-        )
-
+        _print_error(exc)
     print(
         _summary(
             inv,
@@ -502,3 +486,69 @@ def main(
         end="",
     )
     return int(code)
+
+
+def main(
+    argv: Sequence[str] | None = None,
+    *,
+    lister: fetch.Lister = fetch.hub_lister,
+    downloader: fetch.Downloader = fetch.hub_downloader,
+    fasta_fetcher: Callable[[str, Path], None] = fetch.url_fetcher,
+    cargo_runner: CargoRunner = _default_cargo,
+    gh_api: engine.GhApi | None = None,
+) -> int:
+    """Entry point: parse -> resolve -> fetch -> dispatch; returns the exit code."""
+    argv = list(sys.argv[1:] if argv is None else argv)
+    parsed = _parse_phase(argv)
+    if isinstance(parsed, int):
+        return parsed
+    inv = parsed
+    fetchers = _Fetchers(
+        lister=lister, downloader=downloader, fasta_fetcher=fasta_fetcher
+    )
+    targets = tests.data_targets(_repo_root())
+
+    if inv.list_only:
+        print(tests.list_table(targets), end="")
+        return int(Exit.OK)
+
+    cache_root = _resolve_cache_root(inv)
+
+    # Fetch-only dry-run: no cargo / no engine. Gated on the *resolved* root so
+    # ``$VEPYR_CACHE_ROOT`` honours --dry-run exactly like --cache-dir (#27).
+    if cache_root is not None and inv.dry_run:
+        return _dry_run_phase(
+            inv, argv, cache_root=cache_root, targets=targets, fetchers=fetchers
+        )
+
+    detail: str | None = None
+    fetched = inv.cache_dir is not None
+    if fetched:
+        assert cache_root is not None
+        outcome = _fetch_phase(
+            inv, argv, cache_root=cache_root, targets=targets, fetchers=fetchers
+        )
+        if isinstance(outcome, int):
+            return outcome
+        detail = outcome
+
+    if cache_root is None:
+        print(MISSING_CACHE, file=sys.stderr)
+        return int(Exit.USAGE)
+    if not targets:
+        return _no_targets_phase(
+            inv,
+            cache_root=cache_root,
+            targets=targets,
+            detail=detail,
+            fetched=fetched,
+        )
+    if inv.vepyr is None:
+        return _missing_vepyr_phase(inv, cache_root=cache_root, targets=targets)
+    return _data_test_phase(
+        inv,
+        cache_root=cache_root,
+        targets=targets,
+        cargo_runner=cargo_runner,
+        gh_api=gh_api,
+    )
