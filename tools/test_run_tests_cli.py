@@ -562,3 +562,109 @@ def test_env_cache_root_runs_without_fetch(
     result = harness.run("--flavours", "ensembl")
     assert result.code == int(Exit.OK), result.stderr
     assert "0 data-problem target(s)" in result.summary
+
+
+def _stub_engine(src: Path, monkeypatch: pytest.MonkeyPatch) -> None:
+    """Lay out the three patched workspaces under ``src`` and stub the checkouts."""
+    ensembl_cache = "datafusion-bio-format-ensembl-cache"
+    for root, members in (
+        (
+            src / "datafusion-bio-functions",
+            [("datafusion/bio-function-vep", "datafusion-bio-function-vep")],
+        ),
+        (
+            src / "datafusion-bio-formats",
+            [
+                ("datafusion/bio-format-ensembl-cache", ensembl_cache),
+                ("datafusion/bio-format-vcf", "datafusion-bio-format-vcf"),
+            ],
+        ),
+    ):
+        for rel, name in members:
+            _write_crate(root / rel, name)
+        (root / "Cargo.toml").write_text(
+            "[workspace]\nmembers = ["
+            + ", ".join(f'"{rel}"' for rel, _ in members)
+            + "]\n"
+        )
+
+    def fake_checkout(**kwargs: object) -> engine.Checkout:
+        return engine.Checkout(
+            name=str(kwargs["name"]),
+            path=Path(str(kwargs["target"])),
+            git_url=str(kwargs["git_url"]),
+            rev=str(kwargs["rev"]),
+            head="f" * 40,
+        )
+
+    monkeypatch.setattr(engine, "default_src_root", lambda environ=None: src)
+    monkeypatch.setattr(engine, "_checkout_repo", fake_checkout)
+
+
+def test_relative_cache_dir_prechecks_the_directory_cargo_is_given(
+    harness: Harness, monkeypatch: pytest.MonkeyPatch, tmp_path: Path
+) -> None:
+    """A relative ``--cache-dir`` used from outside the repo root must not fork.
+
+    Regression for #26: the precheck ran in the caller's cwd while cargo is spawned
+    with ``cwd=_repo_root()``, so both sides must see the *same absolute* root.
+    """
+    elsewhere = tmp_path / "elsewhere"
+    elsewhere.mkdir()
+    monkeypatch.chdir(elsewhere)
+    assert elsewhere.resolve() != harness.repo.resolve()
+
+    relative = "./relative-cache"
+    assert (
+        harness.run(
+            "--cache-dir", relative, "--add-contigs", "chr21", "--flavours", "ensembl"
+        ).code
+        == int(Exit.OK)
+    )
+    assert (elsewhere / "relative-cache").is_dir()
+
+    (harness.repo / "tests" / "data_pilot.rs").write_text("// stub\n")
+    _stub_engine(tmp_path / "src", monkeypatch)
+
+    prechecked: list[Path] = []
+    real_precheck = tests.precheck_cache
+
+    def spy(root: Path, **kwargs: object) -> None:
+        prechecked.append(root)
+        real_precheck(root, **kwargs)  # type: ignore[arg-type]
+
+    monkeypatch.setattr(cli.tests, "precheck_cache", spy)
+
+    result = harness.run(
+        "--cache-dir",
+        relative,
+        "--flavours",
+        "ensembl",
+        "--vepyr",
+        "0.7.0",
+        gh_api=_FakeGh(_tiny_ladder_toml()),
+    )
+    assert result.code == int(Exit.OK), result.stderr
+
+    cargo_test = [c for c in harness.cargo.calls if c[0][:2] == ["cargo", "test"]]
+    assert cargo_test, "cargo test should have been invoked"
+    env_root = cargo_test[0][1][tests.CACHE_ENV]
+    assert prechecked, "the precheck should have run"
+    assert Path(env_root).is_absolute()
+    assert str(prechecked[-1]) == env_root
+    assert Path(env_root) == (elsewhere / "relative-cache").resolve()
+
+
+def test_absolute_cache_dir_and_env_root_are_unchanged(
+    harness: Harness, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    """AC 2: absolute ``--cache-dir`` / ``$VEPYR_CACHE_ROOT`` behave as before."""
+    absolute = harness.root.resolve()
+    inv = cli.parse_args(["--cache-dir", str(absolute), "--flavours", "ensembl"])
+    assert cli._resolve_cache_root(inv) == absolute
+
+    env_only = cli.parse_args(["--flavours", "ensembl"])
+    monkeypatch.setenv(tests.CACHE_ENV, str(absolute))
+    assert cli._resolve_cache_root(env_only) == absolute
+    monkeypatch.delenv(tests.CACHE_ENV)
+    assert cli._resolve_cache_root(env_only) is None
