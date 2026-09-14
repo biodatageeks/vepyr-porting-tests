@@ -103,3 +103,6 @@ fn provider_accepts_a_v84_shaped_cache_root() {
 
 This repository will carry a curated subset of those ports as data-problem
 tests.
+
+Corpus dataset pins (`PINS.toml`) are documented in
+[docs/dataset-pins.md](docs/dataset-pins.md).
