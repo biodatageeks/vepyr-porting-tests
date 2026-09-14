@@ -234,6 +234,43 @@ def test_dry_run_lists_and_writes_nothing(harness: Harness) -> None:
     assert "fasta            : no" in result.summary
 
 
+def test_env_cache_root_honours_dry_run(
+    harness: Harness, monkeypatch: pytest.MonkeyPatch, tmp_path: Path
+) -> None:
+    """Regression for #27: ``$VEPYR_CACHE_ROOT`` + ``--dry-run`` is a true no-op.
+
+    Pre-fix the guard read ``inv.cache_dir is not None``, so the env-supplied root fell
+    through to a real engine checkout and a real ``cargo test``.
+    """
+    harness.root.mkdir()
+    monkeypatch.setenv(tests.CACHE_ENV, str(harness.root))
+    (harness.repo / "tests" / "data_pilot.rs").write_text("// stub\n")
+
+    def snapshot() -> set[Path]:
+        return {
+            path.relative_to(tmp_path)
+            for base in (harness.root, harness.repo)
+            for path in base.rglob("*")
+        }
+
+    before = snapshot()
+    result = harness.run(
+        "--flavours",
+        "ensembl",
+        "--add-contigs",
+        "chr21",
+        "--dry-run",
+        "--vepyr",
+        "0.7.0",
+    )
+    assert result.code == int(Exit.OK), result.stderr
+    assert snapshot() == before, "dry-run must not write under the cache root or repo"
+    assert harness.cargo.calls == [], "dry-run must not invoke cargo"
+    assert harness.fasta_fetches == []
+    assert "dry-run          : yes" in result.summary
+    assert "fasta            : no" in result.summary
+
+
 def test_a_revision_clash_surfaces_exit_3_through_main(harness: Harness) -> None:
     common = ["--cache-dir", str(harness.root), "--flavours", "ensembl"]
     assert harness.run(*common, "--add-contigs", "chr21").code == int(Exit.OK)

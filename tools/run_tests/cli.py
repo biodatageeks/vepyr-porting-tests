@@ -184,14 +184,14 @@ def _repo_root() -> Path:
     return Path(__file__).resolve().parents[2]
 
 
-def _selection(inv: Invocation) -> fetch.Selection:
-    assert inv.cache_dir is not None
+def _selection(inv: Invocation, root: Path) -> fetch.Selection:
+    """Build the fetch selection for ``root`` (the already-resolved cache root)."""
     try:
         flavours = tuple(fetch.Flavour(name) for name in inv.flavours)
     except ValueError as exc:
         raise RunTestsError(Exit.USAGE, f"--flavours: {exc}") from exc
     return fetch.Selection(
-        root=inv.cache_dir,
+        root=root,
         flavours=flavours,
         contigs=inv.add_contigs,
         fasta=not inv.dry_run,
@@ -239,6 +239,7 @@ def _run_fetch(
     inv: Invocation,
     argv: Sequence[str],
     *,
+    cache_root: Path,
     lister: fetch.Lister,
     downloader: fetch.Downloader,
     fasta_fetcher: Callable[[str, Path], None],
@@ -246,7 +247,7 @@ def _run_fetch(
     pins_toml = _repo_root() / "PINS.toml"
     if inv.fast:
         os.environ[_HF_XET_HIGH_PERFORMANCE] = "1"
-    selection = _selection(inv)
+    selection = _selection(inv, cache_root)
     pins, fasta_pin = fetch.load_dataset_pins(pins_toml)
     outcome = fetch.fetch(
         selection,
@@ -361,12 +362,16 @@ def main(
         print(tests.list_table(targets), end="")
         return int(Exit.OK)
 
-    # Fetch-only dry-run: no cargo / no engine.
-    if inv.cache_dir is not None and inv.dry_run:
+    cache_root = _resolve_cache_root(inv)
+
+    # Fetch-only dry-run: no cargo / no engine. Gated on the *resolved* root so
+    # ``$VEPYR_CACHE_ROOT`` honours --dry-run exactly like --cache-dir (#27).
+    if cache_root is not None and inv.dry_run:
         try:
             code, detail = _run_fetch(
                 inv,
                 argv,
+                cache_root=cache_root,
                 lister=lister,
                 downloader=downloader,
                 fasta_fetcher=fasta_fetcher,
@@ -377,7 +382,9 @@ def main(
                 f"run_tests: error ({code.name.lower()}, exit {int(code)}): {exc}",
                 file=sys.stderr,
             )
-        print(_summary(inv, code, detail, targets=targets), end="")
+        print(
+            _summary(inv, code, detail, cache_dir=cache_root, targets=targets), end=""
+        )
         return int(code)
 
     fetched = False
@@ -386,10 +393,12 @@ def main(
     vepyr_resolved: str | None = None
 
     if inv.cache_dir is not None:
+        assert cache_root is not None
         try:
             code, detail = _run_fetch(
                 inv,
                 argv,
+                cache_root=cache_root,
                 lister=lister,
                 downloader=downloader,
                 fasta_fetcher=fasta_fetcher,
@@ -407,7 +416,6 @@ def main(
             print(_summary(inv, code, detail, targets=targets), end="")
             return int(code)
 
-    cache_root = _resolve_cache_root(inv)
     if cache_root is None:
         print(MISSING_CACHE, file=sys.stderr)
         return int(Exit.USAGE)
