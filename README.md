@@ -17,24 +17,54 @@ results on real annotation data.
 ```bash
 ./run_tests --help
 ./run_tests --list
+./run_tests --cache-dir /mnt/hf-cache --add-contigs chr21,chrMT
 ```
 
 | Flag | Status in this commit |
 |------|------------------------|
-| `--help` | Works; exit 0 |
-| `--list` | Works; prints **0 data-problem targets**; exit 0 |
-| `--cache-dir DIR` | Parsed; any run path that is not `--help`/`--list` refuses (exit 2) |
-| `--add-contigs LIST` | Parsed (not `--contigs`); same refuse until fetch lands |
-| `--flavours LIST` | Parsed (default `ensembl,refseq,merged`); same refuse |
+| `--help` | Exit 0 |
+| `--list` | Prints **0 data-problem targets**; exit 0 |
+| `--cache-dir DIR` | Downloads the pinned VEP 116 shards into `DIR` and writes `PROVENANCE.json` |
+| `--add-contigs LIST` | Adds the named contigs to `DIR` (not `--contigs`). Default: whole genome |
+| `--flavours LIST` | Default `ensembl,refseq,merged` |
+| `--dry-run` | Lists Hub files and byte totals; writes nothing |
+| `--verify` | Checks every selected shard against the Hub sha256 |
+| `--fast` | Sets `HF_XET_HIGH_PERFORMANCE=1` for the download (see below) |
+| `--no-trim-manifests` | Leaves `chrom_manifest.json` naming shards that were not fetched |
 | `--vepyr REF` | Parsed; engine checkout not implemented yet |
 
-Cache fetch and data-problem test runs are **not implemented yet** (see
-[issue #4](https://github.com/biodatageeks/vepyr-porting-tests/issues/4)).
-A non-`--help` / non-`--list` invocation exits 2 with:
+Every real fetch (not `--dry-run`) also downloads the GRCh38 FASTA into
+`DIR/fasta/`, checks it against the `[grch38_fasta]` pin, and writes the `.fai`
+index.
+
+`--fast` needs no Hugging Face login for these public pins: just pass the flag
+(e.g. `./run_tests --cache-dir DIR --add-contigs chr21 --fast`). It only raises
+Xet download concurrency/buffers via `hf_xet` (already pulled in with
+`huggingface-hub`). Use it on a high-bandwidth host with plenty of RAM
+(Hugging Face recommends about 64 GB); on a smaller machine leave it off.
+
+Exit codes: `0` ok, `2` usage, `3` revision clash vs `PINS.toml`, `4`
+incomplete selection or unreachable Hub, `5` verification failure. Every fetch
+run ends with a summary of effective flags, the cache directory, and the
+contigs accumulated per flavour.
+
+Data-problem **test runs** are still not implemented. An invocation without
+`--cache-dir` (and without `--help` / `--list`) exits 2 with:
 
 ```text
-run_tests: cache fetch and data-problem runs are not implemented yet (see issue #4)
+run_tests: data-problem runs are not implemented yet; give --cache-dir to materialise the corpus, or --list
 ```
+
+### Caveats
+
+**Accumulation.** `--add-contigs` only adds shards; it never removes earlier
+ones. `chr21,chr22` then `chr15,chrY` leaves all four on disk. For a wholly
+different set, use a fresh `--cache-dir` or clean the directory yourself.
+
+**Illegal / incomplete contig sets.** Every cache entity must get at least one
+requested contig. `motif` and `regulatory` have no `chrMT`, so
+`--add-contigs chrMT` alone is refused (exit 4). Legal minimal examples:
+`chrY`, or `chr21,chrMT` (`chr21` covers the entities that lack `chrMT`).
 
 The sections below describe the **porting method** used to extract, classify,
 and implement those tests. Code and ledger fragments are **illustrative**.
