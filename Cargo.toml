@@ -1,0 +1,22 @@
+# Minimal Cargo package so `tests/common` compiles. No engine dependency: the
+# engine under test is a run-time parameter, not a repository contract.
+[package]
+name = "vepyr-porting-tests"
+version = "0.1.0"
+edition = "2024"
+rust-version = "1.91"
+publish = false
+license = "Apache-2.0"
+description = "Curated data-problem porting tests for Ensembl VEP → vepyr"
+
+[workspace]
+
+[dependencies]
+# Used by tests/common to parse PINS.toml and ledger assertion fragments.
+toml = "1"
+
+# Compile harness: pulls in tests/common so `cargo check --tests` type-checks the
+# cache bridge (AC-1). Not a smoke test — it only asserts the module links.
+[[test]]
+name = "common_compile"
+path = "tests/common_compile.rs"

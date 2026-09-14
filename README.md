@@ -55,6 +55,16 @@ Data-problem **test runs** are still not implemented. An invocation without
 run_tests: data-problem runs are not implemented yet; give --cache-dir to materialise the corpus, or --list
 ```
 
+## tests/common (cache helpers)
+
+Fetch a cache, then point `$VEPYR_CACHE_ROOT` at the same directory:
+
+```bash
+./run_tests --cache-dir /mnt/hf-cache --add-contigs chr21,chrMT
+export VEPYR_CACHE_ROOT=/mnt/hf-cache
+cargo check --tests
+```
+
 ### Caveats
 
 **Accumulation.** `--add-contigs` only adds shards; it never removes earlier
