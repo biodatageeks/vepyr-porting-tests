@@ -266,8 +266,11 @@ def _run_fetch(
 
 
 def _default_cargo(argv: Sequence[str], env: Mapping[str, str]) -> int:
+    """Run cargo from the repo root (manifests + ``--config``)."""
     merged = {**os.environ, **dict(env)}
-    completed = subprocess.run(list(argv), env=merged, check=False)
+    completed = subprocess.run(
+        list(argv), env=merged, cwd=_repo_root(), check=False
+    )
     return int(completed.returncode)
 
 
@@ -292,7 +295,7 @@ def _run_data_tests(
     assert inv.vepyr is not None
     repo = _repo_root()
     pins_toml = repo / "PINS.toml"
-    tests.precheck_cache(cache_root, pins_toml=pins_toml, flavours=inv.flavours)
+    tests.precheck_cache(cache_root, pins_toml=pins_toml)
     plan, config_path = engine.materialise(
         inv.vepyr, repo_root=repo, api=gh_api
     )
@@ -422,7 +425,6 @@ def main(
                 tests.precheck_cache(
                     cache_root,
                     pins_toml=repo / "PINS.toml",
-                    flavours=inv.flavours,
                 )
             except RunTestsError as exc:
                 print(

@@ -76,9 +76,12 @@ def precheck_cache(
     root: Path,
     *,
     pins_toml: Path,
-    flavours: Sequence[str] = ("ensembl", "refseq", "merged"),
+    flavours: Sequence[str] | None = None,
 ) -> None:
     """Fail loud when ``root`` is not a usable ``./run_tests --cache-dir`` product.
+
+    When ``flavours`` is ``None``, every flavour recorded in ``PROVENANCE.json`` is
+    checked (so a chr21-only ensembl fetch is not refused for missing refseq/merged).
 
     Raises:
         RunTestsError: exit 3 on revision clash, exit 4 on missing provenance/FASTA.
@@ -110,7 +113,18 @@ def precheck_cache(
             f"{provenance_path} missing. "
             f"Run: ./run_tests --cache-dir {root} [--add-contigs LIST]",
         )
-    for flavour in flavours:
+    check_flavours: tuple[str, ...]
+    if flavours is None:
+        check_flavours = tuple(provenance.datasets)
+        if not check_flavours:
+            raise RunTestsError(
+                Exit.INCOMPLETE,
+                f"{provenance_path} has no datasets. "
+                f"Run: ./run_tests --cache-dir {root} [--add-contigs LIST]",
+            )
+    else:
+        check_flavours = tuple(flavours)
+    for flavour in check_flavours:
         record = provenance.datasets.get(flavour)
         if record is None:
             raise RunTestsError(
