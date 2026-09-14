@@ -48,12 +48,9 @@ class CargoLog:
 
     calls: list[tuple[list[str], dict[str, str]]] = field(default_factory=list)
     test_exit_code: int = 0
-    update_exit_code: int = 0
 
     def __call__(self, argv: Sequence[str], env: Mapping[str, str]) -> int:
         self.calls.append((list(argv), dict(env)))
-        if len(argv) >= 2 and argv[0] == "cargo" and argv[1] == "update":
-            return self.update_exit_code
         return self.test_exit_code
 
 
@@ -473,6 +470,10 @@ def test_vepyr_run_invokes_cargo_with_cache_env(
     assert "--test" in argv and "data_pilot" in argv
     assert env[tests.CACHE_ENV] == str(harness.root)
     assert "targets          : data_pilot" in result.summary
+    # Issue #21: no `cargo update -p <bare crate name>` pre-step — the path
+    # `[patch]` tables re-lock the ladder on their own, and bare specs were
+    # ambiguous whenever one crate name resolved to two sources.
+    assert not [c for c in harness.cargo.calls if c[0][:2] == ["cargo", "update"]]
 
 
 def test_cargo_failure_is_exit_1(

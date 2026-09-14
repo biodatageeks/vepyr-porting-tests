@@ -1,9 +1,14 @@
 # Curated data-problem porting tests for Ensembl VEP → vepyr.
 #
 # The engine under test is a run-time parameter (`./run_tests --vepyr REF`), not a
-# repository contract — PINS.toml holds dataset pins only. Dev-dependencies below
-# float on biodatageeks `master` so `cargo check --tests` type-checks helpers;
-# `./run_tests --vepyr REF` path-patches them to that revision's ladder.
+# repository contract — PINS.toml holds dataset pins only. The single dev-dependency
+# on the engine ladder is `datafusion-bio-function-vep`; it floats on biodatageeks
+# `master` so `cargo check --tests` type-checks helpers, and `./run_tests --vepyr REF`
+# path-patches it to that revision's ladder. The `datafusion-bio-format-*` crates are
+# deliberately NOT listed here (issue #21): a direct dev-dep on them would be a second,
+# uncoordinated source of truth for the formats revision, and the resulting duplicate
+# `[[package]]` entries (one per source) made `cargo update -p <name>` ambiguous. Their
+# revision is whatever `datafusion-bio-function-vep` pins — one source of truth.
 [package]
 name = "vepyr-porting-tests"
 version = "0.1.0"
@@ -14,6 +19,11 @@ license = "Apache-2.0"
 description = "Curated data-problem porting tests for Ensembl VEP → vepyr"
 
 [workspace]
+# `--vepyr REF` materialises the engine ladder into `.run_tests/src/**` inside this
+# directory tree. Without this exclude, our workspace root would also claim those
+# checked-out crates and cargo would fail to resolve their `*.workspace = true`
+# inheritance against *this* manifest (issue #21).
+exclude = [".run_tests"]
 
 [dependencies]
 # Used by tests/common to parse PINS.toml and ledger assertion fragments.
@@ -21,8 +31,6 @@ toml = "1"
 
 [dev-dependencies]
 datafusion-bio-function-vep = { git = "https://github.com/biodatageeks/datafusion-bio-functions.git", branch = "master", features = ["cache-builder"] }
-datafusion-bio-format-ensembl-cache = { git = "https://github.com/biodatageeks/datafusion-bio-formats.git", branch = "master" }
-datafusion-bio-format-vcf = { git = "https://github.com/biodatageeks/datafusion-bio-formats.git", branch = "master" }
 tokio = { version = "1", features = ["rt-multi-thread", "macros"] }
 tempfile = "3"
 
