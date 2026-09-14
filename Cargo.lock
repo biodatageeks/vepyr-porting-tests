@@ -1141,7 +1141,7 @@ dependencies = [
  "async-trait",
  "bytes",
  "datafusion",
- "datafusion-bio-format-core 1.12.1 (git+https://github.com/biodatageeks/datafusion-bio-formats.git?tag=v1.12.1)",
+ "datafusion-bio-format-core",
  "datafusion-execution",
  "env_logger",
  "futures",
@@ -1178,54 +1178,13 @@ dependencies = [
 ]
 
 [[package]]
-name = "datafusion-bio-format-core"
-version = "1.12.1"
-source = "git+https://github.com/biodatageeks/datafusion-bio-formats.git?branch=master#0ea6f0ee1468f049f5583c9756fc37bd1626601b"
-dependencies = [
- "async-compression",
- "bytes",
- "datafusion",
- "datafusion-execution",
- "futures",
- "log",
- "noodles-bgzf 0.49.0",
- "noodles-core 0.20.0",
- "noodles-sam",
- "opendal",
- "serde",
- "serde_json",
- "strum",
- "tokio",
- "tokio-util",
- "url",
-]
-
-[[package]]
 name = "datafusion-bio-format-ensembl-cache"
 version = "1.12.1"
 source = "git+https://github.com/biodatageeks/datafusion-bio-formats.git?tag=v1.12.1#419be98562b3fdbebbfdbd5a236205247ec56a67"
 dependencies = [
  "async-trait",
  "datafusion",
- "datafusion-bio-format-core 1.12.1 (git+https://github.com/biodatageeks/datafusion-bio-formats.git?tag=v1.12.1)",
- "datafusion-execution",
- "flate2",
- "log",
- "noodles-bgzf 0.49.0",
- "noodles-csi",
- "noodles-tabix",
- "serde_json",
- "tokio",
-]
-
-[[package]]
-name = "datafusion-bio-format-ensembl-cache"
-version = "1.12.1"
-source = "git+https://github.com/biodatageeks/datafusion-bio-formats.git?branch=master#0ea6f0ee1468f049f5583c9756fc37bd1626601b"
-dependencies = [
- "async-trait",
- "datafusion",
- "datafusion-bio-format-core 1.12.1 (git+https://github.com/biodatageeks/datafusion-bio-formats.git?branch=master)",
+ "datafusion-bio-format-core",
  "datafusion-execution",
  "flate2",
  "log",
@@ -1246,7 +1205,7 @@ dependencies = [
  "async-trait",
  "bytes",
  "datafusion",
- "datafusion-bio-format-core 1.12.1 (git+https://github.com/biodatageeks/datafusion-bio-formats.git?tag=v1.12.1)",
+ "datafusion-bio-format-core",
  "env_logger",
  "flate2",
  "futures",
@@ -1273,38 +1232,7 @@ dependencies = [
  "async-trait",
  "bytes",
  "datafusion",
- "datafusion-bio-format-core 1.12.1 (git+https://github.com/biodatageeks/datafusion-bio-formats.git?tag=v1.12.1)",
- "datafusion-execution",
- "env_logger",
- "flate2",
- "futures",
- "log",
- "noodles",
- "noodles-bcf",
- "noodles-bgzf 0.49.0",
- "noodles-core 0.20.0",
- "noodles-csi",
- "noodles-tabix",
- "noodles-vcf",
- "opendal",
- "serde_json",
- "smallvec",
- "tokio",
- "tokio-util",
- "zarrs",
-]
-
-[[package]]
-name = "datafusion-bio-format-vcf"
-version = "1.12.1"
-source = "git+https://github.com/biodatageeks/datafusion-bio-formats.git?branch=master#0ea6f0ee1468f049f5583c9756fc37bd1626601b"
-dependencies = [
- "async-compression",
- "async-stream",
- "async-trait",
- "bytes",
- "datafusion",
- "datafusion-bio-format-core 1.12.1 (git+https://github.com/biodatageeks/datafusion-bio-formats.git?branch=master)",
+ "datafusion-bio-format-core",
  "datafusion-execution",
  "env_logger",
  "flate2",
@@ -1336,10 +1264,10 @@ dependencies = [
  "coitrees",
  "datafusion",
  "datafusion-bio-format-bed",
- "datafusion-bio-format-core 1.12.1 (git+https://github.com/biodatageeks/datafusion-bio-formats.git?tag=v1.12.1)",
- "datafusion-bio-format-ensembl-cache 1.12.1 (git+https://github.com/biodatageeks/datafusion-bio-formats.git?tag=v1.12.1)",
+ "datafusion-bio-format-core",
+ "datafusion-bio-format-ensembl-cache",
  "datafusion-bio-format-gff",
- "datafusion-bio-format-vcf 1.12.1 (git+https://github.com/biodatageeks/datafusion-bio-formats.git?tag=v1.12.1)",
+ "datafusion-bio-format-vcf",
  "flate2",
  "futures",
  "indicatif",
@@ -5400,8 +5328,6 @@ checksum = "accd4ea62f7bb7a82fe23066fb0957d48ef677f6eeb8215f372f52e48bb32426"
 name = "vepyr-porting-tests"
 version = "0.1.0"
 dependencies = [
- "datafusion-bio-format-ensembl-cache 1.12.1 (git+https://github.com/biodatageeks/datafusion-bio-formats.git?branch=master)",
- "datafusion-bio-format-vcf 1.12.1 (git+https://github.com/biodatageeks/datafusion-bio-formats.git?branch=master)",
  "datafusion-bio-function-vep",
  "tempfile",
  "tokio",

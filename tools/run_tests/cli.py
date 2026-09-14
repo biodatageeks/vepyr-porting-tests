@@ -302,26 +302,10 @@ def _run_data_tests(
     argv = tests.cargo_argv(targets, config=config_path)
     env = {tests.CACHE_ENV: str(cache_root)}
     with engine.LockGuard(repo).held():
-        # Unlock patched packages so path patches apply (cargo keeps locked =version).
-        unlock = [
-            "cargo",
-            "update",
-            "--config",
-            str(config_path),
-            "-p",
-            "datafusion-bio-function-vep",
-            "-p",
-            "datafusion-bio-format-ensembl-cache",
-            "-p",
-            "datafusion-bio-format-vcf",
-        ]
-        unlock_code = cargo_runner(unlock, env)
-        if unlock_code != 0:
-            return (
-                Exit.ENGINE,
-                f"cargo update for engine patches exited {unlock_code}",
-                plan.vepyr_sha,
-            )
+        # No `cargo update -p …` pre-step (issue #21): cargo re-locks the patched
+        # packages by itself when `--config` carries the `[patch]` path tables, and
+        # bare `-p <crate>` specs were ambiguous whenever the lockfile held the same
+        # crate name under two sources.
         code = cargo_runner(argv, env)
     if code == 0:
         return Exit.OK, f"cargo test ok ({len(targets)} target(s))", plan.vepyr_sha
