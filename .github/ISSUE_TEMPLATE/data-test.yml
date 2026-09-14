@@ -14,12 +14,14 @@ body:
 
         ## How to fill this form
 
-        1. An agent explores the candidate (usually a sitekwb port) and records findings below.
-        2. A human reads the VEP side and the vepyr side until the test is understood end-to-end.
-        3. Complete **Step 1** (audit). Tick the human-approval checkbox only when Step 1 is honest.
-        4. Only then complete **Step 2** (port plan).
+        GitHub submits the form **once**. Treat the two steps as a process gate, not two issues:
 
-        Do not file a full Step 2 body until Step 1 is done and human-approved.
+        1. An agent explores the candidate (usually a sitekwb port).
+        2. A human reads the VEP side and the vepyr side until the test is understood end-to-end.
+        3. Fill **Step 1** (audit). Tick the human-approval checkbox only when Step 1 is honest.
+        4. Then fill **Step 2** (port plan) in the same submission and submit.
+
+        Do not open this form until the agent audit and human understanding are done.
 
   # ---------------------------------------------------------------------------
   # Step 1 — Pre-fill audit (agent + human)
@@ -162,9 +164,9 @@ body:
       value: |
         ### Step 2 — Port plan
 
-        Complete this section **only after** the Step 1 human-approval checkbox is ticked.
-        Keep it short and concrete: what we will land, on which contigs, and how we will
-        know it is correct.
+        Fill this after Step 1 is complete and the human-approval checkbox is ticked
+        (same submission). Keep it short and concrete: what we will land, on which
+        contigs, and how we will know it is correct.
 
   - type: textarea
     id: under-test
