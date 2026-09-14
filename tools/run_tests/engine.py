@@ -258,6 +258,54 @@ def workspace_crate_dirs(checkout: Path) -> dict[str, Path]:
     return out
 
 
+def _mirror_sha(
+    *,
+    name: str,
+    git_url: str,
+    rev: str,
+    mirror: Path,
+    run: Runner,
+    offline: bool,
+) -> str:
+    """Update the shared bare mirror of ``git_url`` and resolve ``rev`` to a sha."""
+    if not mirror.exists():
+        if offline:
+            raise RunTestsError(
+                Exit.ENGINE,
+                f"--offline: no mirror of {name} at {mirror}; run once online",
+            )
+        mirror.parent.mkdir(parents=True, exist_ok=True)
+        _git(run, ["git", "clone", "--quiet", "--mirror", git_url, str(mirror)])
+    git = ["git", "-C", str(mirror)]
+    verify = [*git, "rev-parse", "--verify", "--quiet", f"{rev}^{{commit}}"]
+    if not offline:
+        # A mirror fetch updates every ref, so named branches/tags cannot go stale.
+        _git(run, [*git, "fetch", "--quiet", "--prune", "--tags", "origin"])
+    try:
+        return _git(run, verify)
+    except RunTestsError as exc:
+        if offline:
+            raise RunTestsError(
+                Exit.ENGINE,
+                f"--offline: {name} mirror {mirror} has no rev {rev!r}; "
+                "run once online",
+            ) from exc
+    # A sha on no branch (e.g. a PR head) needs an explicit single-rev fetch.
+    run(
+        [*git, "fetch", "--quiet", "origin", rev],
+        capture_output=True,
+        text=True,
+        timeout=_TIMEOUT,
+        check=False,
+    )
+    try:
+        return _git(run, verify)
+    except RunTestsError as exc:
+        raise RunTestsError(
+            Exit.ENGINE, f"{name}: cannot resolve rev {rev!r} in {mirror}: {exc}"
+        ) from exc
+
+
 def _checkout_repo(
     *,
     name: str,
@@ -267,39 +315,47 @@ def _checkout_repo(
     run: Runner,
     offline: bool,
 ) -> Checkout:
-    target.parent.mkdir(parents=True, exist_ok=True)
-    if not (target / ".git").exists():
-        if offline:
-            raise RunTestsError(
-                Exit.ENGINE,
-                f"--offline: no checkout of {name} at {target}; run once online",
-            )
+    """Materialise ``rev`` of ``git_url`` in a worktree keyed by its resolved sha.
+
+    ``target`` is the per-repo cache root. Objects live once in ``target/git`` (a bare
+    mirror); each revision gets its own immutable tree at ``target/<sha>`` cloned
+    ``--shared`` from it. Nothing is ever re-checked-out in place, so two runs of
+    different revisions — sequential or overlapping — cannot swap files under each
+    other's live ``cargo`` build.
+    """
+    sha = _mirror_sha(
+        name=name,
+        git_url=git_url,
+        rev=rev,
+        mirror=target / "git",
+        run=run,
+        offline=offline,
+    )
+    tree = target / sha
+    fresh = not (tree / ".git").exists()
+    if fresh:
         _git(
             run,
-            ["git", "clone", "--quiet", "--no-checkout", "--", git_url, str(target)],
+            [
+                "git",
+                "clone",
+                "--quiet",
+                "--shared",
+                "--no-checkout",
+                "--",
+                str(target / "git"),
+                str(tree),
+            ],
         )
-    git = ["git", "-C", str(target)]
-    # What to detach onto. Offline runs have nothing fresher than the local ref.
-    target_ref = rev
-    if not offline:
-        # Fetch the named rev (sha / tag / branch). Tags need --tags for some hosts.
-        fetch = run(
-            [*git, "fetch", "--quiet", "--tags", "origin", rev],
-            capture_output=True,
-            text=True,
-            timeout=_TIMEOUT,
-            check=False,
-        )
-        if fetch.returncode == 0:
-            # Detach onto what this fetch just retrieved, never onto the possibly
-            # stale clone-time local ref of the same name (issue #22).
-            target_ref = "FETCH_HEAD"
-        else:
-            # Plain sha may need a broader fetch.
-            _git(run, [*git, "fetch", "--quiet", "--tags", "origin"])
-    _git(run, [*git, "checkout", "--quiet", "--detach", target_ref, "--"])
+    git = ["git", "-C", str(tree)]
+    if fresh or _git(run, [*git, "rev-parse", "HEAD"]) != sha:
+        _git(run, [*git, "checkout", "--quiet", "--detach", sha, "--"])
     head = _git(run, [*git, "rev-parse", "HEAD"])
-    return Checkout(name=name, path=target, git_url=git_url, rev=rev, head=head)
+    if head != sha:
+        raise RunTestsError(
+            Exit.ENGINE, f"{name}: checkout {tree} is at {head}, expected {sha}"
+        )
+    return Checkout(name=name, path=tree, git_url=git_url, rev=rev, head=head)
 
 
 def engine_toml(*, dfbf: Checkout, formats: Checkout) -> str:
