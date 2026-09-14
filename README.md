@@ -18,20 +18,24 @@ results on real annotation data.
 ./run_tests --help
 ./run_tests --list
 ./run_tests --cache-dir /mnt/hf-cache --add-contigs chr21,chrMT
+./run_tests --cache-dir /mnt/hf-cache --vepyr 0.7.0
+# or, after a fetch:
+export VEPYR_CACHE_ROOT=/mnt/hf-cache
+./run_tests --vepyr 0.7.0
 ```
 
 | Flag | Status in this commit |
 |------|------------------------|
 | `--help` | Exit 0 |
-| `--list` | Prints **0 data-problem targets**; exit 0 |
-| `--cache-dir DIR` | Downloads the pinned VEP 116 shards into `DIR` and writes `PROVENANCE.json` |
+| `--list` | Lists `tests/data_*.rs` targets (0 until the first pilot lands); exit 0 |
+| `--cache-dir DIR` | Downloads the pinned VEP 116 shards into `DIR` and writes `PROVENANCE.json`; then runs data-tests when targets exist |
 | `--add-contigs LIST` | Adds the named contigs to `DIR` (not `--contigs`). Default: whole genome |
 | `--flavours LIST` | Default `ensembl,refseq,merged` |
-| `--dry-run` | Lists Hub files and byte totals; writes nothing |
+| `--dry-run` | Lists Hub files and byte totals; writes nothing; does not run tests |
 | `--verify` | Checks every selected shard against the Hub sha256 |
 | `--fast` | Sets `HF_XET_HIGH_PERFORMANCE=1` for the download (see below) |
 | `--no-trim-manifests` | Leaves `chrom_manifest.json` naming shards that were not fetched |
-| `--vepyr REF` | Parsed; engine checkout not implemented yet |
+| `--vepyr REF` | Required to run data-tests: resolves `REF` on biodatageeks/vepyr and path-patches that revision's dfbf/formats ladder |
 
 Every real fetch (not `--dry-run`) also downloads the GRCh38 FASTA into
 `DIR/fasta/`, checks it against the `[grch38_fasta]` pin, and writes the `.fai`
@@ -43,27 +47,32 @@ Xet download concurrency/buffers via `hf_xet` (already pulled in with
 `huggingface-hub`). Use it on a high-bandwidth host with plenty of RAM
 (Hugging Face recommends about 64 GB); on a smaller machine leave it off.
 
-Exit codes: `0` ok, `2` usage, `3` revision clash vs `PINS.toml`, `4`
-incomplete selection or unreachable Hub, `5` verification failure. Every fetch
-run ends with a summary of effective flags, the cache directory, and the
+Exit codes: `0` ok, `1` data-tests failed, `2` usage (missing cache / `--vepyr`),
+`3` revision clash vs `PINS.toml`, `4` incomplete selection or missing cache
+pieces, `5` verification failure, `6` engine resolve/checkout failure. Every run
+ends with a summary of effective flags, the cache directory, targets, and the
 contigs accumulated per flavour.
 
-Data-problem **test runs** are still not implemented. An invocation without
-`--cache-dir` (and without `--help` / `--list`) exits 2 with:
+Without a cache root (`--cache-dir` or `$VEPYR_CACHE_ROOT`), an invocation
+(without `--help` / `--list`) exits 2. With targets present, `--vepyr REF` is
+required for the cargo run.
 
-```text
-run_tests: data-problem runs are not implemented yet; give --cache-dir to materialise the corpus, or --list
-```
+## tests/common (cache + assertion helpers)
 
-## tests/common (cache helpers)
-
-Fetch a cache, then point `$VEPYR_CACHE_ROOT` at the same directory:
+Fetch a cache, then point `$VEPYR_CACHE_ROOT` at the same directory (or pass
+`--cache-dir` to `./run_tests` together with `--vepyr`):
 
 ```bash
 ./run_tests --cache-dir /mnt/hf-cache --add-contigs chr21,chrMT
 export VEPYR_CACHE_ROOT=/mnt/hf-cache
+./run_tests --vepyr 0.7.0
+# helpers type-check (and floating engine deps resolve) with:
 cargo check --tests
 ```
+
+Shared modules under `tests/common/`: `cache` / `ledger` (issue #5), plus
+`annotate`, `csq`, and `provenance` for data-problem pilots (issue #14). Data-tests
+live as `tests/data_*.rs` and are discovered by `./run_tests --list`.
 
 ### Caveats
 

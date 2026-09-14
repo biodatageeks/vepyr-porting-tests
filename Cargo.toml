@@ -1,5 +1,9 @@
-# Minimal Cargo package so `tests/common` compiles. No engine dependency: the
-# engine under test is a run-time parameter, not a repository contract.
+# Curated data-problem porting tests for Ensembl VEP → vepyr.
+#
+# The engine under test is a run-time parameter (`./run_tests --vepyr REF`), not a
+# repository contract — PINS.toml holds dataset pins only. Dev-dependencies below
+# float on biodatageeks `master` so `cargo check --tests` type-checks helpers;
+# `./run_tests --vepyr REF` path-patches them to that revision's ladder.
 [package]
 name = "vepyr-porting-tests"
 version = "0.1.0"
@@ -15,8 +19,15 @@ description = "Curated data-problem porting tests for Ensembl VEP → vepyr"
 # Used by tests/common to parse PINS.toml and ledger assertion fragments.
 toml = "1"
 
+[dev-dependencies]
+datafusion-bio-function-vep = { git = "https://github.com/biodatageeks/datafusion-bio-functions.git", branch = "master", features = ["cache-builder"] }
+datafusion-bio-format-ensembl-cache = { git = "https://github.com/biodatageeks/datafusion-bio-formats.git", branch = "master" }
+datafusion-bio-format-vcf = { git = "https://github.com/biodatageeks/datafusion-bio-formats.git", branch = "master" }
+tokio = { version = "1", features = ["rt-multi-thread", "macros"] }
+tempfile = "3"
+
 # Compile harness: pulls in tests/common so `cargo check --tests` type-checks the
-# cache bridge (AC-1). Not a smoke test — it only asserts the module links.
+# cache bridge and shared helpers. Not a smoke or data-problem test.
 [[test]]
 name = "common_compile"
 path = "tests/common_compile.rs"
