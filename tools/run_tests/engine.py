@@ -3,7 +3,7 @@
 No sitekwb forks, no ``test-internals`` overlays. The engine is a run-time parameter:
 committed ``Cargo.toml`` floats on biodatageeks ``master``; this module materialises the
 exact revisions named by ``REF``'s ``Cargo.toml`` and writes a ``cargo --config`` file
-with path ``[patch]`` tables. ``Cargo.lock`` is snapshotted and restored around the run.
+with path ``[patch]`` tables. ``Cargo.lock`` is restored from git around the run.
 """
 
 from __future__ import annotations
@@ -467,22 +467,68 @@ def materialise(
 
 
 class LockGuard:
-    """Snapshot ``Cargo.lock`` before an override run and restore it afterwards."""
+    """Keep the checked-in ``Cargo.lock`` pristine across an override run.
 
-    def __init__(self, repo_root: Path) -> None:
+    Restoration goes through git rather than an in-process snapshot: the pristine
+    copy lives in the index, so it survives a ``SIGKILL`` or an OOM-kill that skips
+    every ``finally`` block. Entering the guard therefore also sweeps a lockfile that
+    an earlier killed run left rewritten — recovery needs no manual step. Outside a
+    git checkout (or when ``Cargo.lock`` is untracked) the guard falls back to the
+    in-memory snapshot, which is the best that can be done there.
+    """
+
+    def __init__(self, repo_root: Path, *, run: Runner | None = None) -> None:
         self.repo_root = repo_root
         self.lock_path = repo_root / "Cargo.lock"
+        self._run: Runner = run or _default_run
         self._snapshot: bytes | None = None
+
+    def _git(self, argv: Sequence[str]) -> subprocess.CompletedProcess[str]:
+        """Run ``git <argv>`` in the repo root; never raises on a non-zero exit."""
+        return self._run(
+            ["git", "-C", str(self.repo_root), *argv],
+            capture_output=True,
+            text=True,
+            timeout=_TIMEOUT,
+            check=False,
+        )
+
+    @property
+    def tracked(self) -> bool:
+        """Is ``Cargo.lock`` a tracked file of a git checkout at ``repo_root``?"""
+        probe = self._git(["ls-files", "--error-unmatch", "--", "Cargo.lock"])
+        return probe.returncode == 0
+
+    @property
+    def dirty(self) -> bool:
+        """Does ``git status --porcelain Cargo.lock`` report anything?"""
+        completed = self._git(["status", "--porcelain", "--", "Cargo.lock"])
+        return completed.returncode == 0 and bool(completed.stdout.strip())
+
+    def restore(self) -> bool:
+        """Return ``Cargo.lock`` to its committed state. ``True`` if git did it."""
+        if not self.tracked:
+            return False
+        return self._git(["checkout", "--", "Cargo.lock"]).returncode == 0
 
     @contextmanager
     def held(self) -> Iterator[LockGuard]:
-        if self.lock_path.is_file():
-            self._snapshot = self.lock_path.read_bytes()
+        """Guard ``Cargo.lock`` for the duration of the block."""
+        git_backed = self.tracked
+        if git_backed:
+            # Crash recovery: undo a rewrite left behind by a killed earlier run.
+            self.restore()
+            self._snapshot = None
+        else:
+            self._snapshot = (
+                self.lock_path.read_bytes() if self.lock_path.is_file() else None
+            )
         try:
             yield self
         finally:
-            if self._snapshot is None:
-                if self.lock_path.exists():
-                    self.lock_path.unlink()
+            if git_backed:
+                self.restore()
+            elif self._snapshot is None:
+                self.lock_path.unlink(missing_ok=True)
             else:
                 self.lock_path.write_bytes(self._snapshot)
