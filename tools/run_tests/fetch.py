@@ -117,15 +117,11 @@ PIN_PREFIX: Final[str] = "hf_cache_"
 TRIM_DEFAULT: Final[bool] = True
 """Trim per-contig manifests by default. Flip to ``False`` after the upstream fix."""
 
-_HF_XET_HIGH_PERFORMANCE: Final[str] = "HF_XET_HIGH_PERFORMANCE"
-"""Exported by :func:`main` (never by :func:`fetch`) so it is in the environment before
-the first Hub call imports ``huggingface_hub`` and, lazily, ``hf_xet``. The library's
-own ``HF_HUB_ENABLE_HF_TRANSFER`` handling is deprecated and not touched here."""
 PROVENANCE_LOCK: Final[str] = "PROVENANCE.lock"
 """Lock file beside ``PROVENANCE.json``; held (``fcntl.flock``) across every
 read-modify-write so two concurrent runs on one root cannot erase each other."""
 CONTIG_NAME: Final[re.Pattern[str]] = re.compile(r"^[A-Za-z0-9_.-]+$")
-"""What ``--contigs`` may contain: a glob metacharacter here would reach
+"""What ``--add-contigs`` may contain: a glob metacharacter here would reach
 ``allow_patterns`` and turn ``chr*`` into a whole-genome download."""
 _TRANSIENT_NAME: Final[re.Pattern[str]] = re.compile(r"^\..+\.\d+\.tmp$")
 """This tool's own temp names, ``.<name>.<pid>.tmp`` (:func:`_atomic_write_text`) — the

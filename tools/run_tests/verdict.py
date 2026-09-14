@@ -1,7 +1,8 @@
 """Exit codes and the CLI error type for ``./run_tests``.
 
-Codes 3-7 are reserved for later slices (fetch, engine, toolchain); this shell
-only uses :attr:`Exit.OK` and :attr:`Exit.USAGE`.
+Cache fetch (``fetch.py``) uses :attr:`Exit.REVISION`, :attr:`Exit.INCOMPLETE` and
+:attr:`Exit.VERIFY` in addition to :attr:`Exit.OK` / :attr:`Exit.USAGE`; codes 6-7 are
+still reserved for later slices (engine, toolchain).
 """
 
 from __future__ import annotations

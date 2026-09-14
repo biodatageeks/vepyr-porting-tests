@@ -230,8 +230,12 @@ def test_a_revision_clash_surfaces_exit_3_through_main(harness: Harness) -> None
     assert "outcome          : revision (exit 3)" in result.summary
 
 
-def test_chr_mt_alone_is_refused_with_exit_4(harness: Harness) -> None:
-    """AC-4's caveat, enforced: motif/regulatory carry no chrMT shard."""
+def test_a_contig_missing_from_one_entity_is_refused_with_exit_4(
+    harness: Harness,
+) -> None:
+    """AC-4's caveat, enforced: an entity with no shard for any requested contig is
+    refused (like chrMT alone on the real dataset, where motif/regulatory carry no
+    chrMT shard; the synthetic hub stands a missing chr22 shard in for that case)."""
     motif = harness.hub.repo_dir("biodatageeks/vepyr_116_GRCh38_ensembl") / "motif"
     (motif / "chr22.parquet").unlink()
     result = harness.run(

@@ -59,15 +59,18 @@ what is on disk *after* the run, not to the last command line. A wholly
 different contig set therefore requires a fresh `--cache-dir` or a manual
 cleanup — the tool never deletes what an earlier run accumulated.
 
-**Illegal / incomplete contig sets.** Every requested contig must be carried by
-**all seven** entities of a flavour. `motif` and `regulatory` carry `chr1`-`chr22`,
-`chrX` and `chrY` only, so `--add-contigs chrMT` **alone is refused** (exit 4,
-naming the bare entities) before anything is downloaded: such a root would keep a
+**Illegal / incomplete contig sets.** Every one of the **seven entities** must
+carry a shard for **at least one** requested contig — a contig does not need to
+be carried by every entity, but every entity must be covered by the selection.
+`motif` and `regulatory` carry `chr1`-`chr22`, `chrX` and `chrY` only (no
+`chrMT`), so `--add-contigs chrMT` **alone is refused** (exit 4, naming the
+bare entities) before anything is downloaded: such a root would keep a
 manifest pointing at shards that were never fetched. A selection that names no
 shard at all (a misspelt contig) is refused the same way. Legal minimal
-examples: `--add-contigs chrY` (the smallest single-contig root) or
-`--add-contigs chr21,chrMT` — `chrMT` is fine *alongside* a contig every entity
-carries.
+examples: `--add-contigs chrY` (the smallest single-contig root, since every
+entity carries `chrY`) or `--add-contigs chr21,chrMT` — `chrMT` has no
+`motif`/`regulatory` shard, but `chr21` covers those two entities, so the pair
+together satisfies every entity.
 
 The sections below describe the **porting method** used to extract, classify,
 and implement those tests. Code and ledger fragments are **illustrative**.
