@@ -1,0 +1,258 @@
+name: Data-test
+description: Port or track a curated data-test (not a product bug report)
+title: "[data-test] "
+labels: ["data-test"]
+body:
+  - type: markdown
+    attributes:
+      value: |
+        Use this form to **port or track a data-test** in this repository.
+
+        This is **not** a product bug report for vepyr. For wrong annotation output
+        in the library itself, open an issue on
+        [biodatageeks/vepyr](https://github.com/biodatageeks/vepyr).
+
+        ## How to fill this form
+
+        GitHub submits the form **once**. Treat the two steps as a process gate, not two issues:
+
+        1. An agent explores the candidate (usually a sitekwb port).
+        2. A human reads the VEP side and the vepyr side until the test is understood end-to-end.
+        3. Fill **Step 1** (audit). Tick the human-approval checkbox only when Step 1 is honest.
+        4. Then fill **Step 2** (port plan) in the same submission and submit.
+
+        Do not open this form until the agent audit and human understanding are done.
+
+  # ---------------------------------------------------------------------------
+  # Step 1 — Pre-fill audit (agent + human)
+  # ---------------------------------------------------------------------------
+
+  - type: markdown
+    attributes:
+      value: |
+        ### Step 1 — Pre-fill audit (agent + human)
+
+        Fill this section **after** agent exploration and human VEP/vepyr understanding.
+        For each risk: write the **agent finding**, then the **human validation**
+        (`pass` / `needs rebuild` / `reject` plus a short reason).
+
+  - type: textarea
+    id: audit-cache-agent
+    attributes:
+      label: "Step 1 — Cache strategy (agent finding)"
+      description: >-
+        Did the source port rely on a committed micro-cache or other hand-built
+        fixture? What must change for this repo (full Hugging Face cache, or the
+        same corpus with --add-contigs)? Note any contigs already known to be required.
+      placeholder: |
+        Source uses tests/data/..._micro_cache (v115). Not allowed here.
+        Rebuild: fetch pinned VEP 116 via ./run_tests --cache-dir DIR --add-contigs CHR,...
+        Candidate required contigs: chr21 (variants under assertion all on chr21).
+    validations:
+      required: true
+
+  - type: textarea
+    id: audit-cache-human
+    attributes:
+      label: "Step 1 — Cache strategy (human validation)"
+      description: >-
+        Human verdict on the cache finding. Use pass, needs rebuild, or reject, with a
+        one-line reason.
+      placeholder: |
+        needs rebuild — micro-cache must be replaced with HF / --add-contigs; contigs OK as stated.
+    validations:
+      required: true
+
+  - type: textarea
+    id: audit-vep-scope-agent
+    attributes:
+      label: "Step 1 — VEP compatibility: data scope (agent finding)"
+      description: >-
+        Do the asserted loci and required contigs match what Ensembl VEP / the pinned
+        cache actually cover? Flag slice vs full-genome pitfalls, missing contigs,
+        FASTA needs for HGVS, BND/mate on another contig, motif/regulatory vs chrMT, etc.
+      placeholder: |
+        Assertions are on chr21 SNVs only; --add-contigs chr21 is sufficient for CSQ.
+        No HGVS (full FASTA still downloaded by ./run_tests but not required by assertions).
+        No BND / cross-contig mates.
+    validations:
+      required: true
+
+  - type: textarea
+    id: audit-vep-scope-human
+    attributes:
+      label: "Step 1 — VEP compatibility: data scope (human validation)"
+      description: >-
+        Human verdict on data-scope fit. Use pass, needs rebuild, or reject, with a
+        one-line reason.
+      placeholder: |
+        pass — loci and contig list match; no out-of-slice dependencies.
+    validations:
+      required: true
+
+  - type: textarea
+    id: audit-vep-topic-agent
+    attributes:
+      label: "Step 1 — VEP compatibility: test topic (agent finding)"
+      description: >-
+        Is this still a data-problem test (predictable annotation results on real data)?
+        Or is it form / behaviour / harness / smoke noise that should not be ported here?
+      placeholder: |
+        Asserts Consequence / IMPACT on annotated CSQ for fixed loci — data-problem.
+        Not a CLI smoke or micro-cache presence check.
+    validations:
+      required: true
+
+  - type: textarea
+    id: audit-vep-topic-human
+    attributes:
+      label: "Step 1 — VEP compatibility: test topic (human validation)"
+      description: >-
+        Human verdict on topic fit. Use pass, needs rebuild, or reject, with a one-line
+        reason.
+      placeholder: |
+        pass — true data-problem; keep in scope.
+    validations:
+      required: true
+
+  - type: textarea
+    id: audit-analogy-agent
+    attributes:
+      label: "Step 1 — vepyr analogy diagnosis (agent finding)"
+      description: >-
+        Was the sitekwb “analog” mapping correct for vepyr? Wrong API surface, wrong
+        layer (e.g. in-process engine hash instead of annotate-on-cache), or mismatched
+        expected fields? Say what must change for a correct port.
+      placeholder: |
+        Sitekwb drives TranscriptConsequenceEngine with a synthetic transcript (no cache).
+        That is not a data-problem against HF cache. Needs redesign: real annotate + CSQ
+        assertions on the same coding-hash properties, or reject from this repo.
+    validations:
+      required: true
+
+  - type: textarea
+    id: audit-analogy-human
+    attributes:
+      label: "Step 1 — vepyr analogy diagnosis (human validation)"
+      description: >-
+        Human verdict on the analogy. Use pass, needs rebuild, or reject, with a
+        one-line reason.
+      placeholder: |
+        needs rebuild — in-process synthetic path is the wrong analogy; redesign as annotate data-test.
+    validations:
+      required: true
+
+  - type: checkboxes
+    id: step1-human-approved
+    attributes:
+      label: Step 1 — Human approval gate
+      description: >-
+        Tick only when a human has understood the VEP and vepyr sides and agrees the
+        Step 1 findings are accurate enough to write the port plan.
+      options:
+        - label: >-
+            Human approved: understanding is complete; this issue may proceed to Step 2
+            (port plan).
+          required: true
+
+  # ---------------------------------------------------------------------------
+  # Step 2 — Port plan (only after Step 1)
+  # ---------------------------------------------------------------------------
+
+  - type: markdown
+    attributes:
+      value: |
+        ### Step 2 — Port plan
+
+        Fill this after Step 1 is complete and the human-approval checkbox is ticked
+        (same submission). Keep it short and concrete: what we will land, on which
+        contigs, and how we will know it is correct.
+
+  - type: textarea
+    id: under-test
+    attributes:
+      label: "Step 2 — What is under test"
+      description: >-
+        One short paragraph naming the data-problem assertion in plain language.
+      placeholder: |
+        For fixed chr21 SNVs, vepyr CSQ Consequence and IMPACT match the curated expected
+        values under the pinned VEP 116 merged cache.
+    validations:
+      required: true
+
+  - type: textarea
+    id: source
+    attributes:
+      label: "Step 2 — Source"
+      description: >-
+        sitekwb path and/or ledger row, or write “new” if this is not a port of an
+        existing file.
+      placeholder: |
+        sitekwb-vepyr-porting-tests/tests/port_runner_consequence_content.rs
+        ledger Runner.ledger.toml n=16 (analog-port)
+    validations:
+      required: true
+
+  - type: input
+    id: required-contigs
+    attributes:
+      label: "Step 2 — Required contigs"
+      description: >-
+        Exact contigs for the asserted loci (comma-separated). Not a wider “just in case”
+        genome, and not narrower than the variants under test.
+      placeholder: "chr21"
+    validations:
+      required: true
+
+  - type: textarea
+    id: loci-assertions
+    attributes:
+      label: "Step 2 — Loci / variants / assertion sketch"
+      description: >-
+        List the loci (or fixture VCF) and what you will assert (fields and expected
+        shape). Sketches are fine; paste full expected CSQ only when short.
+      placeholder: |
+        chr21:1234567 A>G — Consequence includes missense_variant; IMPACT=MODERATE
+        Fixture: tests/data/... (to be added) or inline VCF in the test.
+    validations:
+      required: true
+
+  - type: textarea
+    id: adaptation-work
+    attributes:
+      label: "Step 2 — Adaptation work"
+      description: >-
+        Concrete changes vs the source port: leave micro-cache, fix analogy, change
+        assertions, redesign, or “none — direct port”.
+      placeholder: |
+        Replace micro-cache with $VEPYR_CACHE_ROOT from ./run_tests --add-contigs chr21.
+        Keep CSQ field assertions; drop any smoke that only checks cache files exist.
+    validations:
+      required: true
+
+  - type: textarea
+    id: acceptance
+    attributes:
+      label: "Step 2 — Acceptance criteria / how verified"
+      description: >-
+        How a human knows the port is done: commands run, green verdict, and what was
+        checked by eye.
+      placeholder: |
+        ./run_tests --cache-dir DIR --add-contigs chr21
+        export VEPYR_CACHE_ROOT=DIR
+        cargo test --test <name> -- --nocapture
+        Human: read assertions vs VEP 116 expectation for the listed loci; OK before merge.
+    validations:
+      required: true
+
+  - type: textarea
+    id: engine-note
+    attributes:
+      label: "Step 2 — Engine under test (optional)"
+      description: >-
+        Optional. Engine version is a run-time parameter (--vepyr REF), not a repo pin.
+        Note which REF you used when verifying, if relevant.
+      placeholder: |
+        Verified with --vepyr v0.x.y (or commit SHA). Not pinned in this repository.
+    validations:
+      required: false

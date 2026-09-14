@@ -1,0 +1,7 @@
+blank_issues_enabled: true
+contact_links:
+  - name: vepyr product bug or data problem
+    url: https://github.com/biodatageeks/vepyr/issues/new/choose
+    about: >-
+      Wrong, missing, or unexpected annotation output from the vepyr library itself —
+      not a curated data-test port in this repository.
