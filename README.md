@@ -9,6 +9,33 @@ vepyr is a Rust port of Ensembl VEP. Here we land **data-problem** tests
 one curated assertion at a time: each checks that vepyr produces predictable
 results on real annotation data.
 
+## ./run_tests
+
+`./run_tests` is the single entry point for this repository's tooling
+(`uv` + `tools/run_tests/`).
+
+```bash
+./run_tests --help
+./run_tests --list
+```
+
+| Flag | Status in this commit |
+|------|------------------------|
+| `--help` | Works; exit 0 |
+| `--list` | Works; prints **0 data-problem targets**; exit 0 |
+| `--cache-dir DIR` | Parsed; any run path that is not `--help`/`--list` refuses (exit 2) |
+| `--add-contigs LIST` | Parsed (not `--contigs`); same refuse until fetch lands |
+| `--flavours LIST` | Parsed (default `ensembl,refseq,merged`); same refuse |
+| `--vepyr REF` | Parsed; engine checkout not implemented yet |
+
+Cache fetch and data-problem test runs are **not implemented yet** (see
+[issue #4](https://github.com/biodatageeks/vepyr-porting-tests/issues/4)).
+A non-`--help` / non-`--list` invocation exits 2 with:
+
+```text
+run_tests: cache fetch and data-problem runs are not implemented yet (see issue #4)
+```
+
 The sections below describe the **porting method** used to extract, classify,
 and implement those tests. Code and ledger fragments are **illustrative**.
 
