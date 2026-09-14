@@ -25,7 +25,7 @@ from run_tests import cli, engine, tests
 from run_tests.cli import MISSING_CACHE, MISSING_VEPYR, main
 from run_tests.fetch import PROVENANCE, Flavour, RemoteFile, bsd_sum
 from run_tests.summary import HEADER
-from run_tests.verdict import Exit
+from run_tests.verdict import Exit, RunTestsError
 
 
 @dataclass(frozen=True, slots=True, kw_only=True)
@@ -107,11 +107,6 @@ def harness(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> Iterator[Harness
         f'ensembl_sum = "{checksum} {blocks}"\n'
     )
     monkeypatch.setattr(cli, "_repo_root", lambda: repo)
-    # FASTA pin uses a tiny name; precheck looks for the production FASTA basename.
-    # Point precheck at the tiny file layout after fetch by also accepting the pin name
-    # via a symlink name the fetch already wrote (tiny.fa). Override FASTA_NAME in tests
-    # module to match the synthetic pin's uncompressed name.
-    monkeypatch.setattr(tests, "FASTA_NAME", "tiny.fa")
     yield Harness(
         root=tmp_path / "cache",
         hub=build_hub(tmp_path / "hub"),
@@ -668,3 +663,39 @@ def test_absolute_cache_dir_and_env_root_are_unchanged(
     assert cli._resolve_cache_root(env_only) == absolute
     monkeypatch.delenv(tests.CACHE_ENV)
     assert cli._resolve_cache_root(env_only) is None
+
+
+def test_precheck_follows_a_bumped_fasta_pin_name(harness: Harness) -> None:
+    """Bumping ``[grch38_fasta].ref`` moves precheck's FASTA name with the pin.
+
+    The regression this pins down: a hardcoded basename made a complete cache laid
+    out under the newly pinned name report as missing, unfixable by re-fetching.
+    """
+    assert (
+        harness.run(
+            "--cache-dir",
+            str(harness.root),
+            "--add-contigs",
+            "chr21",
+            "--flavours",
+            "ensembl",
+        ).code
+        == int(Exit.OK)
+    )
+    fasta_dir = harness.root / "fasta"
+    for suffix in ("", ".fai"):
+        (fasta_dir / f"tiny.fa{suffix}").rename(fasta_dir / f"bumped.fa{suffix}")
+
+    pins_toml = harness.repo / "PINS.toml"
+    pins_toml.write_text(
+        pins_toml.read_text().replace('ref = "tiny.fa.gz"', 'ref = "bumped.fa.gz"')
+    )
+    assert 'ref = "bumped.fa.gz"' in pins_toml.read_text()
+
+    tests.precheck_cache(harness.root, pins_toml=pins_toml, flavours=["ensembl"])
+
+    (fasta_dir / "bumped.fa").rename(fasta_dir / "tiny.fa")
+    with pytest.raises(RunTestsError) as excinfo:
+        tests.precheck_cache(harness.root, pins_toml=pins_toml, flavours=["ensembl"])
+    assert excinfo.value.code is Exit.INCOMPLETE
+    assert "bumped.fa" in str(excinfo.value)

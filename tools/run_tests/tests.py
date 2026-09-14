@@ -10,7 +10,7 @@ from __future__ import annotations
 
 import json
 import tomllib
-from collections.abc import Sequence
+from collections.abc import Mapping, Sequence
 from pathlib import Path
 from typing import Final
 
@@ -19,7 +19,6 @@ from run_tests.verdict import Exit, RunTestsError
 
 __all__ = [
     "CACHE_ENV",
-    "FASTA_NAME",
     "cargo_argv",
     "data_targets",
     "list_table",
@@ -27,7 +26,6 @@ __all__ = [
 ]
 
 CACHE_ENV: Final[str] = "VEPYR_CACHE_ROOT"
-FASTA_NAME: Final[str] = "Homo_sapiens.GRCh38.dna.primary_assembly.fa"
 _DATA_GLOB: Final[str] = "data_*.rs"
 
 
@@ -62,14 +60,29 @@ def cargo_argv(targets: Sequence[str], *, config: Path | None = None) -> list[st
     return argv
 
 
-def _pin_revision(pins_toml: Path, flavour: str) -> str:
-    pins, _ = fetch.load_dataset_pins(pins_toml)
+def _pin_revision(pins: Mapping[fetch.Flavour, fetch.DatasetPin], flavour: str) -> str:
+    """Pinned revision of ``flavour``, or exit 2 when ``PINS.toml`` never pinned it."""
     try:
         return pins[fetch.Flavour(flavour)].revision
     except (KeyError, ValueError) as exc:
         raise RunTestsError(
             Exit.USAGE, f"precheck: unknown flavour {flavour!r} in PINS.toml"
         ) from exc
+
+
+def _pinned_fasta_name(fasta_pin: fetch.FastaPin | None, pins_toml: Path) -> str:
+    """Uncompressed FASTA basename the fetch writes, straight off the pin.
+
+    One source of truth with :func:`run_tests.fetch.fetch_fasta`: bumping
+    ``[grch38_fasta].ref`` moves both the fetch and this precheck together.
+    """
+    if fasta_pin is None:
+        raise RunTestsError(
+            Exit.USAGE,
+            f"{pins_toml}: no [{fetch.FASTA_PIN}] pin — "
+            "precheck cannot name the reference FASTA",
+        )
+    return fasta_pin.fa_name
 
 
 def precheck_cache(
@@ -124,6 +137,8 @@ def precheck_cache(
             )
     else:
         check_flavours = tuple(flavours)
+    pins, fasta_pin = fetch.load_dataset_pins(pins_toml)
+    fasta_name = _pinned_fasta_name(fasta_pin, pins_toml)
     for flavour in check_flavours:
         record = provenance.datasets.get(flavour)
         if record is None:
@@ -133,7 +148,7 @@ def precheck_cache(
                 f"Run: ./run_tests --cache-dir {root} --flavours {flavour} "
                 f"[--add-contigs LIST]",
             )
-        expected = _pin_revision(pins_toml, flavour)
+        expected = _pin_revision(pins, flavour)
         if record.revision != expected:
             raise RunTestsError(
                 Exit.REVISION,
@@ -142,7 +157,7 @@ def precheck_cache(
                 f"Run: ./run_tests --cache-dir <other> --flavours {flavour} "
                 f"and set {CACHE_ENV}=<other>",
             )
-    fasta = root / "fasta" / FASTA_NAME
+    fasta = root / fetch.FASTA_DIR / fasta_name
     fai = Path(str(fasta) + ".fai")
     if not fasta.is_file() or not fai.is_file():
         raise RunTestsError(
