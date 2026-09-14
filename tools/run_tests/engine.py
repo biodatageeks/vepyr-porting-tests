@@ -274,8 +274,13 @@ def _checkout_repo(
                 Exit.ENGINE,
                 f"--offline: no checkout of {name} at {target}; run once online",
             )
-        _git(run, ["git", "clone", "--quiet", "--no-checkout", git_url, str(target)])
+        _git(
+            run,
+            ["git", "clone", "--quiet", "--no-checkout", "--", git_url, str(target)],
+        )
     git = ["git", "-C", str(target)]
+    # What to detach onto. Offline runs have nothing fresher than the local ref.
+    target_ref = rev
     if not offline:
         # Fetch the named rev (sha / tag / branch). Tags need --tags for some hosts.
         fetch = run(
@@ -285,10 +290,14 @@ def _checkout_repo(
             timeout=_TIMEOUT,
             check=False,
         )
-        if fetch.returncode != 0:
+        if fetch.returncode == 0:
+            # Detach onto what this fetch just retrieved, never onto the possibly
+            # stale clone-time local ref of the same name (issue #22).
+            target_ref = "FETCH_HEAD"
+        else:
             # Plain sha may need a broader fetch.
-            _git(run, [*git, "fetch", "--quiet", "origin"])
-    _git(run, [*git, "checkout", "--quiet", "--detach", rev])
+            _git(run, [*git, "fetch", "--quiet", "--tags", "origin"])
+    _git(run, [*git, "checkout", "--quiet", "--detach", target_ref, "--"])
     head = _git(run, [*git, "rev-parse", "HEAD"])
     return Checkout(name=name, path=target, git_url=git_url, rev=rev, head=head)
 
