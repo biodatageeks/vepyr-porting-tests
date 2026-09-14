@@ -193,12 +193,13 @@ pub fn full_cache_at(root: &Path, flavour: Flavour) -> FullCache {
     match revision_on_disk(&root, flavour) {
         Some(found) if found == pinned => {}
         Some(found) => panic!(
-            "cache at {} is revision {found}, PINS.toml pins {pinned} ({}). Run: \
-             ./run_tests --cache-dir {} --flavours {}",
+            "cache at {} is revision {found}, PINS.toml pins {pinned} ({}). One root \
+             holds one revision per flavour: fetch the pinned revision into a NEW root \
+             (./run_tests --cache-dir <other> --flavours {}) and set {}=<other>",
             root.display(),
             flavour.pin_name(),
-            root.display(),
-            flavour.key()
+            flavour.key(),
+            ENV
         ),
         None => panic!(
             "cache at {} has no PROVENANCE.json entry for {} (flavour never fetched). Run: \
