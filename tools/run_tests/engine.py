@@ -35,6 +35,7 @@ __all__ = [
     "engine_toml",
     "materialise",
     "resolve",
+    "validate_ref",
     "workspace_crate_dirs",
 ]
 
@@ -53,6 +54,56 @@ _FORMATS_CRATES: Final[tuple[str, ...]] = (
 _FORMATS_PREFIX: Final[str] = "datafusion-bio-format-"
 _TIMEOUT: Final[int] = 180
 _SHA: Final[re.Pattern[str]] = re.compile(r"^[0-9a-f]{7,40}$")
+
+#: Characters a git ref may consist of. ``/`` is deliberately allowed —
+#: ``feature/x`` is the common case — but every shape that could redirect the
+#: ``repos/<repo>/commits/<ref>`` API path elsewhere (``..``, ``?``, ``#``,
+#: a leading ``-``) is rejected by :func:`validate_ref` below.
+_REF_CHARS: Final[re.Pattern[str]] = re.compile(r"\A[A-Za-z0-9._/+-]+\Z")
+_REF_MAX: Final[int] = 255
+
+
+def validate_ref(ref: str) -> str:
+    """Return ``ref`` if it is a well-formed git ref, else raise a usage error.
+
+    The allowlist follows ``git check-ref-format`` closely enough to keep the
+    GitHub API path ``repos/<repo>/commits/<ref>`` intact: slashes are legal
+    (``feature/x``), while path traversal (``..``), a leading ``-``, and any
+    URL-significant character (``?``, ``#``, ``%``, ``&``, whitespace) are not.
+
+    Args:
+        ref: The raw value of ``--vepyr`` as given on the command line.
+
+    Returns:
+        The same string, unchanged, once it has been accepted.
+
+    Raises:
+        RunTestsError: With :attr:`Exit.USAGE` when ``ref`` is malformed.
+    """
+
+    def reject(why: str) -> RunTestsError:
+        return RunTestsError(
+            Exit.USAGE, f"--vepyr {ref!r}: not a valid git ref ({why})"
+        )
+
+    if not ref:
+        raise reject("empty")
+    if len(ref) > _REF_MAX:
+        raise reject(f"longer than {_REF_MAX} characters")
+    if not _REF_CHARS.match(ref):
+        raise reject("only letters, digits and '. _ / + -' are allowed")
+    if ref.startswith("-"):
+        raise reject("starts with '-'")
+    if ".." in ref:
+        raise reject("contains '..'")
+    if ref.startswith("/") or ref.endswith("/") or "//" in ref:
+        raise reject("malformed '/' component")
+    if ref.endswith(".") or ref.endswith(".lock"):
+        raise reject("ends with '.' or '.lock'")
+    for part in ref.split("/"):
+        if part.startswith(".") or part.endswith(".lock"):
+            raise reject(f"bad path component {part!r}")
+    return ref
 
 
 class GhApi(Protocol):
@@ -153,6 +204,7 @@ def _git(run: Runner, argv: Sequence[str]) -> str:
 
 def _resolve_sha(api: GhApi, ref: str) -> str:
     """Dereference ``ref`` (tag / branch / sha) on biodatageeks/vepyr."""
+    validate_ref(ref)
     try:
         payload = api.get(f"repos/{VEPYR_REPO}/commits/{ref}")
     except GhError as exc:
@@ -402,6 +454,7 @@ def resolve(
 ) -> EnginePlan:
     """Resolve ``ref``, checkout the ladder, and build the cargo config text."""
     runner: Runner = run or _default_run
+    validate_ref(ref)
     sha = _resolve_sha(api, ref)
     manifest = _read_cargo_toml(api, sha)
     dfbf_entry = _dep_spec(manifest, _DFBF_CRATE, ref=ref)
