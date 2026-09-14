@@ -275,12 +275,23 @@ def _default_cargo(argv: Sequence[str], env: Mapping[str, str]) -> int:
 
 
 def _resolve_cache_root(inv: Invocation) -> Path | None:
-    if inv.cache_dir is not None:
-        return inv.cache_dir
-    raw = os.environ.get(tests.CACHE_ENV)
-    if raw:
-        return Path(raw)
-    return None
+    """Resolve the cache root to an absolute path, exactly once.
+
+    ``--cache-dir`` wins over ``$VEPYR_CACHE_ROOT``. The result is always absolute:
+    the precheck runs in the caller's cwd while cargo is spawned with
+    ``cwd=_repo_root()``, so a relative root would name two different directories
+    on the two sides of the run.
+
+    Returns:
+        The absolute cache root, or ``None`` when neither source supplies one.
+    """
+    match (inv.cache_dir, os.environ.get(tests.CACHE_ENV)):
+        case (Path() as explicit, _):
+            return explicit.resolve()
+        case (None, str() as raw) if raw:
+            return Path(raw).resolve()
+        case _:
+            return None
 
 
 def _run_data_tests(
