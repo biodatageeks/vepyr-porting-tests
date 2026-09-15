@@ -54,6 +54,9 @@ exactly that set.
 ./run_tests                   # omitted: same as `--vepyr master`, resolved per run
 ```
 
+Engine ladder checkouts run with `GIT_LFS_SKIP_SMUDGE=1`: the crates are built from
+Rust source only, so the fetch never depends on unrelated git-lfs-hosted content.
+
 Omitting the flag is **not** "no engine": it resolves `biodatageeks/vepyr`'s
 `master` HEAD as it stands at that moment. The summary prints the resolved 40-char
 sha in every case. How that resolution works end to end is documented in
