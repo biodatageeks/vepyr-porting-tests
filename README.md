@@ -22,6 +22,8 @@ results on real annotation data.
 # or, after a fetch:
 export VEPYR_CACHE_ROOT=/mnt/hf-cache
 ./run_tests --vepyr 0.7.0
+# omit --vepyr to run against biodatageeks/vepyr master HEAD as it stands now:
+./run_tests
 ```
 
 | Flag | Status in this commit |
@@ -35,7 +37,7 @@ export VEPYR_CACHE_ROOT=/mnt/hf-cache
 | `--verify` | Checks every selected shard against the Hub sha256 |
 | `--fast` | Sets `HF_XET_HIGH_PERFORMANCE=1` for the download (see below) |
 | `--no-trim-manifests` | Leaves `chrom_manifest.json` naming shards that were not fetched |
-| `--vepyr REF` | Required to run data-tests: resolves `REF` on biodatageeks/vepyr and path-patches that revision's dfbf/formats ladder |
+| `--vepyr REF` | Resolves `REF` on biodatageeks/vepyr and path-patches that revision's dfbf/formats ladder. **Optional:** omitted, data-tests run against `master`'s current HEAD; the summary prints the full 40-char resolved sha either way. Pass `REF` whenever a pinned, reproducible run is wanted (CI, bisecting, ledger evidence) |
 
 Every real fetch (not `--dry-run`) also downloads the GRCh38 FASTA into
 `DIR/fasta/`, checks it against the `[grch38_fasta]` pin, and writes the `.fai`
@@ -47,15 +49,19 @@ Xet download concurrency/buffers via `hf_xet` (already pulled in with
 `huggingface-hub`). Use it on a high-bandwidth host with plenty of RAM
 (Hugging Face recommends about 64 GB); on a smaller machine leave it off.
 
-Exit codes: `0` ok, `1` data-tests failed, `2` usage (missing cache / `--vepyr`),
+Exit codes: `0` ok, `1` data-tests failed, `2` usage (missing cache),
 `3` revision clash vs `PINS.toml`, `4` incomplete selection or missing cache
 pieces, `5` verification failure, `6` engine resolve/checkout failure. Every run
-ends with a summary of effective flags, the cache directory, targets, and the
-contigs accumulated per flavour.
+ends with a summary of effective flags, the cache directory, targets, the
+contigs accumulated per flavour, and the `vepyr sha` line naming the exact
+40-char revision the run tested against.
 
 Without a cache root (`--cache-dir` or `$VEPYR_CACHE_ROOT`), an invocation
-(without `--help` / `--list`) exits 2. With targets present, `--vepyr REF` is
-required for the cargo run.
+(without `--help` / `--list`) exits 2. With targets present, the cargo run needs
+no `--vepyr`: the ref defaults to `biodatageeks/vepyr`'s `master` HEAD, resolved
+per run and reported as `vepyr sha` in the summary. That default is deliberately
+floating — a run today and a run tomorrow can test different engine code — so
+pin `--vepyr REF` for anything that must be reproducible.
 
 ## tests/common (cache + assertion helpers)
 

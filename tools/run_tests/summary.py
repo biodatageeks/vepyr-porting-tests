@@ -1,8 +1,9 @@
 """The end-of-run summary block ``./run_tests`` prints before it exits.
 
-Every flag and effective parameter of the invocation, the cache directory, contigs
-accumulated on disk, discovered data-test targets, and the resolved ``--vepyr`` sha
-when an engine override ran.
+Every flag and effective parameter of the invocation, the cache directory,
+contigs accumulated on disk, discovered data-test targets, and the full 40-char
+resolved vepyr sha the run tested against — whether ``--vepyr REF`` pinned it or
+the default ``master`` HEAD supplied it.
 """
 
 from __future__ import annotations
@@ -15,6 +16,7 @@ from typing import Final
 from run_tests.verdict import Exit
 
 __all__ = [
+    "DEFAULT_MARK",
     "HEADER",
     "NEVER_FETCHED",
     "UNREADABLE",
@@ -29,6 +31,7 @@ WHOLE_GENOME: Final[str] = "ALL (whole genome)"
 NEVER_FETCHED: Final[str] = "(never fetched)"
 UNREADABLE: Final[str] = "(PROVENANCE.json unreadable)"
 _NONE: Final[str] = "(none)"
+DEFAULT_MARK: Final[str] = "(default: no --vepyr given; floating master HEAD)"
 
 
 @dataclass(frozen=True, slots=True, kw_only=True)
@@ -47,6 +50,8 @@ class RunSummary:
     outcome: Exit
     detail: str | None = None
     vepyr_resolved: str | None = None
+    vepyr_default: bool = False
+    """``--vepyr`` was omitted and :attr:`vepyr` is the implicit default ref."""
     targets: tuple[str, ...] = ()
 
 
@@ -88,14 +93,15 @@ def render(
     )
     targets = ", ".join(summary.targets) if summary.targets else _NONE
     vepyr_line = summary.vepyr or _NONE
-    if summary.vepyr_resolved:
-        vepyr_line = f"{vepyr_line} ({summary.vepyr_resolved[:12]})"
+    if summary.vepyr_default:
+        vepyr_line = f"{vepyr_line} {DEFAULT_MARK}"
     lines = [
         HEADER,
         f"cache dir        : {summary.cache_dir or _NONE}",
         f"flavours         : {', '.join(summary.flavours)}",
         f"contigs requested: {requested}",
         f"vepyr            : {vepyr_line}",
+        f"vepyr sha        : {summary.vepyr_resolved or _NONE}",
         f"targets          : {targets}",
         f"fasta            : {'yes' if summary.fasta else 'no'}",
         f"dry-run          : {'yes' if summary.dry_run else 'no'}",
