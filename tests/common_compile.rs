@@ -1,9 +1,7 @@
-//! Compile harness for `tests/common` (issues #5 / #14).
+//! Compile harness for `tests/common`.
 //!
 //! Pulls cache/ledger/csq/provenance/annotate modules into a `[[test]]` target so
 //! `cargo check --tests` type-checks them. Not a smoke or data-problem test.
-
-#![allow(dead_code)]
 
 mod common;
 
