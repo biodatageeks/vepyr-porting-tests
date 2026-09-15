@@ -1,8 +1,9 @@
 """Command line for ``./run_tests`` — fetch, ``--vepyr``, and data-test runs.
 
 ``--cache-dir`` materialises the pinned VEP 116 corpus. With a cache root
-(``--cache-dir`` or ``$VEPYR_CACHE_ROOT``) and ``--vepyr REF``, discovered
-``tests/data_*.rs`` targets run under a path-patched engine ladder.
+(``--cache-dir`` or ``$VEPYR_CACHE_ROOT``), discovered ``tests/data_*.rs`` targets
+run under a path-patched engine ladder: ``--vepyr REF`` pins the revision, and
+omitting it resolves ``biodatageeks/vepyr``'s current ``master`` HEAD (issue #30).
 """
 
 from __future__ import annotations
@@ -21,27 +22,26 @@ from run_tests.verdict import Exit, RunTestsError
 
 __all__ = [
     "DEFAULT_FLAVOURS",
+    "DEFAULT_VEPYR_REF",
     "DESCRIPTION",
     "MISSING_CACHE",
-    "MISSING_VEPYR",
     "Invocation",
     "main",
     "parse_args",
 ]
 
 DEFAULT_FLAVOURS: Final[str] = "ensembl,refseq,merged"
+DEFAULT_VEPYR_REF: Final[str] = "master"
+"""Ref resolved when ``--vepyr`` is omitted: ``biodatageeks/vepyr`` master HEAD."""
 DESCRIPTION: Final[str] = (
     "Entry point for curated data-problem porting tests. "
     "--cache-dir materialises the pinned VEP 116 corpus; "
-    "with a cache root and --vepyr REF, discovered data-tests run."
+    "with a cache root, discovered data-tests run against --vepyr REF "
+    f"(default: biodatageeks/vepyr {DEFAULT_VEPYR_REF!r} HEAD)."
 )
 MISSING_CACHE: Final[str] = (
     "run_tests: need a cache root: pass --cache-dir DIR or export "
     f"{tests.CACHE_ENV}=DIR (after ./run_tests --cache-dir DIR [--add-contigs LIST])"
-)
-MISSING_VEPYR: Final[str] = (
-    "run_tests: data-test runs require --vepyr REF "
-    "(tag, branch, or commit on biodatageeks/vepyr)"
 )
 _USAGE: Final[str] = "./run_tests [options]"
 _HF_XET_HIGH_PERFORMANCE: Final[str] = "HF_XET_HIGH_PERFORMANCE"
@@ -63,6 +63,11 @@ class Invocation:
     verify: bool
     fast: bool
     trim_manifests: bool
+
+    @property
+    def vepyr_ref(self) -> str:
+        """Ref to resolve: ``--vepyr`` when given, else :data:`DEFAULT_VEPYR_REF`."""
+        return self.vepyr if self.vepyr is not None else DEFAULT_VEPYR_REF
 
 
 class _Parser(argparse.ArgumentParser):
@@ -132,9 +137,10 @@ def _parser() -> argparse.ArgumentParser:
         "--vepyr",
         default=None,
         metavar="REF",
-        help="vepyr ref under test (branch, tag, or commit on biodatageeks/vepyr). "
-        "Required when running data-tests; materialises that revision's dfbf/formats "
-        "ladder via cargo path patches.",
+        help="vepyr ref under test (branch, tag, or commit on biodatageeks/vepyr); "
+        f"materialises that revision's dfbf/formats ladder via cargo path patches. "
+        f"Omitted, data-tests run against {DEFAULT_VEPYR_REF}'s current HEAD, whose "
+        "resolved sha the run summary prints; pass REF for a pinned, reproducible run.",
     )
     run = parser.add_argument_group("Run")
     run.add_argument(
@@ -210,6 +216,7 @@ def _summary(
     cache_dir: Path | None = None,
     targets: Sequence[str] = (),
     vepyr_resolved: str | None = None,
+    vepyr_effective: str | None = None,
 ) -> str:
     root = cache_dir if cache_dir is not None else inv.cache_dir
     accumulated = (
@@ -220,8 +227,9 @@ def _summary(
             cache_dir=root,
             add_contigs=inv.add_contigs,
             flavours=inv.flavours,
-            vepyr=inv.vepyr,
+            vepyr=vepyr_effective if vepyr_effective is not None else inv.vepyr,
             vepyr_resolved=vepyr_resolved,
+            vepyr_default=vepyr_effective is not None and inv.vepyr is None,
             targets=tuple(targets),
             fasta=root is not None and (inv.cache_dir is not None and not inv.dry_run),
             dry_run=inv.dry_run,
@@ -322,12 +330,11 @@ def _run_data_tests(
     gh_api: engine.GhApi | None,
 ) -> tuple[Exit, str | None, str | None]:
     """Precheck + engine + cargo. Returns ``(code, detail, vepyr_resolved)``."""
-    assert inv.vepyr is not None
     repo = _repo_root()
     pins_toml = repo / "PINS.toml"
     tests.precheck_cache(cache_root, pins_toml=pins_toml)
     plan, config_path = engine.materialise(
-        inv.vepyr, repo_root=repo, api=gh_api
+        inv.vepyr_ref, repo_root=repo, api=gh_api
     )
     argv = tests.cargo_argv(targets, config=config_path)
     env = {tests.CACHE_ENV: str(cache_root)}
@@ -439,20 +446,6 @@ def _no_targets_phase(
     return int(Exit.OK)
 
 
-def _missing_vepyr_phase(
-    inv: Invocation, *, cache_root: Path, targets: Sequence[str]
-) -> int:
-    """Targets exist but no ``--vepyr REF`` was given."""
-    print(MISSING_VEPYR, file=sys.stderr)
-    print(
-        _summary(
-            inv, Exit.USAGE, MISSING_VEPYR, cache_dir=cache_root, targets=targets
-        ),
-        end="",
-    )
-    return int(Exit.USAGE)
-
-
 def _data_test_phase(
     inv: Invocation,
     *,
@@ -461,7 +454,12 @@ def _data_test_phase(
     cargo_runner: CargoRunner,
     gh_api: engine.GhApi | None,
 ) -> int:
-    """Run the discovered data-tests under the patched engine ladder."""
+    """Run the discovered data-tests under the patched engine ladder.
+
+    ``--vepyr`` is optional: omitted, :attr:`Invocation.vepyr_ref` falls back to
+    :data:`DEFAULT_VEPYR_REF` and the resolver dereferences that branch's current
+    HEAD, whose full sha the summary prints (issue #30).
+    """
     vepyr_resolved: str | None = None
     try:
         code, detail, vepyr_resolved = _run_data_tests(
@@ -482,6 +480,7 @@ def _data_test_phase(
             cache_dir=cache_root,
             targets=targets,
             vepyr_resolved=vepyr_resolved,
+            vepyr_effective=inv.vepyr_ref,
         ),
         end="",
     )
@@ -543,8 +542,6 @@ def main(
             detail=detail,
             fetched=fetched,
         )
-    if inv.vepyr is None:
-        return _missing_vepyr_phase(inv, cache_root=cache_root, targets=targets)
     return _data_test_phase(
         inv,
         cache_root=cache_root,

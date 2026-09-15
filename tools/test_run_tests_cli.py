@@ -22,7 +22,8 @@ import pytest
 from test_fetch import PINS_TOML, REVISIONS, TINY_FA, FakeHub, build_hub
 
 from run_tests import cli, engine, tests
-from run_tests.cli import MISSING_CACHE, MISSING_VEPYR, main
+from run_tests import summary as summary_mod
+from run_tests.cli import DEFAULT_VEPYR_REF, MISSING_CACHE, main
 from run_tests.fetch import PROVENANCE, Flavour, RemoteFile, bsd_sum
 from run_tests.summary import HEADER
 from run_tests.verdict import Exit, RunTestsError
@@ -370,29 +371,6 @@ def test_fast_exports_the_env_before_the_first_hub_call(
     assert seen == [None]
 
 
-def test_targets_without_vepyr_are_usage_errors(harness: Harness) -> None:
-    assert (
-        harness.run(
-            "--cache-dir",
-            str(harness.root),
-            "--add-contigs",
-            "chr21",
-            "--flavours",
-            "ensembl",
-        ).code
-        == int(Exit.OK)
-    )
-    (harness.repo / "tests" / "data_pilot.rs").write_text("// stub\n")
-    result = harness.run(
-        "--cache-dir",
-        str(harness.root),
-        "--flavours",
-        "ensembl",
-    )
-    assert result.code == int(Exit.USAGE)
-    assert MISSING_VEPYR in result.stderr
-
-
 class _FakeGh:
     """Minimal GhApi: returns a fixed vepyr Cargo.toml ladder."""
 
@@ -736,3 +714,78 @@ def test_precheck_follows_a_bumped_fasta_pin_name(harness: Harness) -> None:
         tests.precheck_cache(harness.root, pins_toml=pins_toml, flavours=["ensembl"])
     assert excinfo.value.code is Exit.INCOMPLETE
     assert "bumped.fa" in str(excinfo.value)
+
+
+def test_omitted_vepyr_resolves_master_head_and_prints_the_sha(
+    harness: Harness, monkeypatch: pytest.MonkeyPatch, tmp_path: Path
+) -> None:
+    """Issue #30 AC1/AC2: no ``--vepyr`` runs against master HEAD, sha in summary."""
+    assert (
+        harness.run(
+            "--cache-dir",
+            str(harness.root),
+            "--add-contigs",
+            "chr21",
+            "--flavours",
+            "ensembl",
+        ).code
+        == int(Exit.OK)
+    )
+    (harness.repo / "tests" / "data_pilot.rs").write_text("// stub\n")
+    _stub_engine(tmp_path / "src", monkeypatch)
+
+    master_sha = "b" * 40
+    gh = _FakeGh(_tiny_ladder_toml(), sha=master_sha)
+    asked: list[str] = []
+    inner_get = gh.get
+
+    def spy(path: str) -> object:
+        asked.append(path)
+        return inner_get(path)
+
+    monkeypatch.setattr(gh, "get", spy)
+
+    result = harness.run(
+        "--cache-dir", str(harness.root), "--flavours", "ensembl", gh_api=gh
+    )
+
+    assert result.code == int(Exit.OK), result.stderr
+    assert f"repos/{engine.VEPYR_REPO}/commits/{DEFAULT_VEPYR_REF}" in asked
+    assert [c for c in harness.cargo.calls if c[0][:2] == ["cargo", "test"]]
+    assert f"vepyr sha        : {master_sha}" in result.summary
+    assert DEFAULT_VEPYR_REF in result.summary
+    assert summary_mod.DEFAULT_MARK in result.summary
+
+
+def test_explicit_vepyr_ref_is_not_marked_default(
+    harness: Harness, monkeypatch: pytest.MonkeyPatch, tmp_path: Path
+) -> None:
+    """Issue #30 AC3: ``--vepyr REF`` still resolves REF, with no default marker."""
+    assert (
+        harness.run(
+            "--cache-dir",
+            str(harness.root),
+            "--add-contigs",
+            "chr21",
+            "--flavours",
+            "ensembl",
+        ).code
+        == int(Exit.OK)
+    )
+    (harness.repo / "tests" / "data_pilot.rs").write_text("// stub\n")
+    _stub_engine(tmp_path / "src", monkeypatch)
+
+    pinned = "c" * 40
+    result = harness.run(
+        "--cache-dir",
+        str(harness.root),
+        "--flavours",
+        "ensembl",
+        "--vepyr",
+        "0.7.0",
+        gh_api=_FakeGh(_tiny_ladder_toml(), sha=pinned),
+    )
+    assert result.code == int(Exit.OK), result.stderr
+    assert "vepyr            : 0.7.0" in result.summary
+    assert f"vepyr sha        : {pinned}" in result.summary
+    assert summary_mod.DEFAULT_MARK not in result.summary
