@@ -39,6 +39,26 @@ export VEPYR_CACHE_ROOT=/mnt/hf-cache
 | `--no-trim-manifests` | Leaves `chrom_manifest.json` naming shards that were not fetched |
 | `--vepyr REF` | Resolves `REF` on biodatageeks/vepyr and path-patches that revision's dfbf/formats ladder. **Optional:** omitted, data-tests run against `master`'s current HEAD; the summary prints the full 40-char resolved sha either way. Pass `REF` whenever a pinned, reproducible run is wanted (CI, bisecting, ledger evidence) |
 
+**"Targets" means cargo test targets** — the `tests/data_*.rs` files. One file is
+one target, named by its stem (`tests/data_foo.rs` → `data_foo`), and each becomes
+one `--test data_foo` argument in the `cargo test` invocation. `--list` prints
+exactly that set.
+
+**`--vepyr REF` examples.** `REF` is anything `biodatageeks/vepyr` can dereference:
+
+```bash
+./run_tests --vepyr 0.7.0     # a tag — note there is NO `v` prefix
+./run_tests --vepyr 1f0c3a9   # a commit sha, short…
+./run_tests --vepyr 1f0c3a9e4b7d2c5a8f6013b9d4e27ca5f80b6d31   # …or full 40-char
+./run_tests --vepyr master    # a branch (resolved to its HEAD at run time)
+./run_tests                   # omitted: same as `--vepyr master`, resolved per run
+```
+
+Omitting the flag is **not** "no engine": it resolves `biodatageeks/vepyr`'s
+`master` HEAD as it stands at that moment. The summary prints the resolved 40-char
+sha in every case. How that resolution works end to end is documented in
+[docs/dynamic-vepyr-version-resolving.md](docs/dynamic-vepyr-version-resolving.md).
+
 Every real fetch (not `--dry-run`) also downloads the GRCh38 FASTA into
 `DIR/fasta/`, checks it against the `[grch38_fasta]` pin, and writes the `.fai`
 index.
@@ -81,6 +101,10 @@ Shared modules under `tests/common/`: `cache` / `ledger` (issue #5), plus
 live as `tests/data_*.rs` and are discovered by `./run_tests --list`.
 
 ### Caveats
+
+**Windows.** `./run_tests` is a bash script (it bootstraps `uv` and then runs
+`tools/run_tests/`), so it needs a POSIX shell: use Git Bash or WSL. `cmd.exe` and
+PowerShell cannot execute it directly.
 
 **Accumulation.** `--add-contigs` only adds shards; it never removes earlier
 ones. `chr21,chr22` then `chr15,chrY` leaves all four on disk. For a wholly

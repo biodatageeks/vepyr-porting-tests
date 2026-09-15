@@ -1,6 +1,7 @@
 """``--vepyr REF`` — resolve biodatageeks/vepyr and path-patch its dfbf/formats ladder.
 
-No sitekwb forks, no ``test-internals`` overlays. The engine is a run-time parameter:
+Only the public biodatageeks crates named by ``REF``'s own ``Cargo.toml``; no
+``test-internals`` overlays. The engine is a run-time parameter:
 committed ``Cargo.toml`` floats on biodatageeks ``master``; this module materialises the
 exact revisions named by ``REF``'s ``Cargo.toml`` and writes a ``cargo --config`` file
 with path ``[patch]`` tables. ``Cargo.lock`` is restored from git around the run.

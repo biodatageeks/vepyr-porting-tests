@@ -96,7 +96,8 @@ def _parser() -> argparse.ArgumentParser:
         default=None,
         metavar="DIR",
         help="cache directory for the VEP 116 corpus; shards are downloaded into it "
-        "(the reference FASTA comes along automatically). Also used as the run root.",
+        "(the reference FASTA comes along automatically). Also used as $VEPYR_CACHE_ROOT "
+        "for the run.",
     )
     data.add_argument(
         "--add-contigs",
@@ -138,9 +139,12 @@ def _parser() -> argparse.ArgumentParser:
         default=None,
         metavar="REF",
         help="vepyr ref under test (branch, tag, or commit on biodatageeks/vepyr); "
-        f"materialises that revision's dfbf/formats ladder via cargo path patches. "
-        f"Omitted, data-tests run against {DEFAULT_VEPYR_REF}'s current HEAD, whose "
-        "resolved sha the run summary prints; pass REF for a pinned, reproducible run.",
+        "materialises that revision's dfbf/formats ladder via cargo path patches. "
+        "Examples: a tag carries no 'v' prefix (--vepyr 0.7.0, not v0.7.0); a commit "
+        "may be full or short (--vepyr 1f0c3a9 or the full 40-char sha); a branch "
+        "works too (--vepyr master). Omitted, data-tests run against "
+        f"{DEFAULT_VEPYR_REF}'s current HEAD, whose resolved 40-char sha the run "
+        "summary prints either way; pass REF for a pinned, reproducible run.",
     )
     run = parser.add_argument_group("Run")
     run.add_argument(
