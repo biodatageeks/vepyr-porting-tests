@@ -10,6 +10,7 @@ branch ref and silently tested a stale revision.
 from __future__ import annotations
 
 import base64
+import shutil
 import subprocess
 from collections.abc import Sequence
 from pathlib import Path
@@ -160,12 +161,19 @@ def _add_lfs_blob(root: Path, rel: str, content: bytes) -> str:
     return _git(root, "rev-parse", "HEAD")
 
 
+@pytest.mark.skipif(shutil.which("git-lfs") is None, reason="git-lfs not on PATH")
 def test_checkout_leaves_lfs_files_as_pointers(tmp_path: Path) -> None:
     """Ladder checkouts skip smudging, so LFS blobs never need a server (#61).
 
     The fixture repo tracks ``vep-benchmark/data/golden/cache/chr1.parquet`` through
     real git-lfs. Without ``GIT_LFS_SKIP_SMUDGE=1`` the checkout would replace the
     pointer with the real bytes (and, against a real remote, download them).
+
+    Relies on ``filter.lfs.smudge`` being configured (globally or per-user, from
+    ``git lfs install``) so the checked-out tree — a plain ``--shared`` clone, not
+    the fixture repo itself — actually runs the filter either way; without that
+    config this would pass vacuously. ``test_clone_and_checkout_carry_skip_smudge_env``
+    below asserts the env var directly and does not depend on that.
     """
     real = b"not-really-parquet " * 64
     rel = "vep-benchmark/data/golden/cache/chr1.parquet"
