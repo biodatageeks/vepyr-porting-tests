@@ -35,6 +35,7 @@ chr21\t25585733\trs142513484\tC\tT\t.\tPASS\t.
 ";
 
 /// The ledger assertion this test realises; `required_contigs` drives the shard check.
+// TODO(#63): read from ledger/Runner.ledger.toml once the ledger corpus moves to SSOT
 const ASSERTION_TOML: &str = r#"
 [[assertion]]
 n = 16
@@ -141,7 +142,12 @@ macro_rules! expected_groups {
     };
 }
 
-/// All 34 CSQ groups of the VEP 116 `default` run, in the oracle's emission order.
+/// All 34 CSQ groups of the VEP 116 `default` run.
+///
+/// The 34 rows are listed in the oracle's emission order so the source can be diffed
+/// by eye against the oracle's CSQ dump, but that order is **not asserted** by this
+/// test: [`csq::group_for`] addresses each group by `Feature`, not by position.
+/// Whether group order should be asserted at all is tracked by issue #64.
 ///
 /// Layout (from the oracle's `##INFO=<ID=CSQ…Format: …>` header):
 /// `Allele|Consequence|IMPACT|SYMBOL|Gene|Feature_type|Feature|BIOTYPE|EXON|INTRON|`
@@ -188,10 +194,9 @@ const EXPECTED: [Expected; 34] = expected_groups![
 #[tokio::test]
 async fn data_runner_consequence_content_matches_vep116_default_oracle() {
     let cache = cache::full_cache(Flavour::Ensembl);
-    // The oracle is a plain `--offline --cache --vcf` run: consequences at this locus
-    // come from transcript records alone. `Existing_variation` is empty in all 34
-    // expected groups, so no `Entity::Variation` shard is read either.
-    let entities = &[Entity::Transcript];
+    // Default oracle (`--offline --cache --vcf`) without colocated variation: Transcript +
+    // Exon + TranslationCore are what `annotate` needs for this CSQ shape.
+    let entities = &[Entity::Transcript, Entity::Exon, Entity::TranslationCore];
     // DECIDED 1: the DEFAULT `AnnotateVcfConfig` *is* the oracle — no overrides.
     let config = annotate_config! {};
 
@@ -203,12 +208,23 @@ async fn data_runner_consequence_content_matches_vep116_default_oracle() {
     assert_eq!(data_lines.len(), 1, "one data line expected, got {data_lines:?}");
     let columns: Vec<&str> = data_lines[0].split('\t').collect();
     assert_eq!(
-        &columns[..5],
-        &["chr21", "25585733", "rs142513484", "C", "T"],
+        columns.get(..5),
+        Some(&["chr21", "25585733", "rs142513484", "C", "T"][..]),
         "the emitted row must be the input SNV, contig spelled chr21"
     );
 
     let layout = csq::csq_layout(&output);
+    #[rustfmt::skip]
+    assert_eq!(
+        layout,
+        [
+            "Allele", "Consequence", "IMPACT", "SYMBOL", "Gene", "Feature_type", "Feature",
+            "BIOTYPE", "EXON", "INTRON", "HGVSc", "HGVSp", "cDNA_position", "CDS_position",
+            "Protein_position", "Amino_acids", "Codons", "Existing_variation", "DISTANCE",
+            "STRAND", "FLAGS", "SYMBOL_SOURCE", "HGNC_ID",
+        ],
+        "the emitted CSQ layout must match the VEP 116 default 23-field layout"
+    );
     let groups = csq::csq_groups(&output, 0);
 
     // Cheapest falsifier first: the group inventory size.
@@ -230,11 +246,21 @@ async fn data_runner_consequence_content_matches_vep116_default_oracle() {
         "the set of annotated Feature IDs must equal the oracle's 34"
     );
 
-    // Finally every one of the 23 subfields of every group — including the ones that
-    // are empty in every oracle row (HGVSc, HGVSp, Existing_variation, FLAGS), so an
-    // engine change that starts populating them fails loud too (DECIDED 3).
+    // Assert all 23 CSQ subfields per group. Empty HGVSc/HGVSp/FLAGS are a real
+    // default-oracle contract (no HGVS / flag sources in this config) — an engine
+    // that starts filling them fails loud (DECIDED 3). Empty Existing_variation is
+    // weaker: it mainly pins that this run does not require the variation shard,
+    // not a colocated-variation engine contract.
     for row in &EXPECTED {
         let group = csq::group_for(&layout, &groups, row.feature);
+        assert_eq!(
+            group.len(),
+            layout.len(),
+            "CSQ group for {} has {} fields, layout declares {}",
+            row.feature,
+            group.len(),
+            layout.len()
+        );
         for (name, expected) in row.by_csq_field() {
             assert_eq!(
                 csq::field(&layout, group, name),
