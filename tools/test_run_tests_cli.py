@@ -152,8 +152,16 @@ def test_help_lists_required_flags_and_not_contigs() -> None:
     assert "--contigs " not in result.stdout
 
 
-def test_list_reports_zero_data_problem_targets() -> None:
-    result = _bare(["--list"])
+def test_list_reports_zero_data_problem_targets(harness: Harness) -> None:
+    """``--list`` over a repository with no ``tests/data_*.rs`` reports none.
+
+    The count is taken against the throwaway repository of the ``harness``
+    fixture, never the real checkout: the repository does carry data-problem
+    targets, so asserting on its contents would test the tree rather than the
+    CLI, and would break whenever a target is added or removed.
+    """
+    assert not list((harness.repo / "tests").glob("data_*.rs"))
+    result = harness.run("--list")
     assert result.code == 0
     assert "0 data-problem target(s)" in result.stdout
     assert "(none)" in result.stdout
