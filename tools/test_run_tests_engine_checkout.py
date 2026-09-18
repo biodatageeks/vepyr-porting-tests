@@ -10,6 +10,7 @@ branch ref and silently tested a stale revision.
 from __future__ import annotations
 
 import base64
+import os
 import shutil
 import subprocess
 import tempfile
@@ -248,6 +249,12 @@ def test_clone_and_checkout_carry_skip_smudge_env(tmp_path: Path) -> None:
     assert shared_clone and detach, calls
     for kwargs in (*shared_clone, *detach):
         assert kwargs["env"]["GIT_LFS_SKIP_SMUDGE"] == "1"
+        # The overlay must *extend* the ambient environment, not replace it:
+        # ``subprocess`` swaps the child env wholesale, so a bare ``env=`` would
+        # strip ``HOME`` (where ``filter.lfs.*``, credential helpers and proxies
+        # live) and ``PATH`` (where ``git-lfs`` itself lives) from the checkout.
+        assert kwargs["env"]["PATH"] == os.environ["PATH"]
+        assert kwargs["env"].get("HOME") == os.environ.get("HOME")
     # Untouched calls keep today's environment (no ``env=`` kwarg at all).
     plain = [k for a, k in calls if "rev-parse" in a]
     assert plain and all("env" not in k for k in plain)
