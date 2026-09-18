@@ -10,7 +10,10 @@ branch ref and silently tested a stale revision.
 from __future__ import annotations
 
 import base64
+import os
+import shutil
 import subprocess
+import tempfile
 from collections.abc import Sequence
 from pathlib import Path
 from typing import Any, Final
@@ -139,6 +142,122 @@ def test_ref_kinds_resolve_to_the_tip(tmp_path: Path, rev_key: str) -> None:
     assert plan.dfbf.head == head_dfbf
     assert _git(plan.dfbf.path, "rev-parse", "HEAD") == head_dfbf
     assert plan.formats.head == head_fmt
+
+
+_LFS_POINTER_MAGIC: Final[str] = "version https://git-lfs.github.com/spec/v1"
+
+
+def _add_lfs_blob(root: Path, rel: str, content: bytes) -> str:
+    """Commit ``content`` at ``rel`` through git-lfs; return the new HEAD sha."""
+    subprocess.run(
+        ["git", "-C", str(root), "lfs", "install", "--local"],
+        capture_output=True,
+        text=True,
+        check=True,
+    )
+    _git(root, "lfs", "track", rel)
+    (root / rel).parent.mkdir(parents=True, exist_ok=True)
+    (root / rel).write_bytes(content)
+    _git(root, "add", "-A")
+    _git(root, "commit", "-qm", "lfs")
+    return _git(root, "rev-parse", "HEAD")
+
+
+def _lfs_smudge_filter_configured() -> bool:
+    """Is an LFS smudge filter registered for *freshly cloned* repositories?
+
+    ``_checkout_repo`` clones into a throwaway directory, so the tree under test
+    inherits ``filter.lfs.*`` from global/system config only — never from the
+    fixture repo's ``git lfs install --local``, and never from this repository's
+    own ``.git/config``. The probe therefore runs from a neutral directory, so a
+    repo-local setting here cannot fake the precondition.
+    """
+    probe = subprocess.run(
+        ["git", "config", "--get", "filter.lfs.process"],
+        cwd=tempfile.gettempdir(),
+        capture_output=True,
+        text=True,
+        check=False,
+    )
+    return bool(probe.stdout.strip())
+
+
+@pytest.mark.skipif(
+    shutil.which("git-lfs") is None or not _lfs_smudge_filter_configured(),
+    reason="needs the git-lfs binary *and* a configured filter.lfs.process; "
+    "without the filter a fresh clone writes the pointer verbatim either way, "
+    "so this test would pass vacuously",
+)
+def test_checkout_leaves_lfs_files_as_pointers(tmp_path: Path) -> None:
+    """Ladder checkouts skip smudging, so LFS blobs never need a server (#61).
+
+    The fixture repo tracks ``vep-benchmark/data/golden/cache/chr1.parquet`` through
+    real git-lfs. Without ``GIT_LFS_SKIP_SMUDGE=1`` the checkout would replace the
+    pointer with the real bytes (and, against a real remote, download them).
+
+    The checked-out tree is a plain ``--shared`` clone, not the fixture repo, so
+    it only runs the smudge filter when ``filter.lfs.process`` is set in
+    global/system config (from ``git lfs install``). That is the real
+    precondition, and the ``skipif`` above guards on it rather than on the mere
+    presence of the binary — otherwise this would pass vacuously, and pass
+    identically with the fix reverted. ``test_clone_and_checkout_carry_skip_smudge_env``
+    below asserts the env var directly and does not depend on that.
+    """
+    real = b"not-really-parquet " * 64
+    rel = "vep-benchmark/data/golden/cache/chr1.parquet"
+    dfbf = _make_remote(tmp_path / "remote-dfbf", _DFBF_MEMBERS)
+    fmt = _make_remote(tmp_path / "remote-fmt", _FMT_MEMBERS)
+    _add_lfs_blob(dfbf, rel, real)
+    head = _git(dfbf, "rev-parse", "HEAD")
+    api = _FakeGh(
+        dfbf=dfbf,
+        fmt=fmt,
+        rev_key="rev",
+        dfbf_rev=head,
+        fmt_rev=_git(fmt, "rev-parse", "HEAD"),
+    )
+
+    plan = engine.resolve("ref", api=api, src_root=tmp_path / "src")
+    assert plan.dfbf.head == head
+    blob = plan.dfbf.path / rel
+    assert blob.exists()
+    text = blob.read_text()
+    assert text.startswith(_LFS_POINTER_MAGIC), text[:200]
+    assert blob.read_bytes() != real
+
+
+def test_clone_and_checkout_carry_skip_smudge_env(tmp_path: Path) -> None:
+    """The two working-tree-materialising git calls pass ``GIT_LFS_SKIP_SMUDGE=1``."""
+    calls: list[tuple[list[str], dict[str, Any]]] = []
+    sha = "b" * 40
+
+    def fake_run(argv: list[str], **kwargs: Any) -> subprocess.CompletedProcess[str]:
+        calls.append((argv, kwargs))
+        return subprocess.CompletedProcess(argv, 0, sha, "")
+
+    engine._checkout_repo(
+        name="dfbf",
+        git_url="https://example.invalid/x.git",
+        rev=sha,
+        target=tmp_path / "dfbf",
+        run=fake_run,
+        offline=False,
+    )
+
+    shared_clone = [k for a, k in calls if "clone" in a and "--shared" in a]
+    detach = [k for a, k in calls if "checkout" in a and "--detach" in a]
+    assert shared_clone and detach, calls
+    for kwargs in (*shared_clone, *detach):
+        assert kwargs["env"]["GIT_LFS_SKIP_SMUDGE"] == "1"
+        # The overlay must *extend* the ambient environment, not replace it:
+        # ``subprocess`` swaps the child env wholesale, so a bare ``env=`` would
+        # strip ``HOME`` (where ``filter.lfs.*``, credential helpers and proxies
+        # live) and ``PATH`` (where ``git-lfs`` itself lives) from the checkout.
+        assert kwargs["env"]["PATH"] == os.environ["PATH"]
+        assert kwargs["env"].get("HOME") == os.environ.get("HOME")
+    # Untouched calls keep today's environment (no ``env=`` kwarg at all).
+    plain = [k for a, k in calls if "rev-parse" in a]
+    assert plain and all("env" not in k for k in plain)
 
 
 @pytest.mark.parametrize("ref_kind", ["sha", "tag", "branch"])

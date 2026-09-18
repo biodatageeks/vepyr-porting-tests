@@ -54,6 +54,11 @@ _FORMATS_CRATES: Final[tuple[str, ...]] = (
 # rest resolved from git — two copies of one crate name in a single graph.
 _FORMATS_PREFIX: Final[str] = "datafusion-bio-format-"
 _TIMEOUT: Final[int] = 180
+# Ladder checkouts need Rust source only. `datafusion-bio-functions` also carries
+# git-lfs-tracked benchmark fixtures (`vep-benchmark/data/golden/cache/**`) that no
+# workspace crate reads; smudging them made a transient LFS download failure abort the
+# whole `--vepyr` run (issue #61). Leave every LFS path as its pointer file instead.
+_NO_SMUDGE: Final[Mapping[str, str]] = {"GIT_LFS_SKIP_SMUDGE": "1"}
 _SHA: Final[re.Pattern[str]] = re.compile(r"^[0-9a-f]{7,40}$")
 
 #: Characters a git ref may consist of. ``/`` is deliberately allowed —
@@ -189,13 +194,22 @@ class EnginePlan:
         return f"{v} {d} {f}"
 
 
-def _git(run: Runner, argv: Sequence[str]) -> str:
+def _git(
+    run: Runner, argv: Sequence[str], *, env: Mapping[str, str] | None = None
+) -> str:
+    """Run one git command; ``env`` (if given) is overlaid on ``os.environ``.
+
+    Passing ``env=None`` leaves the child environment untouched — no ``env=``
+    keyword reaches ``run`` at all — so every existing call site is unaffected.
+    """
+    extra = {} if env is None else {"env": {**os.environ, **env}}
     completed = run(
         list(argv),
         capture_output=True,
         text=True,
         timeout=_TIMEOUT,
         check=False,
+        **extra,
     )
     if completed.returncode != 0:
         err = (completed.stderr or completed.stdout or "git failed").strip()
@@ -399,10 +413,11 @@ def _checkout_repo(
                 str(target / "git"),
                 str(tree),
             ],
+            env=_NO_SMUDGE,
         )
     git = ["git", "-C", str(tree)]
     if fresh or _git(run, [*git, "rev-parse", "HEAD"]) != sha:
-        _git(run, [*git, "checkout", "--quiet", "--detach", sha, "--"])
+        _git(run, [*git, "checkout", "--quiet", "--detach", sha, "--"], env=_NO_SMUDGE)
     head = _git(run, [*git, "rev-parse", "HEAD"])
     if head != sha:
         raise RunTestsError(
