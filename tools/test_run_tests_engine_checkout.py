@@ -12,6 +12,7 @@ from __future__ import annotations
 import base64
 import shutil
 import subprocess
+import tempfile
 from collections.abc import Sequence
 from pathlib import Path
 from typing import Any, Final
@@ -161,7 +162,31 @@ def _add_lfs_blob(root: Path, rel: str, content: bytes) -> str:
     return _git(root, "rev-parse", "HEAD")
 
 
-@pytest.mark.skipif(shutil.which("git-lfs") is None, reason="git-lfs not on PATH")
+def _lfs_smudge_filter_configured() -> bool:
+    """Is an LFS smudge filter registered for *freshly cloned* repositories?
+
+    ``_checkout_repo`` clones into a throwaway directory, so the tree under test
+    inherits ``filter.lfs.*`` from global/system config only — never from the
+    fixture repo's ``git lfs install --local``, and never from this repository's
+    own ``.git/config``. The probe therefore runs from a neutral directory, so a
+    repo-local setting here cannot fake the precondition.
+    """
+    probe = subprocess.run(
+        ["git", "config", "--get", "filter.lfs.process"],
+        cwd=tempfile.gettempdir(),
+        capture_output=True,
+        text=True,
+        check=False,
+    )
+    return bool(probe.stdout.strip())
+
+
+@pytest.mark.skipif(
+    shutil.which("git-lfs") is None or not _lfs_smudge_filter_configured(),
+    reason="needs the git-lfs binary *and* a configured filter.lfs.process; "
+    "without the filter a fresh clone writes the pointer verbatim either way, "
+    "so this test would pass vacuously",
+)
 def test_checkout_leaves_lfs_files_as_pointers(tmp_path: Path) -> None:
     """Ladder checkouts skip smudging, so LFS blobs never need a server (#61).
 
@@ -169,10 +194,12 @@ def test_checkout_leaves_lfs_files_as_pointers(tmp_path: Path) -> None:
     real git-lfs. Without ``GIT_LFS_SKIP_SMUDGE=1`` the checkout would replace the
     pointer with the real bytes (and, against a real remote, download them).
 
-    Relies on ``filter.lfs.smudge`` being configured (globally or per-user, from
-    ``git lfs install``) so the checked-out tree — a plain ``--shared`` clone, not
-    the fixture repo itself — actually runs the filter either way; without that
-    config this would pass vacuously. ``test_clone_and_checkout_carry_skip_smudge_env``
+    The checked-out tree is a plain ``--shared`` clone, not the fixture repo, so
+    it only runs the smudge filter when ``filter.lfs.process`` is set in
+    global/system config (from ``git lfs install``). That is the real
+    precondition, and the ``skipif`` above guards on it rather than on the mere
+    presence of the binary — otherwise this would pass vacuously, and pass
+    identically with the fix reverted. ``test_clone_and_checkout_carry_skip_smudge_env``
     below asserts the env var directly and does not depend on that.
     """
     real = b"not-really-parquet " * 64
