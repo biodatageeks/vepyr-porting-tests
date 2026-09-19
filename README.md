@@ -18,20 +18,49 @@ results on real annotation data.
 ./run_tests --help
 ./run_tests --list
 ./run_tests --cache-dir /mnt/hf-cache --add-contigs chr21,chrMT
+./run_tests --cache-dir /mnt/hf-cache --vepyr 0.7.0
+# or, after a fetch:
+export VEPYR_CACHE_ROOT=/mnt/hf-cache
+./run_tests --vepyr 0.7.0
+# omit --vepyr to run against biodatageeks/vepyr master HEAD as it stands now:
+./run_tests
 ```
 
 | Flag | Status in this commit |
 |------|------------------------|
 | `--help` | Exit 0 |
-| `--list` | Prints **0 data-problem targets**; exit 0 |
-| `--cache-dir DIR` | Downloads the pinned VEP 116 shards into `DIR` and writes `PROVENANCE.json` |
+| `--list` | Lists the `tests/data_*.rs` targets present in the working tree; exit 0 |
+| `--cache-dir DIR` | Downloads the pinned VEP 116 shards into `DIR` and writes `PROVENANCE.json`; then runs data-tests when targets exist |
 | `--add-contigs LIST` | Adds the named contigs to `DIR` (not `--contigs`). Default: whole genome |
 | `--flavours LIST` | Default `ensembl,refseq,merged` |
-| `--dry-run` | Lists Hub files and byte totals; writes nothing |
+| `--dry-run` | Lists Hub files and byte totals; writes nothing; does not run tests |
 | `--verify` | Checks every selected shard against the Hub sha256 |
 | `--fast` | Sets `HF_XET_HIGH_PERFORMANCE=1` for the download (see below) |
 | `--no-trim-manifests` | Leaves `chrom_manifest.json` naming shards that were not fetched |
-| `--vepyr REF` | Parsed; engine checkout not implemented yet |
+| `--vepyr REF` | Resolves `REF` on biodatageeks/vepyr and path-patches that revision's dfbf/formats ladder. **Optional:** omitted, data-tests run against `master`'s current HEAD; the summary prints the full 40-char resolved sha either way. Pass `REF` whenever a pinned, reproducible run is wanted (CI, bisecting, ledger evidence) |
+
+**"Targets" means cargo test targets** — the `tests/data_*.rs` files. One file is
+one target, named by its stem (`tests/data_foo.rs` → `data_foo`), and each becomes
+one `--test data_foo` argument in the `cargo test` invocation. `--list` prints
+exactly that set.
+
+**`--vepyr REF` examples.** `REF` is anything `biodatageeks/vepyr` can dereference:
+
+```bash
+./run_tests --vepyr 0.7.0     # a tag — note there is NO `v` prefix
+./run_tests --vepyr 1f0c3a9   # a commit sha, short…
+./run_tests --vepyr 1f0c3a9e4b7d2c5a8f6013b9d4e27ca5f80b6d31   # …or full 40-char
+./run_tests --vepyr master    # a branch (resolved to its HEAD at run time)
+./run_tests                   # omitted: same as `--vepyr master`, resolved per run
+```
+
+Engine ladder checkouts run with `GIT_LFS_SKIP_SMUDGE=1`: the crates are built from
+Rust source only, so the fetch never depends on unrelated git-lfs-hosted content.
+
+Omitting the flag is **not** "no engine": it resolves `biodatageeks/vepyr`'s
+`master` HEAD as it stands at that moment. The summary prints the resolved 40-char
+sha in every case. How that resolution works end to end is documented in
+[docs/dynamic-vepyr-version-resolving.md](docs/dynamic-vepyr-version-resolving.md).
 
 Every real fetch (not `--dry-run`) also downloads the GRCh38 FASTA into
 `DIR/fasta/`, checks it against the `[grch38_fasta]` pin, and writes the `.fai`
@@ -43,29 +72,42 @@ Xet download concurrency/buffers via `hf_xet` (already pulled in with
 `huggingface-hub`). Use it on a high-bandwidth host with plenty of RAM
 (Hugging Face recommends about 64 GB); on a smaller machine leave it off.
 
-Exit codes: `0` ok, `2` usage, `3` revision clash vs `PINS.toml`, `4`
-incomplete selection or unreachable Hub, `5` verification failure. Every fetch
-run ends with a summary of effective flags, the cache directory, and the
-contigs accumulated per flavour.
+Exit codes: `0` ok, `1` data-tests failed, `2` usage (missing cache),
+`3` revision clash vs `PINS.toml`, `4` incomplete selection or missing cache
+pieces, `5` verification failure, `6` engine resolve/checkout failure. Every run
+ends with a summary of effective flags, the cache directory, targets, the
+contigs accumulated per flavour, and the `vepyr sha` line naming the exact
+40-char revision the run tested against.
 
-Data-problem **test runs** are still not implemented. An invocation without
-`--cache-dir` (and without `--help` / `--list`) exits 2 with:
+Without a cache root (`--cache-dir` or `$VEPYR_CACHE_ROOT`), an invocation
+(without `--help` / `--list`) exits 2. With targets present, the cargo run needs
+no `--vepyr`: the ref defaults to `biodatageeks/vepyr`'s `master` HEAD, resolved
+per run and reported as `vepyr sha` in the summary. That default is deliberately
+floating — a run today and a run tomorrow can test different engine code — so
+pin `--vepyr REF` for anything that must be reproducible.
 
-```text
-run_tests: data-problem runs are not implemented yet; give --cache-dir to materialise the corpus, or --list
-```
+## tests/common (cache + assertion helpers)
 
-## tests/common (cache helpers)
-
-Fetch a cache, then point `$VEPYR_CACHE_ROOT` at the same directory:
+Fetch a cache, then point `$VEPYR_CACHE_ROOT` at the same directory (or pass
+`--cache-dir` to `./run_tests` together with `--vepyr`):
 
 ```bash
 ./run_tests --cache-dir /mnt/hf-cache --add-contigs chr21,chrMT
 export VEPYR_CACHE_ROOT=/mnt/hf-cache
+./run_tests --vepyr 0.7.0
+# helpers type-check (and floating engine deps resolve) with:
 cargo check --tests
 ```
 
+Shared modules under `tests/common/`: `cache` / `ledger` (issue #5), plus
+`annotate`, `csq`, and `provenance` for data-problem pilots (issue #14). Data-tests
+live as `tests/data_*.rs` and are discovered by `./run_tests --list`.
+
 ### Caveats
+
+**Windows.** `./run_tests` is a bash script (it bootstraps `uv` and then runs
+`tools/run_tests/`), so it needs a POSIX shell: use Git Bash or WSL. `cmd.exe` and
+PowerShell cannot execute it directly.
 
 **Accumulation.** `--add-contigs` only adds shards; it never removes earlier
 ones. `chr21,chr22` then `chr15,chrY` leaves all four on disk. For a wholly

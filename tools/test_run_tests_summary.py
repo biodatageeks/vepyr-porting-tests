@@ -61,6 +61,7 @@ def test_every_effective_flag_is_expanded() -> None:
     assert fields["flavours"] == "ensembl"
     assert fields["contigs requested"] == "chr21, chrMT"
     assert fields["vepyr"] == "main"
+    assert fields["targets"] == "(none)"
     assert fields["fasta"] == "yes"
     assert fields["dry-run"] == "no"
     assert fields["verify"] == "yes"

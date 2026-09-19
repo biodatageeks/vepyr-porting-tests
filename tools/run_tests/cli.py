@@ -1,50 +1,53 @@
-"""Command line for ``./run_tests`` — argparse shell plus the cache-fetch dispatch.
+"""Command line for ``./run_tests`` — fetch, ``--vepyr``, and data-test runs.
 
-``--cache-dir`` materialises the pinned VEP 116 corpus through :mod:`run_tests.fetch`
-and prints the end-of-run summary (:mod:`run_tests.summary`). Test execution and the
-``--vepyr`` engine checkout are still deferred to a later slice, so an invocation
-without ``--cache-dir`` keeps refusing.
+``--cache-dir`` materialises the pinned VEP 116 corpus. With a cache root
+(``--cache-dir`` or ``$VEPYR_CACHE_ROOT``), discovered ``tests/data_*.rs`` targets
+run under a path-patched engine ladder: ``--vepyr REF`` pins the revision, and
+omitting it resolves ``biodatageeks/vepyr``'s current ``master`` HEAD (issue #30).
 """
 
 from __future__ import annotations
 
 import argparse
 import os
+import subprocess
 import sys
-from collections.abc import Callable, Sequence
+from collections.abc import Callable, Mapping, Sequence
 from dataclasses import dataclass
 from pathlib import Path
 from typing import Final
 
-from run_tests import fetch, summary
+from run_tests import engine, fetch, summary, tests
 from run_tests.verdict import Exit, RunTestsError
 
 __all__ = [
     "DEFAULT_FLAVOURS",
-    "DEFERRED_MESSAGE",
+    "DEFAULT_VEPYR_REF",
     "DESCRIPTION",
-    "LIST_MESSAGE",
+    "MISSING_CACHE",
     "Invocation",
     "main",
     "parse_args",
 ]
 
 DEFAULT_FLAVOURS: Final[str] = "ensembl,refseq,merged"
+DEFAULT_VEPYR_REF: Final[str] = "master"
+"""Ref resolved when ``--vepyr`` is omitted: ``biodatageeks/vepyr`` master HEAD."""
 DESCRIPTION: Final[str] = (
     "Entry point for curated data-problem porting tests. "
-    "--cache-dir materialises the pinned VEP 116 corpus; test runs are not "
-    "implemented yet."
+    "--cache-dir materialises the pinned VEP 116 corpus; "
+    "with a cache root, discovered data-tests run against --vepyr REF "
+    f"(default: biodatageeks/vepyr {DEFAULT_VEPYR_REF!r} HEAD)."
 )
-DEFERRED_MESSAGE: Final[str] = (
-    "run_tests: data-problem runs are not implemented yet; "
-    "give --cache-dir to materialise the corpus, or --list"
+MISSING_CACHE: Final[str] = (
+    "run_tests: need a cache root: pass --cache-dir DIR or export "
+    f"{tests.CACHE_ENV}=DIR (after ./run_tests --cache-dir DIR [--add-contigs LIST])"
 )
-LIST_MESSAGE: Final[str] = "set   target\n(none)\nrun_tests: 0 data-problem targets"
 _USAGE: Final[str] = "./run_tests [options]"
 _HF_XET_HIGH_PERFORMANCE: Final[str] = "HF_XET_HIGH_PERFORMANCE"
-"""Exported before the first Hub call under ``--fast``: ``huggingface_hub`` reads its
-constants at import time and ``hf_xet`` reads the variable when the download imports
-it."""
+
+CargoRunner = Callable[[Sequence[str], Mapping[str, str]], int]
+"""``(argv, env) -> exit code``; injected by tests so no cargo is spawned."""
 
 
 @dataclass(frozen=True, slots=True, kw_only=True)
@@ -60,6 +63,11 @@ class Invocation:
     verify: bool
     fast: bool
     trim_manifests: bool
+
+    @property
+    def vepyr_ref(self) -> str:
+        """Ref to resolve: ``--vepyr`` when given, else :data:`DEFAULT_VEPYR_REF`."""
+        return self.vepyr if self.vepyr is not None else DEFAULT_VEPYR_REF
 
 
 class _Parser(argparse.ArgumentParser):
@@ -88,7 +96,8 @@ def _parser() -> argparse.ArgumentParser:
         default=None,
         metavar="DIR",
         help="cache directory for the VEP 116 corpus; shards are downloaded into it "
-        "(the reference FASTA comes along automatically).",
+        "(the reference FASTA comes along automatically). It is also the "
+        "$VEPYR_CACHE_ROOT the data-test run reads.",
     )
     data.add_argument(
         "--add-contigs",
@@ -124,31 +133,30 @@ def _parser() -> argparse.ArgumentParser:
         help="leave chrom_manifest.json naming shards that were not fetched "
         "(the engine then fails on a shard that is not on disk).",
     )
-    engine = parser.add_argument_group("Engine")
-    engine.add_argument(
+    engine_g = parser.add_argument_group("Engine")
+    engine_g.add_argument(
         "--vepyr",
         default=None,
         metavar="REF",
-        help="vepyr ref under test (branch, tag, version, or commit). "
-        "Parsed now; engine checkout lands later.",
+        help="vepyr ref under test (branch, tag, or commit on biodatageeks/vepyr); "
+        "materialises that revision's dfbf/formats ladder via cargo path patches. "
+        "Examples: a tag carries no 'v' prefix (--vepyr 0.7.0, not v0.7.0); a commit "
+        "may be full or short (--vepyr 1f0c3a9 or the full 40-char sha); a branch "
+        "works too (--vepyr master). Omitted, data-tests run against "
+        f"{DEFAULT_VEPYR_REF}'s current HEAD, whose resolved 40-char sha the run "
+        "summary prints either way; pass REF for a pinned, reproducible run.",
     )
     run = parser.add_argument_group("Run")
     run.add_argument(
         "--list",
         action="store_true",
-        help="print data-problem targets (currently none) and exit 0.",
+        help="print data-problem targets (tests/data_*.rs) and exit 0.",
     )
     return parser
 
 
 def parse_args(argv: Sequence[str]) -> Invocation:
-    """Parse and validate; empty ``--add-contigs`` / ``--flavours`` are usage errors.
-
-    Raises:
-        RunTestsError: :attr:`Exit.USAGE` for an empty list, or for a contig name
-            carrying a glob metacharacter — an unquoted ``chr*`` would reach the Hub
-            patterns and turn a one-contig fetch into a whole-genome one.
-    """
+    """Parse and validate; empty ``--add-contigs`` / ``--flavours`` are usage errors."""
     parser = _parser()
     args = parser.parse_args(list(argv))
     flavours = tuple(part for part in args.flavours.split(",") if part)
@@ -186,23 +194,14 @@ def _repo_root() -> Path:
     return Path(__file__).resolve().parents[2]
 
 
-def _selection(inv: Invocation) -> fetch.Selection:
-    """Build the fetch selection from a parsed invocation.
-
-    FASTA is not a flag: every real (non-``--dry-run``) fetch takes the pinned reference
-    along, because a cache directory without it is not usable by a test run.
-
-    Raises:
-        RunTestsError: :attr:`Exit.USAGE` when ``--flavours`` names something that is
-            not a published flavour.
-    """
-    assert inv.cache_dir is not None
+def _selection(inv: Invocation, root: Path) -> fetch.Selection:
+    """Build the fetch selection for ``root`` (the already-resolved cache root)."""
     try:
         flavours = tuple(fetch.Flavour(name) for name in inv.flavours)
     except ValueError as exc:
         raise RunTestsError(Exit.USAGE, f"--flavours: {exc}") from exc
     return fetch.Selection(
-        root=inv.cache_dir,
+        root=root,
         flavours=flavours,
         contigs=inv.add_contigs,
         fasta=not inv.dry_run,
@@ -213,20 +212,30 @@ def _selection(inv: Invocation) -> fetch.Selection:
     )
 
 
-def _summary(inv: Invocation, outcome: Exit, detail: str | None) -> str:
-    """Render the end-of-run block for an invocation that reached the fetch path."""
+def _summary(
+    inv: Invocation,
+    outcome: Exit,
+    detail: str | None,
+    *,
+    cache_dir: Path | None = None,
+    targets: Sequence[str] = (),
+    vepyr_resolved: str | None = None,
+    vepyr_effective: str | None = None,
+) -> str:
+    root = cache_dir if cache_dir is not None else inv.cache_dir
     accumulated = (
-        summary.accumulated_contigs(inv.cache_dir, inv.flavours)
-        if inv.cache_dir is not None
-        else {}
+        summary.accumulated_contigs(root, inv.flavours) if root is not None else {}
     )
     return summary.render(
         summary.RunSummary(
-            cache_dir=inv.cache_dir,
+            cache_dir=root,
             add_contigs=inv.add_contigs,
             flavours=inv.flavours,
-            vepyr=inv.vepyr,
-            fasta=inv.cache_dir is not None and not inv.dry_run,
+            vepyr=vepyr_effective if vepyr_effective is not None else inv.vepyr,
+            vepyr_resolved=vepyr_resolved,
+            vepyr_default=vepyr_effective is not None and inv.vepyr is None,
+            targets=tuple(targets),
+            fasta=root is not None and (inv.cache_dir is not None and not inv.dry_run),
             dry_run=inv.dry_run,
             verify=inv.verify,
             fast=inv.fast,
@@ -238,48 +247,252 @@ def _summary(inv: Invocation, outcome: Exit, detail: str | None) -> str:
     )
 
 
+@dataclass(frozen=True, slots=True, kw_only=True)
+class _Fetchers:
+    """The injectable Hub-side callables, carried as one bundle."""
+
+    lister: fetch.Lister
+    downloader: fetch.Downloader
+    fasta_fetcher: Callable[[str, Path], None]
+
+
+def _print_error(exc: RunTestsError) -> None:
+    """Report ``exc`` on stderr, verbatim for argparse-shaped usage errors."""
+    if exc.verbatim:
+        print(str(exc), file=sys.stderr)
+    else:
+        print(
+            f"run_tests: error ({exc.code.name.lower()}, exit {int(exc.code)}): {exc}",
+            file=sys.stderr,
+        )
+
+
 def _run_fetch(
     inv: Invocation,
     argv: Sequence[str],
     *,
-    lister: fetch.Lister,
-    downloader: fetch.Downloader,
-    fasta_fetcher: Callable[[str, Path], None],
-) -> int:
-    """Materialise the cache, then print the summary and return the exit code.
-
-    Only a :class:`RunTestsError` — a documented refuse with its own code — is turned
-    into a message plus a summary block. Anything else propagates as a real traceback:
-    an unexpected crash must not be dressed up as a clean outcome.
-    """
+    cache_root: Path,
+    fetchers: _Fetchers,
+) -> tuple[Exit, str | None]:
     pins_toml = _repo_root() / "PINS.toml"
-    detail: str | None = None
+    if inv.fast:
+        os.environ[_HF_XET_HIGH_PERFORMANCE] = "1"
+    selection = _selection(inv, cache_root)
+    pins, fasta_pin = fetch.load_dataset_pins(pins_toml)
+    outcome = fetch.fetch(
+        selection,
+        pins,
+        fasta_pin,
+        lister=fetchers.lister,
+        downloader=fetchers.downloader,
+        fasta_fetcher=fetchers.fasta_fetcher,
+        argv=argv,
+        pins_toml=pins_toml,
+        tool=f"tools/run_tests/fetch.py@{fetch.git_sha(_repo_root())}",
+    )
+    return (
+        outcome.code,
+        f"{outcome.fetched} shard(s) fetched, {outcome.present} on disk",
+    )
+
+
+def _default_cargo(argv: Sequence[str], env: Mapping[str, str]) -> int:
+    """Run cargo from the repo root (manifests + ``--config``)."""
+    merged = {**os.environ, **dict(env)}
+    completed = subprocess.run(
+        list(argv), env=merged, cwd=_repo_root(), check=False
+    )
+    return int(completed.returncode)
+
+
+def _resolve_cache_root(inv: Invocation) -> Path | None:
+    """Resolve the cache root to an absolute path, exactly once.
+
+    ``--cache-dir`` wins over ``$VEPYR_CACHE_ROOT``. The result is always absolute:
+    the precheck runs in the caller's cwd while cargo is spawned with
+    ``cwd=_repo_root()``, so a relative root would name two different directories
+    on the two sides of the run.
+
+    Returns:
+        The absolute cache root, or ``None`` when neither source supplies one.
+    """
+    match (inv.cache_dir, os.environ.get(tests.CACHE_ENV)):
+        case (Path() as explicit, _):
+            return explicit.resolve()
+        case (None, str() as raw) if raw:
+            return Path(raw).resolve()
+        case _:
+            return None
+
+
+def _run_data_tests(
+    inv: Invocation,
+    *,
+    cache_root: Path,
+    targets: Sequence[str],
+    cargo_runner: CargoRunner,
+    gh_api: engine.GhApi | None,
+) -> tuple[Exit, str | None, str | None]:
+    """Precheck + engine + cargo. Returns ``(code, detail, vepyr_resolved)``."""
+    repo = _repo_root()
+    pins_toml = repo / "PINS.toml"
+    tests.precheck_cache(cache_root, pins_toml=pins_toml)
+    plan, config_path = engine.materialise(
+        inv.vepyr_ref, repo_root=repo, api=gh_api
+    )
+    argv = tests.cargo_argv(targets, config=config_path)
+    env = {tests.CACHE_ENV: str(cache_root)}
+    with engine.LockGuard(repo).held():
+        # No `cargo update -p …` pre-step (issue #21): cargo re-locks the patched
+        # packages by itself when `--config` carries the `[patch]` path tables, and
+        # bare `-p <crate>` specs were ambiguous whenever the lockfile held the same
+        # crate name under two sources.
+        code = cargo_runner(argv, env)
+    if code == 0:
+        return Exit.OK, f"cargo test ok ({len(targets)} target(s))", plan.vepyr_sha
+    return (
+        Exit.TESTS_FAILED,
+        f"cargo test exited {code} ({len(targets)} target(s))",
+        plan.vepyr_sha,
+    )
+
+
+def _parse_phase(argv: Sequence[str]) -> Invocation | int:
+    """Parse ``argv``; on a usage failure report it and return the exit code."""
     try:
-        if inv.fast:
-            os.environ[_HF_XET_HIGH_PERFORMANCE] = "1"
-        selection = _selection(inv)
-        pins, fasta_pin = fetch.load_dataset_pins(pins_toml)
-        outcome = fetch.fetch(
-            selection,
-            pins,
-            fasta_pin,
-            lister=lister,
-            downloader=downloader,
-            fasta_fetcher=fasta_fetcher,
-            argv=argv,
-            pins_toml=pins_toml,
-            tool=f"tools/run_tests/fetch.py@{fetch.git_sha(_repo_root())}",
-        )
-        code = outcome.code
-        detail = f"{outcome.fetched} shard(s) fetched, {outcome.present} on disk"
+        return parse_args(argv)
+    except SystemExit as exc:
+        match exc.code:
+            case None | False:
+                return int(Exit.OK)
+            case True:
+                return 1
+            case code:
+                return int(code)
     except RunTestsError as exc:
-        code = exc.code
-        detail = str(exc)
+        _print_error(exc)
+        return int(Exit.USAGE)
+
+
+def _dry_run_phase(
+    inv: Invocation,
+    argv: Sequence[str],
+    *,
+    cache_root: Path,
+    targets: Sequence[str],
+    fetchers: _Fetchers,
+) -> int:
+    """Fetch-only ``--dry-run``: list the selection, touch neither engine nor cargo."""
+    try:
+        code, detail = _run_fetch(inv, argv, cache_root=cache_root, fetchers=fetchers)
+    except RunTestsError as exc:
+        code, detail = exc.code, str(exc)
+        _print_error(exc)
+    print(_summary(inv, code, detail, cache_dir=cache_root, targets=targets), end="")
+    return int(code)
+
+
+def _fetch_phase(
+    inv: Invocation,
+    argv: Sequence[str],
+    *,
+    cache_root: Path,
+    targets: Sequence[str],
+    fetchers: _Fetchers,
+) -> str | int | None:
+    """Materialise ``--cache-dir``.
+
+    Returns:
+        The fetch detail line on success, or an ``int`` exit code when the run is
+        over (the summary has then already been printed).
+    """
+    try:
+        code, detail = _run_fetch(inv, argv, cache_root=cache_root, fetchers=fetchers)
+    except RunTestsError as exc:
+        _print_error(exc)
         print(
-            f"run_tests: error ({code.name.lower()}, exit {int(code)}): {exc}",
-            file=sys.stderr,
+            _summary(inv, exc.code, str(exc), targets=targets, cache_dir=cache_root),
+            end="",
         )
-    print(_summary(inv, code, detail), end="")
+        return int(exc.code)
+    if code is not Exit.OK:
+        print(
+            _summary(inv, code, detail, targets=targets, cache_dir=cache_root), end=""
+        )
+        return int(code)
+    return detail
+
+
+def _no_targets_phase(
+    inv: Invocation,
+    *,
+    cache_root: Path,
+    targets: Sequence[str],
+    detail: str | None,
+    fetched: bool,
+) -> int:
+    """Nothing to run: fetch (if any) succeeded, but no ``tests/data_*.rs`` exists."""
+    if not fetched:
+        # Env-only with zero targets: still prove the cache looks sane.
+        try:
+            tests.precheck_cache(cache_root, pins_toml=_repo_root() / "PINS.toml")
+        except RunTestsError as exc:
+            _print_error(exc)
+            print(
+                _summary(
+                    inv, exc.code, str(exc), cache_dir=cache_root, targets=targets
+                ),
+                end="",
+            )
+            return int(exc.code)
+    zero_detail = "0 data-problem target(s); nothing to run"
+    if detail:
+        zero_detail = f"{detail}; {zero_detail}"
+    print(
+        _summary(inv, Exit.OK, zero_detail, cache_dir=cache_root, targets=targets),
+        end="",
+    )
+    return int(Exit.OK)
+
+
+def _data_test_phase(
+    inv: Invocation,
+    *,
+    cache_root: Path,
+    targets: Sequence[str],
+    cargo_runner: CargoRunner,
+    gh_api: engine.GhApi | None,
+) -> int:
+    """Run the discovered data-tests under the patched engine ladder.
+
+    ``--vepyr`` is optional: omitted, :attr:`Invocation.vepyr_ref` falls back to
+    :data:`DEFAULT_VEPYR_REF` and the resolver dereferences that branch's current
+    HEAD, whose full sha the summary prints (issue #30).
+    """
+    vepyr_resolved: str | None = None
+    try:
+        code, detail, vepyr_resolved = _run_data_tests(
+            inv,
+            cache_root=cache_root,
+            targets=targets,
+            cargo_runner=cargo_runner,
+            gh_api=gh_api,
+        )
+    except RunTestsError as exc:
+        code, detail = exc.code, str(exc)
+        _print_error(exc)
+    print(
+        _summary(
+            inv,
+            code,
+            detail,
+            cache_dir=cache_root,
+            targets=targets,
+            vepyr_resolved=vepyr_resolved,
+            vepyr_effective=inv.vepyr_ref,
+        ),
+        end="",
+    )
     return int(code)
 
 
@@ -289,46 +502,59 @@ def main(
     lister: fetch.Lister = fetch.hub_lister,
     downloader: fetch.Downloader = fetch.hub_downloader,
     fasta_fetcher: Callable[[str, Path], None] = fetch.url_fetcher,
+    cargo_runner: CargoRunner = _default_cargo,
+    gh_api: engine.GhApi | None = None,
 ) -> int:
-    """Entry point: returns the exit code.
-
-    Args:
-        argv: Arguments after the program name; defaults to :data:`sys.argv`.
-        lister: Hub listing callable; injected by tests so no test touches the network.
-        downloader: Hub download callable; likewise.
-        fasta_fetcher: Reference-FASTA transfer callable; likewise.
-
-    Returns:
-        The process exit code (see :class:`run_tests.verdict.Exit`).
-    """
+    """Entry point: parse -> resolve -> fetch -> dispatch; returns the exit code."""
     argv = list(sys.argv[1:] if argv is None else argv)
-    try:
-        inv = parse_args(argv)
-    except SystemExit as exc:
-        # argparse --help / --version exit via SystemExit; turn that into a return code.
-        code = exc.code
-        if code is None or code is False:
-            return int(Exit.OK)
-        if code is True:
-            return 1
-        return int(code)
-    except RunTestsError as exc:
-        # parse_args only ever raises USAGE; the fetch path does its own reporting.
-        if exc.verbatim:
-            print(str(exc), file=sys.stderr)
-        else:
-            print(f"run_tests: error (usage, exit 2): {exc}", file=sys.stderr)
-        return int(Exit.USAGE)
+    parsed = _parse_phase(argv)
+    if isinstance(parsed, int):
+        return parsed
+    inv = parsed
+    fetchers = _Fetchers(
+        lister=lister, downloader=downloader, fasta_fetcher=fasta_fetcher
+    )
+    targets = tests.data_targets(_repo_root())
+
     if inv.list_only:
-        print(LIST_MESSAGE)
+        print(tests.list_table(targets), end="")
         return int(Exit.OK)
-    if inv.cache_dir is None:
-        print(DEFERRED_MESSAGE, file=sys.stderr)
+
+    cache_root = _resolve_cache_root(inv)
+
+    # Fetch-only dry-run: no cargo / no engine. Gated on the *resolved* root so
+    # ``$VEPYR_CACHE_ROOT`` honours --dry-run exactly like --cache-dir (#27).
+    if cache_root is not None and inv.dry_run:
+        return _dry_run_phase(
+            inv, argv, cache_root=cache_root, targets=targets, fetchers=fetchers
+        )
+
+    detail: str | None = None
+    fetched = inv.cache_dir is not None
+    if fetched:
+        assert cache_root is not None
+        outcome = _fetch_phase(
+            inv, argv, cache_root=cache_root, targets=targets, fetchers=fetchers
+        )
+        if isinstance(outcome, int):
+            return outcome
+        detail = outcome
+
+    if cache_root is None:
+        print(MISSING_CACHE, file=sys.stderr)
         return int(Exit.USAGE)
-    return _run_fetch(
+    if not targets:
+        return _no_targets_phase(
+            inv,
+            cache_root=cache_root,
+            targets=targets,
+            detail=detail,
+            fetched=fetched,
+        )
+    return _data_test_phase(
         inv,
-        argv,
-        lister=lister,
-        downloader=downloader,
-        fasta_fetcher=fasta_fetcher,
+        cache_root=cache_root,
+        targets=targets,
+        cargo_runner=cargo_runner,
+        gh_api=gh_api,
     )

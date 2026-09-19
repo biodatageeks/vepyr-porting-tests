@@ -1,8 +1,9 @@
-"""CLI contract tests for ``./run_tests`` (issue #3 shell, issue #4 cache fetch).
+"""CLI contract tests for ``./run_tests`` (fetch + data-test run wiring).
 
 The fetch path is exercised end to end through :func:`run_tests.cli.main` with the
 ``lister`` / ``downloader`` / ``fasta_fetcher`` seams filled by the synthetic Hub of
-:mod:`test_fetch`, so nothing here touches the network.
+:mod:`test_fetch`. Cargo and GitHub are injected so nothing here touches the network
+or spawns a real ``cargo``.
 """
 
 from __future__ import annotations
@@ -12,19 +13,20 @@ import hashlib
 import io
 import json
 import os
-from collections.abc import Callable, Iterator
+from collections.abc import Callable, Iterator, Mapping, Sequence
 from contextlib import redirect_stderr, redirect_stdout
-from dataclasses import dataclass
+from dataclasses import dataclass, field
 from pathlib import Path
 
 import pytest
 from test_fetch import PINS_TOML, REVISIONS, TINY_FA, FakeHub, build_hub
 
-from run_tests import cli
-from run_tests.cli import DEFERRED_MESSAGE, main
+from run_tests import cli, engine, tests
+from run_tests import summary as summary_mod
+from run_tests.cli import DEFAULT_VEPYR_REF, MISSING_CACHE, main
 from run_tests.fetch import PROVENANCE, Flavour, RemoteFile, bsd_sum
 from run_tests.summary import HEADER
-from run_tests.verdict import Exit
+from run_tests.verdict import Exit, RunTestsError
 
 
 @dataclass(frozen=True, slots=True, kw_only=True)
@@ -37,9 +39,20 @@ class Outcome:
 
     @property
     def summary(self) -> str:
-        """The trailing summary block, or ``""`` when none was printed."""
         _, marker, block = self.stdout.partition(HEADER)
         return marker + block
+
+
+@dataclass
+class CargoLog:
+    """Records cargo argv invocations for assertions."""
+
+    calls: list[tuple[list[str], dict[str, str]]] = field(default_factory=list)
+    test_exit_code: int = 0
+
+    def __call__(self, argv: Sequence[str], env: Mapping[str, str]) -> int:
+        self.calls.append((list(argv), dict(env)))
+        return self.test_exit_code
 
 
 @dataclass(frozen=True, slots=True, kw_only=True)
@@ -49,9 +62,10 @@ class Harness:
     root: Path
     hub: FakeHub
     fasta_fetches: list[str]
+    cargo: CargoLog
+    repo: Path
 
-    def run(self, *argv: str) -> Outcome:
-        """Call :func:`run_tests.cli.main` with the fakes wired in."""
+    def run(self, *argv: str, gh_api: engine.GhApi | None = None) -> Outcome:
         out, err = io.StringIO(), io.StringIO()
         with redirect_stdout(out), redirect_stderr(err):
             code = main(
@@ -59,6 +73,8 @@ class Harness:
                 lister=self.hub.lister,
                 downloader=self.hub.downloader,
                 fasta_fetcher=self._fasta_fetcher,
+                cargo_runner=self.cargo,
+                gh_api=gh_api,
             )
         return Outcome(code=code, stdout=out.getvalue(), stderr=err.getvalue())
 
@@ -68,7 +84,6 @@ class Harness:
 
     @property
     def provenance(self) -> dict[str, object]:
-        """The root's ``PROVENANCE.json``, parsed."""
         return json.loads((self.root / PROVENANCE).read_text())
 
 
@@ -80,6 +95,7 @@ def harness(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> Iterator[Harness
     """Point the CLI at a throwaway repository root whose PINS.toml is synthetic."""
     repo = tmp_path / "repo"
     repo.mkdir()
+    (repo / "tests").mkdir()
     gz = tmp_path / "served.fa.gz"
     gz.write_bytes(_GZ)
     checksum, blocks = bsd_sum(gz)
@@ -96,16 +112,21 @@ def harness(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> Iterator[Harness
         root=tmp_path / "cache",
         hub=build_hub(tmp_path / "hub"),
         fasta_fetches=[],
+        cargo=CargoLog(),
+        repo=repo,
     )
 
 
-# --- the shell from issue #3 (unchanged paths) ----------------------------------------
-
-
-def _bare(argv: list[str]) -> Outcome:
+def _bare(argv: list[str], **kwargs: object) -> Outcome:
     out, err = io.StringIO(), io.StringIO()
     with redirect_stdout(out), redirect_stderr(err):
-        code = main(argv, lister=_never, downloader=_never, fasta_fetcher=_never)
+        code = main(
+            argv,
+            lister=_never,
+            downloader=_never,
+            fasta_fetcher=_never,
+            **kwargs,  # type: ignore[arg-type]
+        )
     return Outcome(code=code, stdout=out.getvalue(), stderr=err.getvalue())
 
 
@@ -114,7 +135,6 @@ def _never(*_args: object, **_kwargs: object) -> None:
 
 
 def test_help_lists_required_flags_and_not_contigs() -> None:
-    """AC-1: --help exits 0 and names the shipped flags; no --contigs."""
     result = _bare(["--help"])
     assert result.code == 0
     for flag in (
@@ -129,40 +149,49 @@ def test_help_lists_required_flags_and_not_contigs() -> None:
         "--no-trim-manifests",
     ):
         assert flag in result.stdout, flag
-    # Flag name must not appear as an option (metavar text may mention contigs).
     assert "--contigs " not in result.stdout
 
 
-def test_list_reports_zero_data_problem_targets() -> None:
-    """AC-2 / scope: --list exits 0 with an explicit empty target list."""
-    result = _bare(["--list"])
+def test_list_reports_zero_data_problem_targets(harness: Harness) -> None:
+    """``--list`` over a repository with no ``tests/data_*.rs`` reports none.
+
+    The count is taken against the throwaway repository of the ``harness``
+    fixture, never the real checkout: the repository does carry data-problem
+    targets, so asserting on its contents would test the tree rather than the
+    CLI, and would break whenever a target is added or removed.
+    """
+    assert not list((harness.repo / "tests").glob("data_*.rs"))
+    result = harness.run("--list")
     assert result.code == 0
-    assert "0 data-problem targets" in result.stdout
+    assert "0 data-problem target(s)" in result.stdout
+    assert "(none)" in result.stdout
 
 
-def test_bare_invocation_is_deferred_not_success() -> None:
-    """AC-2: bare argv must not exit 0 claiming tests passed."""
+def test_list_reports_discovered_data_targets(
+    harness: Harness, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    (harness.repo / "tests" / "data_example.rs").write_text("// stub\n")
+    result = harness.run("--list")
+    assert result.code == 0
+    assert "data  data_example" in result.stdout
+    assert "1 data-problem target(s)" in result.stdout
+
+
+def test_bare_invocation_needs_cache_root() -> None:
     result = _bare([])
-    assert result.code != 0
-    combined = result.stdout + result.stderr
-    assert DEFERRED_MESSAGE in combined
-    assert "passed" not in combined.lower()
+    assert result.code == int(Exit.USAGE)
+    assert MISSING_CACHE in result.stderr
 
 
 def test_a_glob_in_add_contigs_is_refused_before_anything_is_listed() -> None:
-    """An unquoted ``chr*`` must not turn a one-contig fetch into the whole genome."""
     result = _bare(["--cache-dir", "/tmp/x", "--add-contigs", "chr*"])
     assert result.code == int(Exit.USAGE)
     assert "--add-contigs" in result.stderr
 
 
-# --- issue #4: the fetch dispatch -----------------------------------------------------
-
-
 def test_cache_dir_with_contigs_fetches_writes_provenance_and_summarises(
     harness: Harness,
 ) -> None:
-    """AC-2/AC-3: a real (mocked) fetch exits 0 and reports what landed on disk."""
     result = harness.run(
         "--cache-dir",
         str(harness.root),
@@ -174,20 +203,19 @@ def test_cache_dir_with_contigs_fetches_writes_provenance_and_summarises(
     assert result.code == int(Exit.OK), result.stderr
     assert (harness.root / PROVENANCE).is_file()
     assert (harness.root / "116_GRCh38_ensembl/variation/chr21.parquet").is_file()
-    assert harness.fasta_fetches == ["https://ftp.ensembl.org/x/tiny.fa.gz"], (
-        "FASTA is automatic on a real fetch, not a flag"
-    )
+    assert harness.fasta_fetches == ["https://ftp.ensembl.org/x/tiny.fa.gz"]
     assert (harness.root / "fasta/tiny.fa.fai").is_file()
     assert result.summary.startswith(HEADER)
     assert "contigs requested: chr21" in result.summary
     assert "ensembl : chr21" in result.summary
+    assert "0 data-problem target(s)" in result.summary
     assert "outcome          : ok (exit 0)" in result.summary
+    assert harness.cargo.calls == []
 
 
 def test_a_second_run_accumulates_and_the_summary_shows_both_contigs(
     harness: Harness,
 ) -> None:
-    """AC-3: the effective set is the accumulated one, not the last argv list."""
     common = ["--cache-dir", str(harness.root), "--flavours", "ensembl"]
     assert harness.run(*common, "--add-contigs", "chr21").code == int(Exit.OK)
     result = harness.run(*common, "--add-contigs", "chr22")
@@ -198,7 +226,6 @@ def test_a_second_run_accumulates_and_the_summary_shows_both_contigs(
 
 
 def test_dry_run_lists_and_writes_nothing(harness: Harness) -> None:
-    """AC-1: --dry-run names the Hub files and does not create the root."""
     result = harness.run(
         "--cache-dir",
         str(harness.root),
@@ -209,16 +236,51 @@ def test_dry_run_lists_and_writes_nothing(harness: Harness) -> None:
         "--dry-run",
     )
     assert result.code == int(Exit.OK), result.stderr
-    assert not harness.root.exists(), "dry-run must not create the cache directory"
+    assert not harness.root.exists()
     assert harness.hub.calls == [] and harness.fasta_fetches == []
     assert "116_GRCh38_ensembl/variation/chr21.parquet" in result.stdout
     assert "dry-run          : yes" in result.summary
     assert "fasta            : no" in result.summary
-    assert "(none)" in result.summary, "nothing accumulated on disk yet"
+
+
+def test_env_cache_root_honours_dry_run(
+    harness: Harness, monkeypatch: pytest.MonkeyPatch, tmp_path: Path
+) -> None:
+    """Regression for #27: ``$VEPYR_CACHE_ROOT`` + ``--dry-run`` is a true no-op.
+
+    Pre-fix the guard read ``inv.cache_dir is not None``, so the env-supplied root fell
+    through to a real engine checkout and a real ``cargo test``.
+    """
+    harness.root.mkdir()
+    monkeypatch.setenv(tests.CACHE_ENV, str(harness.root))
+    (harness.repo / "tests" / "data_pilot.rs").write_text("// stub\n")
+
+    def snapshot() -> set[Path]:
+        return {
+            path.relative_to(tmp_path)
+            for base in (harness.root, harness.repo)
+            for path in base.rglob("*")
+        }
+
+    before = snapshot()
+    result = harness.run(
+        "--flavours",
+        "ensembl",
+        "--add-contigs",
+        "chr21",
+        "--dry-run",
+        "--vepyr",
+        "0.7.0",
+    )
+    assert result.code == int(Exit.OK), result.stderr
+    assert snapshot() == before, "dry-run must not write under the cache root or repo"
+    assert harness.cargo.calls == [], "dry-run must not invoke cargo"
+    assert harness.fasta_fetches == []
+    assert "dry-run          : yes" in result.summary
+    assert "fasta            : no" in result.summary
 
 
 def test_a_revision_clash_surfaces_exit_3_through_main(harness: Harness) -> None:
-    """AC-2 step 3: a root holding another revision is refused, with the summary."""
     common = ["--cache-dir", str(harness.root), "--flavours", "ensembl"]
     assert harness.run(*common, "--add-contigs", "chr21").code == int(Exit.OK)
     path = harness.root / PROVENANCE
@@ -226,16 +288,12 @@ def test_a_revision_clash_surfaces_exit_3_through_main(harness: Harness) -> None
     result = harness.run(*common, "--add-contigs", "chr21")
     assert result.code == int(Exit.REVISION)
     assert "revision on disk" in result.stderr
-    assert "run_tests: error (revision, exit 3)" in result.stderr
     assert "outcome          : revision (exit 3)" in result.summary
 
 
 def test_a_contig_missing_from_one_entity_is_refused_with_exit_4(
     harness: Harness,
 ) -> None:
-    """AC-4's caveat, enforced: an entity with no shard for any requested contig is
-    refused (like chrMT alone on the real dataset, where motif/regulatory carry no
-    chrMT shard; the synthetic hub stands a missing chr22 shard in for that case)."""
     motif = harness.hub.repo_dir("biodatageeks/vepyr_116_GRCh38_ensembl") / "motif"
     (motif / "chr22.parquet").unlink()
     result = harness.run(
@@ -295,7 +353,6 @@ def test_verify_is_passed_through_and_catches_a_corrupted_shard(
 def test_fast_exports_the_env_before_the_first_hub_call(
     harness: Harness, monkeypatch: pytest.MonkeyPatch
 ) -> None:
-    """``--fast`` must be in the environment before huggingface_hub is first touched."""
     monkeypatch.delenv("HF_XET_HIGH_PERFORMANCE", raising=False)
     seen: list[str | None] = []
     real: Callable[[str, str], list[RemoteFile]] = harness.hub.lister
@@ -319,4 +376,424 @@ def test_fast_exports_the_env_before_the_first_hub_call(
     monkeypatch.delenv("HF_XET_HIGH_PERFORMANCE", raising=False)
     seen.clear()
     assert harness.run(*common).code == int(Exit.OK)
-    assert seen == [None], "without --fast nothing is exported (control)"
+    assert seen == [None]
+
+
+class _FakeGh:
+    """Minimal GhApi: returns a fixed vepyr Cargo.toml ladder."""
+
+    def __init__(self, cargo_toml: str, sha: str = "a" * 40) -> None:
+        self.sha = sha
+        self.cargo_toml = cargo_toml
+
+    def get(self, path: str) -> object:
+        if path.startswith(f"repos/{engine.VEPYR_REPO}/commits/"):
+            return {"sha": self.sha}
+        if "contents/Cargo.toml" in path:
+            import base64
+
+            return {
+                "encoding": "base64",
+                "content": base64.b64encode(self.cargo_toml.encode()).decode(),
+            }
+        raise engine.GhError(path, "unexpected")
+
+
+def _tiny_ladder_toml() -> str:
+    rev = "b" * 40
+    dfbf = (
+        f'datafusion-bio-function-vep = {{ git = "{engine.DFBF_GIT}", '
+        f'rev = "{rev}", features = ["cache-builder"] }}'
+    )
+    return f"""
+[package]
+name = "vepyr"
+version = "0.0.0"
+
+[dependencies]
+{dfbf}
+datafusion-bio-format-ensembl-cache = {{ git = "{engine.FORMATS_GIT}", tag = "v0.0.0" }}
+datafusion-bio-format-vcf = {{ git = "{engine.FORMATS_GIT}", tag = "v0.0.0" }}
+"""
+
+
+def _write_crate(path: Path, name: str) -> None:
+    path.mkdir(parents=True, exist_ok=True)
+    (path / "Cargo.toml").write_text(
+        f'[package]\nname = "{name}"\nversion = "0.0.0"\n'
+    )
+
+
+def test_vepyr_run_invokes_cargo_with_cache_env(
+    harness: Harness, monkeypatch: pytest.MonkeyPatch, tmp_path: Path
+) -> None:
+    assert (
+        harness.run(
+            "--cache-dir",
+            str(harness.root),
+            "--add-contigs",
+            "chr21",
+            "--flavours",
+            "ensembl",
+        ).code
+        == int(Exit.OK)
+    )
+    (harness.repo / "tests" / "data_pilot.rs").write_text("// stub\n")
+
+    src = tmp_path / "src"
+    dfbf = src / "datafusion-bio-functions" / "datafusion" / "bio-function-vep"
+    formats = src / "datafusion-bio-formats" / "datafusion"
+    fmt_cache = formats / "bio-format-ensembl-cache"
+    fmt_vcf = formats / "bio-format-vcf"
+    _write_crate(dfbf, "datafusion-bio-function-vep")
+    _write_crate(fmt_cache, "datafusion-bio-format-ensembl-cache")
+    _write_crate(fmt_vcf, "datafusion-bio-format-vcf")
+    (src / "datafusion-bio-functions" / "Cargo.toml").write_text(
+        '[workspace]\nmembers = ["datafusion/bio-function-vep"]\n'
+    )
+    (src / "datafusion-bio-formats" / "Cargo.toml").write_text(
+        "[workspace]\nmembers = ["
+        '"datafusion/bio-format-ensembl-cache", '
+        '"datafusion/bio-format-vcf"]\n'
+    )
+
+    def fake_checkout(**kwargs: object) -> engine.Checkout:
+        name = str(kwargs["name"])
+        target = Path(str(kwargs["target"]))
+        return engine.Checkout(
+            name=name,
+            path=target,
+            git_url=str(kwargs["git_url"]),
+            rev=str(kwargs["rev"]),
+            head="d" * 40,
+        )
+
+    monkeypatch.setattr(engine, "default_src_root", lambda environ=None: src)
+    monkeypatch.setattr(engine, "_checkout_repo", fake_checkout)
+
+    result = harness.run(
+        "--cache-dir",
+        str(harness.root),
+        "--flavours",
+        "ensembl",
+        "--vepyr",
+        "0.7.0",
+        gh_api=_FakeGh(_tiny_ladder_toml()),
+    )
+    assert result.code == int(Exit.OK), result.stderr
+    assert harness.cargo.calls, "cargo should have been invoked"
+    cargo_test = [c for c in harness.cargo.calls if c[0][:2] == ["cargo", "test"]]
+    assert cargo_test
+    argv, env = cargo_test[0]
+    assert "--test" in argv and "data_pilot" in argv
+    assert env[tests.CACHE_ENV] == str(harness.root)
+    assert "targets          : data_pilot" in result.summary
+    # Issue #21: no `cargo update -p <bare crate name>` pre-step — the path
+    # `[patch]` tables re-lock the ladder on their own, and bare specs were
+    # ambiguous whenever one crate name resolved to two sources.
+    assert not [c for c in harness.cargo.calls if c[0][:2] == ["cargo", "update"]]
+
+
+def test_cargo_failure_is_exit_1(
+    harness: Harness, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    assert (
+        harness.run(
+            "--cache-dir",
+            str(harness.root),
+            "--add-contigs",
+            "chr21",
+            "--flavours",
+            "ensembl",
+        ).code
+        == int(Exit.OK)
+    )
+    (harness.repo / "tests" / "data_pilot.rs").write_text("// stub\n")
+    harness.cargo.test_exit_code = 1
+
+    src = harness.repo / ".run_tests" / "src"
+    ensembl_cache = "datafusion-bio-format-ensembl-cache"
+    for root, members in (
+        (
+            src / "datafusion-bio-functions",
+            [("datafusion/bio-function-vep", "datafusion-bio-function-vep")],
+        ),
+        (
+            src / "datafusion-bio-formats",
+            [
+                ("datafusion/bio-format-ensembl-cache", ensembl_cache),
+                ("datafusion/bio-format-vcf", "datafusion-bio-format-vcf"),
+            ],
+        ),
+    ):
+        member_paths = []
+        for rel, name in members:
+            path = root / rel
+            _write_crate(path, name)
+            member_paths.append(rel)
+        (root / "Cargo.toml").write_text(
+            "[workspace]\nmembers = ["
+            + ", ".join(f'"{m}"' for m in member_paths)
+            + "]\n"
+        )
+
+    def fake_checkout(**kwargs: object) -> engine.Checkout:
+        target = Path(str(kwargs["target"]))
+        return engine.Checkout(
+            name=str(kwargs["name"]),
+            path=target,
+            git_url=str(kwargs["git_url"]),
+            rev=str(kwargs["rev"]),
+            head="e" * 40,
+        )
+
+    monkeypatch.setattr(engine, "default_src_root", lambda environ=None: src)
+    monkeypatch.setattr(engine, "_checkout_repo", fake_checkout)
+    result = harness.run(
+        "--cache-dir",
+        str(harness.root),
+        "--flavours",
+        "ensembl",
+        "--vepyr",
+        "0.7.0",
+        gh_api=_FakeGh(_tiny_ladder_toml()),
+    )
+    assert result.code == int(Exit.TESTS_FAILED)
+    assert "outcome          : tests_failed (exit 1)" in result.summary
+
+
+def test_env_cache_root_runs_without_fetch(
+    harness: Harness, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    assert (
+        harness.run(
+            "--cache-dir",
+            str(harness.root),
+            "--add-contigs",
+            "chr21",
+            "--flavours",
+            "ensembl",
+        ).code
+        == int(Exit.OK)
+    )
+    monkeypatch.setenv(tests.CACHE_ENV, str(harness.root))
+    result = harness.run("--flavours", "ensembl")
+    assert result.code == int(Exit.OK), result.stderr
+    assert "0 data-problem target(s)" in result.summary
+
+
+def _stub_engine(src: Path, monkeypatch: pytest.MonkeyPatch) -> None:
+    """Lay out the three patched workspaces under ``src`` and stub the checkouts."""
+    ensembl_cache = "datafusion-bio-format-ensembl-cache"
+    for root, members in (
+        (
+            src / "datafusion-bio-functions",
+            [("datafusion/bio-function-vep", "datafusion-bio-function-vep")],
+        ),
+        (
+            src / "datafusion-bio-formats",
+            [
+                ("datafusion/bio-format-ensembl-cache", ensembl_cache),
+                ("datafusion/bio-format-vcf", "datafusion-bio-format-vcf"),
+            ],
+        ),
+    ):
+        for rel, name in members:
+            _write_crate(root / rel, name)
+        (root / "Cargo.toml").write_text(
+            "[workspace]\nmembers = ["
+            + ", ".join(f'"{rel}"' for rel, _ in members)
+            + "]\n"
+        )
+
+    def fake_checkout(**kwargs: object) -> engine.Checkout:
+        return engine.Checkout(
+            name=str(kwargs["name"]),
+            path=Path(str(kwargs["target"])),
+            git_url=str(kwargs["git_url"]),
+            rev=str(kwargs["rev"]),
+            head="f" * 40,
+        )
+
+    monkeypatch.setattr(engine, "default_src_root", lambda environ=None: src)
+    monkeypatch.setattr(engine, "_checkout_repo", fake_checkout)
+
+
+def test_relative_cache_dir_prechecks_the_directory_cargo_is_given(
+    harness: Harness, monkeypatch: pytest.MonkeyPatch, tmp_path: Path
+) -> None:
+    """A relative ``--cache-dir`` used from outside the repo root must not fork.
+
+    Regression for #26: the precheck ran in the caller's cwd while cargo is spawned
+    with ``cwd=_repo_root()``, so both sides must see the *same absolute* root.
+    """
+    elsewhere = tmp_path / "elsewhere"
+    elsewhere.mkdir()
+    monkeypatch.chdir(elsewhere)
+    assert elsewhere.resolve() != harness.repo.resolve()
+
+    relative = "./relative-cache"
+    assert (
+        harness.run(
+            "--cache-dir", relative, "--add-contigs", "chr21", "--flavours", "ensembl"
+        ).code
+        == int(Exit.OK)
+    )
+    assert (elsewhere / "relative-cache").is_dir()
+
+    (harness.repo / "tests" / "data_pilot.rs").write_text("// stub\n")
+    _stub_engine(tmp_path / "src", monkeypatch)
+
+    prechecked: list[Path] = []
+    real_precheck = tests.precheck_cache
+
+    def spy(root: Path, **kwargs: object) -> None:
+        prechecked.append(root)
+        real_precheck(root, **kwargs)  # type: ignore[arg-type]
+
+    monkeypatch.setattr(cli.tests, "precheck_cache", spy)
+
+    result = harness.run(
+        "--cache-dir",
+        relative,
+        "--flavours",
+        "ensembl",
+        "--vepyr",
+        "0.7.0",
+        gh_api=_FakeGh(_tiny_ladder_toml()),
+    )
+    assert result.code == int(Exit.OK), result.stderr
+
+    cargo_test = [c for c in harness.cargo.calls if c[0][:2] == ["cargo", "test"]]
+    assert cargo_test, "cargo test should have been invoked"
+    env_root = cargo_test[0][1][tests.CACHE_ENV]
+    assert prechecked, "the precheck should have run"
+    assert Path(env_root).is_absolute()
+    assert str(prechecked[-1]) == env_root
+    assert Path(env_root) == (elsewhere / "relative-cache").resolve()
+
+
+def test_absolute_cache_dir_and_env_root_are_unchanged(
+    harness: Harness, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    """AC 2: absolute ``--cache-dir`` / ``$VEPYR_CACHE_ROOT`` behave as before."""
+    absolute = harness.root.resolve()
+    inv = cli.parse_args(["--cache-dir", str(absolute), "--flavours", "ensembl"])
+    assert cli._resolve_cache_root(inv) == absolute
+
+    env_only = cli.parse_args(["--flavours", "ensembl"])
+    monkeypatch.setenv(tests.CACHE_ENV, str(absolute))
+    assert cli._resolve_cache_root(env_only) == absolute
+    monkeypatch.delenv(tests.CACHE_ENV)
+    assert cli._resolve_cache_root(env_only) is None
+
+
+def test_precheck_follows_a_bumped_fasta_pin_name(harness: Harness) -> None:
+    """Bumping ``[grch38_fasta].ref`` moves precheck's FASTA name with the pin.
+
+    The regression this pins down: a hardcoded basename made a complete cache laid
+    out under the newly pinned name report as missing, unfixable by re-fetching.
+    """
+    assert (
+        harness.run(
+            "--cache-dir",
+            str(harness.root),
+            "--add-contigs",
+            "chr21",
+            "--flavours",
+            "ensembl",
+        ).code
+        == int(Exit.OK)
+    )
+    fasta_dir = harness.root / "fasta"
+    for suffix in ("", ".fai"):
+        (fasta_dir / f"tiny.fa{suffix}").rename(fasta_dir / f"bumped.fa{suffix}")
+
+    pins_toml = harness.repo / "PINS.toml"
+    pins_toml.write_text(
+        pins_toml.read_text().replace('ref = "tiny.fa.gz"', 'ref = "bumped.fa.gz"')
+    )
+    assert 'ref = "bumped.fa.gz"' in pins_toml.read_text()
+
+    tests.precheck_cache(harness.root, pins_toml=pins_toml, flavours=["ensembl"])
+
+    (fasta_dir / "bumped.fa").rename(fasta_dir / "tiny.fa")
+    with pytest.raises(RunTestsError) as excinfo:
+        tests.precheck_cache(harness.root, pins_toml=pins_toml, flavours=["ensembl"])
+    assert excinfo.value.code is Exit.INCOMPLETE
+    assert "bumped.fa" in str(excinfo.value)
+
+
+def test_omitted_vepyr_resolves_master_head_and_prints_the_sha(
+    harness: Harness, monkeypatch: pytest.MonkeyPatch, tmp_path: Path
+) -> None:
+    """Issue #30 AC1/AC2: no ``--vepyr`` runs against master HEAD, sha in summary."""
+    assert (
+        harness.run(
+            "--cache-dir",
+            str(harness.root),
+            "--add-contigs",
+            "chr21",
+            "--flavours",
+            "ensembl",
+        ).code
+        == int(Exit.OK)
+    )
+    (harness.repo / "tests" / "data_pilot.rs").write_text("// stub\n")
+    _stub_engine(tmp_path / "src", monkeypatch)
+
+    master_sha = "b" * 40
+    gh = _FakeGh(_tiny_ladder_toml(), sha=master_sha)
+    asked: list[str] = []
+    inner_get = gh.get
+
+    def spy(path: str) -> object:
+        asked.append(path)
+        return inner_get(path)
+
+    monkeypatch.setattr(gh, "get", spy)
+
+    result = harness.run(
+        "--cache-dir", str(harness.root), "--flavours", "ensembl", gh_api=gh
+    )
+
+    assert result.code == int(Exit.OK), result.stderr
+    assert f"repos/{engine.VEPYR_REPO}/commits/{DEFAULT_VEPYR_REF}" in asked
+    assert [c for c in harness.cargo.calls if c[0][:2] == ["cargo", "test"]]
+    assert f"vepyr sha        : {master_sha}" in result.summary
+    assert DEFAULT_VEPYR_REF in result.summary
+    assert summary_mod.DEFAULT_MARK in result.summary
+
+
+def test_explicit_vepyr_ref_is_not_marked_default(
+    harness: Harness, monkeypatch: pytest.MonkeyPatch, tmp_path: Path
+) -> None:
+    """Issue #30 AC3: ``--vepyr REF`` still resolves REF, with no default marker."""
+    assert (
+        harness.run(
+            "--cache-dir",
+            str(harness.root),
+            "--add-contigs",
+            "chr21",
+            "--flavours",
+            "ensembl",
+        ).code
+        == int(Exit.OK)
+    )
+    (harness.repo / "tests" / "data_pilot.rs").write_text("// stub\n")
+    _stub_engine(tmp_path / "src", monkeypatch)
+
+    pinned = "c" * 40
+    result = harness.run(
+        "--cache-dir",
+        str(harness.root),
+        "--flavours",
+        "ensembl",
+        "--vepyr",
+        "0.7.0",
+        gh_api=_FakeGh(_tiny_ladder_toml(), sha=pinned),
+    )
+    assert result.code == int(Exit.OK), result.stderr
+    assert "vepyr            : 0.7.0" in result.summary
+    assert f"vepyr sha        : {pinned}" in result.summary
+    assert summary_mod.DEFAULT_MARK not in result.summary
