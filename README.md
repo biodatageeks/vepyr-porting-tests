@@ -113,8 +113,9 @@ belonging to it** — is *command-shaped*, meaning one of:
   **followed by at least one argument, flag or path**: `` `uv run pytest tools -q` ``;
 * an explicit numeric exit-code assertion: `` `make test` `` → `exit 0`.
 
-So a backticked noun in prose is not a command — neither a filename
-(`` `PINS.toml` ``) nor a bare runner word (`` `find` ``, `` `diff` ``, `` `exit
+So a backticked noun in prose is not a command — neither a bare filename
+(`` `PINS.toml` ``; a path-shaped span such as `` `./PINS.toml` `` is still
+accepted, a known limit) nor a bare runner word (`` `find` ``, `` `diff` ``, `` `exit
 code` ``), which is why the runner list carries no plain English nouns. Prose trailing
 the list belongs to no criterion, indented sub-items belong to their lead criterion
 (they are not criteria of their own), and `<!-- HTML comments -->` are stripped before
