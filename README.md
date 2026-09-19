@@ -29,7 +29,7 @@ export VEPYR_CACHE_ROOT=/mnt/hf-cache
 | Flag | Status in this commit |
 |------|------------------------|
 | `--help` | Exit 0 |
-| `--list` | Lists `tests/data_*.rs` targets (0 until the first pilot lands); exit 0 |
+| `--list` | Lists the `tests/data_*.rs` targets present in the working tree; exit 0 |
 | `--cache-dir DIR` | Downloads the pinned VEP 116 shards into `DIR` and writes `PROVENANCE.json`; then runs data-tests when targets exist |
 | `--add-contigs LIST` | Adds the named contigs to `DIR` (not `--contigs`). Default: whole genome |
 | `--flavours LIST` | Default `ensembl,refseq,merged` |
