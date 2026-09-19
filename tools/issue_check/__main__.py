@@ -2,6 +2,6 @@
 
 from __future__ import annotations
 
-from issue_check import cli
+from issue_check import checker
 
-raise SystemExit(cli.main())
+raise SystemExit(checker.main())

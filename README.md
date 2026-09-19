@@ -88,39 +88,23 @@ pin `--vepyr REF` for anything that must be reproducible.
 
 ## ./issue_check (pre-work issue gate)
 
-`./issue_check` is the second entry point (`uv` + `tools/issue_check/`). It validates
-an issue body before implementation starts: the body must carry an
-`Acceptance criteria` section whose numbered items are each **command-verifiable**.
+`./issue_check --body-file PATH` reads an issue body and answers one question: does it
+have a heading matching `/acceptance criteria/i`, and does that section contain at
+least one code span or fenced code block?
 
 ```bash
-./issue_check --help
-./issue_check --body-file tools/fixtures/issue_check/valid.md              # exit 0
+./issue_check --body-file tools/fixtures/issue_check/valid.md               # exit 0
 ./issue_check --body-file tools/fixtures/issue_check/prose_only_criteria.md # exit 1
-./issue_check --body-file tools/fixtures/issue_check/prose_runner_nouns.md  # exit 1
 gh issue view 74 --json body --jq .body > body.md && ./issue_check --body-file body.md
 ```
 
-Exit codes: `0` the issue may be worked on, `1` the issue is not compliant, `2` the
-check was invoked wrong (bad flag, unreadable or non-UTF-8 `--body-file`).
-
-A criterion counts as command-verifiable when an **inline code span on its lead line
-or on one of its indented continuation lines** — or a line of a **fenced block
-belonging to it** — is *command-shaped*, meaning one of:
-
-* a path head, with or without arguments: `` `./run_tests` ``, `` `/usr/bin/env
-  python -V` ``;
-* a known runner (`uv`, `cargo`, `gh`, `git`, `grep`, `pytest`, `test`, `python`, …)
-  **followed by at least one argument, flag or path**: `` `uv run pytest tools -q` ``;
-* an explicit numeric exit-code assertion: `` `make test` `` → `exit 0`.
-
-So a backticked noun in prose is not a command — neither a bare filename
-(`` `PINS.toml` ``; a path-shaped span such as `` `./PINS.toml` `` is still
-accepted, a known limit) nor a bare runner word (`` `find` ``, `` `diff` ``, `` `exit
-code` ``), which is why the runner list carries no plain English nouns. Prose trailing
-the list belongs to no criterion, indented sub-items belong to their lead criterion
-(they are not criteria of their own), and `<!-- HTML comments -->` are stripped before
-any of this. `.github/workflows/issue-check.yml` runs this on `issues`
-(opened/edited/labeled) and on `workflow_dispatch` with an issue number.
+Exit codes describe the checker: `0` compliant, `1` not compliant, `2` invoked wrong
+(bad flag, unreadable or non-UTF-8 `--body-file`). It is a presence check, not a
+meaning check: it does not judge whether the criteria are good, whether a backticked
+span is a command, and it never runs them — a criterion may expect any exit code or be
+semi-manual. `.github/workflows/issue-check.yml` runs it on `issues`
+(opened/edited/labeled) and on `workflow_dispatch`; it blocks nothing, the result is
+visible in Actions only.
 
 ## tests/common (cache + assertion helpers)
 
