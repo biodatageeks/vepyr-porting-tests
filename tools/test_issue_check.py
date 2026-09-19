@@ -1,8 +1,9 @@
 """Contract tests for ``python -m issue_check`` against the checked-in fixtures.
 
 Every case goes through :func:`issue_check.cli.main`, so the exit code under test is
-the one CI observes. The three fixtures are the gate's own falsifiability proof: one
-compliant body, one missing the required section, one whose criteria are prose.
+the one CI observes. The four fixtures are the gate's own falsifiability proof: one
+compliant body, one missing the required section, one whose criteria are prose, and one
+whose criteria backtick runner *nouns* without ever forming a command.
 """
 
 from __future__ import annotations
@@ -16,7 +17,12 @@ from typing import Final
 
 import pytest
 
-from issue_check.checker import check, looks_like_command, sections
+from issue_check.checker import (
+    check,
+    looks_like_command,
+    sections,
+    strip_html_comments,
+)
 from issue_check.cli import main
 from issue_check.verdict import Exit, IssueCheckError
 
@@ -24,6 +30,7 @@ FIXTURES: Final[Path] = Path(__file__).resolve().parent / "fixtures" / "issue_ch
 VALID: Final[Path] = FIXTURES / "valid.md"
 NO_ACCEPTANCE: Final[Path] = FIXTURES / "no_acceptance_criteria.md"
 PROSE_ONLY: Final[Path] = FIXTURES / "prose_only_criteria.md"
+RUNNER_NOUNS: Final[Path] = FIXTURES / "prose_runner_nouns.md"
 
 
 @dataclass(frozen=True, slots=True, kw_only=True)
@@ -44,10 +51,11 @@ def run(argv: Sequence[str]) -> Outcome:
 
 
 def test_fixtures_exist() -> None:
-    """Positive control: all three fixtures are on disk (AC1-AC3 reference them)."""
+    """Positive control: all four fixtures are on disk (AC1-AC3 reference them)."""
     assert sorted(p.name for p in FIXTURES.glob("*.md")) == [
         "no_acceptance_criteria.md",
         "prose_only_criteria.md",
+        "prose_runner_nouns.md",
         "valid.md",
     ]
 
@@ -154,11 +162,24 @@ def test_backticked_noun_is_not_a_command() -> None:
     ("span", "expected"),
     [
         ("uv run --frozen pytest -q", True),
+        ("uv run pytest tools -q", True),
         ("./run_tests --list", True),
+        ("./run_tests", True),
         ("/usr/bin/env python -V", True),
         ("gh issue view 74", True),
+        ("gh issue view 1", True),
+        ("cargo test --offline", True),
+        ("test -f x", True),
         ("the job exits 0", True),
         ("`make test` → exit 0", True),
+        ("exit 1", True),
+        # Round-2 review: a lone runner noun is not command-SHAPED.
+        ("find", False),
+        ("diff", False),
+        ("exit code", False),
+        ("exit", False),
+        ("test", False),
+        ("cat PINS.toml", False),
         ("PINS.toml", False),
         ("foo.rs", False),
         ("tests/data_frameshift.rs", False),
@@ -231,3 +252,126 @@ def test_real_issue_74_body_would_pass() -> None:
     assert check(VALID.read_text(encoding="utf-8"), origin=str(VALID)).heading == (
         "Acceptance criteria"
     )
+
+
+def test_runner_noun_fixture_is_rejected() -> None:
+    """Round-2 review item 1: backticked runner nouns are prose, listed by ordinal."""
+    outcome = run(["--body-file", str(RUNNER_NOUNS)])
+    assert outcome.code == int(Exit.INVALID), outcome
+    assert "without a backticked command" in outcome.stderr
+    for ordinal in ("#1", "#2", "#3"):
+        assert ordinal in outcome.stderr
+
+
+@pytest.mark.parametrize(
+    "criterion",
+    [
+        "Reviewers agree the `exit code` wording is clear.",
+        "Reviewers see no `diff` in the rendered table.",
+        "The `find` helper is documented in prose only.",
+    ],
+)
+def test_runner_noun_criterion_is_prose(criterion: str) -> None:
+    """Each quoted round-2 counter-example fails on its own, too."""
+    body = f"## Acceptance criteria\n\n1. {criterion}\n"
+    with pytest.raises(IssueCheckError) as caught:
+        check(body, origin="body.md")
+    assert "without a backticked command: #1" in str(caught.value)
+
+
+@pytest.mark.parametrize("indent", ["   ", "    ", "      ", "\t"])
+def test_nested_sublist_commands_satisfy_the_lead_item(indent: str) -> None:
+    """Round-2 review item 2: a prose lead-in with commands in indented sub-items.
+
+    The sub-items are continuation lines of criterion 1, at every GFM-legal indent —
+    so exactly one criterion is reported, with no duplicate ordinal.
+    """
+    body = (
+        "## Acceptance criteria\n\n1. Both gates are green:\n"
+        f"{indent}1. `uv run ruff check tools` exits 0.\n"
+        f"{indent}2. `uv run pytest tools` exits 0.\n"
+    )
+    (criterion,) = check(body, origin="body.md").criteria()
+    assert criterion.ordinal == "1"
+    assert criterion.has_command
+
+
+@pytest.mark.parametrize("indent", ["   ", "    ", "      ", "\t"])
+def test_nested_bullet_sublist_commands_satisfy_the_lead_item(indent: str) -> None:
+    """Same for bullet sub-items, which are continuation lines by indentation."""
+    body = (
+        "## Acceptance criteria\n\n1. Both gates are green:\n"
+        f"{indent}- `uv run ruff check tools` exits 0.\n"
+    )
+    (criterion,) = check(body, origin="body.md").criteria()
+    assert criterion.ordinal == "1"
+
+
+def test_nested_sublist_does_not_duplicate_ordinals() -> None:
+    """A rejected nested body reports the lead ordinal once, not one per sub-item."""
+    body = (
+        "## Acceptance criteria\n\n1. Both gates are green:\n"
+        "   1. Reviewers agree the wording is clear.\n"
+        "   2. The `find` helper is documented in prose only.\n"
+        "2. `uv run pytest tools` exits 0.\n"
+    )
+    with pytest.raises(IssueCheckError) as caught:
+        check(body, origin="body.md")
+    message = str(caught.value)
+    assert "without a backticked command: #1 " in message
+    assert message.count("#1") == 1
+    assert "#2" not in message
+
+
+def test_sibling_items_are_not_swallowed_by_a_nested_list() -> None:
+    """Flush-left siblings after a sub-list are still criteria of their own."""
+    body = (
+        "## Acceptance criteria\n\n1. Both gates are green:\n"
+        "   1. `uv run ruff check tools` exits 0.\n"
+        "2. `./run_tests --list` exits 0.\n"
+        "3. `cargo test --offline` exits 0.\n"
+    )
+    section = check(body, origin="body.md")
+    assert [c.ordinal for c in section.criteria()] == ["1", "2", "3"]
+
+
+def test_trailing_unrelated_prose_still_ends_the_item_with_nesting_enabled() -> None:
+    """Round-1 guarantee kept: flush-left prose after a blank line is not the item."""
+    body = (
+        "## Acceptance criteria\n\n"
+        "1. The precheck works correctly:\n"
+        "   1. Reviewers agree it reads well.\n\n"
+        "See `PINS.toml` for background.\n"
+    )
+    with pytest.raises(IssueCheckError) as caught:
+        check(body, origin="body.md")
+    assert "without a backticked command: #1" in str(caught.value)
+    (criterion,) = sections(body)[0].criteria()
+    assert "PINS.toml" not in criterion.text
+
+
+def test_html_comment_is_stripped_before_analysis() -> None:
+    """Round-2 review item 3: a command hidden in an HTML comment does not count."""
+    body = (
+        "## Acceptance criteria\n\n"
+        "1. Reviewers agree it is fine. <!-- `uv run pytest` -->\n"
+    )
+    with pytest.raises(IssueCheckError) as caught:
+        check(body, origin="body.md")
+    assert "without a backticked command: #1" in str(caught.value)
+
+
+def test_multiline_html_comment_is_stripped_without_breaking_structure() -> None:
+    """A multi-line comment keeps its line breaks, so items and fences still parse."""
+    body = (
+        "## Acceptance criteria\n\n"
+        "1. Reviewers agree it is fine.\n"
+        "<!--\n`uv run pytest tools`\n-->\n"
+        "2. `cargo test --offline` exits 0.\n"
+    )
+    with pytest.raises(IssueCheckError) as caught:
+        check(body, origin="body.md")
+    message = str(caught.value)
+    assert "without a backticked command: #1" in message
+    assert "#2" not in message
+    assert strip_html_comments(body).count("\n") == body.count("\n")

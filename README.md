@@ -96,19 +96,30 @@ an issue body before implementation starts: the body must carry an
 ./issue_check --help
 ./issue_check --body-file tools/fixtures/issue_check/valid.md              # exit 0
 ./issue_check --body-file tools/fixtures/issue_check/prose_only_criteria.md # exit 1
+./issue_check --body-file tools/fixtures/issue_check/prose_runner_nouns.md  # exit 1
 gh issue view 74 --json body --jq .body > body.md && ./issue_check --body-file body.md
 ```
 
 Exit codes: `0` the issue may be worked on, `1` the issue is not compliant, `2` the
 check was invoked wrong (bad flag, unreadable or non-UTF-8 `--body-file`).
 
-A criterion counts as command-verifiable when an **inline code span on its first
-line** — or a line of a **fenced block belonging to it** — reads as an invocation:
-first token is a path (`./run_tests …`) or a known runner (`uv`, `cargo`, `gh`,
-`git`, `grep`, `pytest`, `python`, …), or it asserts an exit code (`exit`, `→`).
-A backticked noun in prose (`` `PINS.toml` ``) is not a command, and prose trailing
-the list belongs to no criterion. `.github/workflows/issue-check.yml` runs this on
-`issues` (opened/edited/labeled) and on `workflow_dispatch` with an issue number.
+A criterion counts as command-verifiable when an **inline code span on its lead line
+or on one of its indented continuation lines** — or a line of a **fenced block
+belonging to it** — is *command-shaped*, meaning one of:
+
+* a path head, with or without arguments: `` `./run_tests` ``, `` `/usr/bin/env
+  python -V` ``;
+* a known runner (`uv`, `cargo`, `gh`, `git`, `grep`, `pytest`, `test`, `python`, …)
+  **followed by at least one argument, flag or path**: `` `uv run pytest tools -q` ``;
+* an explicit numeric exit-code assertion: `` `make test` `` → `exit 0`.
+
+So a backticked noun in prose is not a command — neither a filename
+(`` `PINS.toml` ``) nor a bare runner word (`` `find` ``, `` `diff` ``, `` `exit
+code` ``), which is why the runner list carries no plain English nouns. Prose trailing
+the list belongs to no criterion, indented sub-items belong to their lead criterion
+(they are not criteria of their own), and `<!-- HTML comments -->` are stripped before
+any of this. `.github/workflows/issue-check.yml` runs this on `issues`
+(opened/edited/labeled) and on `workflow_dispatch` with an issue number.
 
 ## tests/common (cache + assertion helpers)
 
