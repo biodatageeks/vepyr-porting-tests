@@ -86,6 +86,30 @@ per run and reported as `vepyr sha` in the summary. That default is deliberately
 floating — a run today and a run tomorrow can test different engine code — so
 pin `--vepyr REF` for anything that must be reproducible.
 
+## ./issue_check (pre-work issue gate)
+
+`./issue_check` is the second entry point (`uv` + `tools/issue_check/`). It validates
+an issue body before implementation starts: the body must carry an
+`Acceptance criteria` section whose numbered items are each **command-verifiable**.
+
+```bash
+./issue_check --help
+./issue_check --body-file tools/fixtures/issue_check/valid.md              # exit 0
+./issue_check --body-file tools/fixtures/issue_check/prose_only_criteria.md # exit 1
+gh issue view 74 --json body --jq .body > body.md && ./issue_check --body-file body.md
+```
+
+Exit codes: `0` the issue may be worked on, `1` the issue is not compliant, `2` the
+check was invoked wrong (bad flag, unreadable or non-UTF-8 `--body-file`).
+
+A criterion counts as command-verifiable when an **inline code span on its first
+line** — or a line of a **fenced block belonging to it** — reads as an invocation:
+first token is a path (`./run_tests …`) or a known runner (`uv`, `cargo`, `gh`,
+`git`, `grep`, `pytest`, `python`, …), or it asserts an exit code (`exit`, `→`).
+A backticked noun in prose (`` `PINS.toml` ``) is not a command, and prose trailing
+the list belongs to no criterion. `.github/workflows/issue-check.yml` runs this on
+`issues` (opened/edited/labeled) and on `workflow_dispatch` with an issue number.
+
 ## tests/common (cache + assertion helpers)
 
 Fetch a cache, then point `$VEPYR_CACHE_ROOT` at the same directory (or pass

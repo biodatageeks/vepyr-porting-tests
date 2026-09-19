@@ -16,7 +16,7 @@ from typing import Final
 
 import pytest
 
-from issue_check.checker import check, sections
+from issue_check.checker import check, looks_like_command, sections
 from issue_check.cli import main
 from issue_check.verdict import Exit, IssueCheckError
 
@@ -134,6 +134,96 @@ def test_section_without_numbered_items_is_invalid() -> None:
     with pytest.raises(IssueCheckError) as caught:
         check(body, origin="body.md")
     assert "no numbered acceptance criteria" in str(caught.value)
+
+
+def test_backticked_noun_is_not_a_command() -> None:
+    """Review counter-example: a prose criterion naming a file is still prose."""
+    body = (
+        "## Acceptance criteria\n\n"
+        "1. Reviewers agree the `PINS.toml` wording is clear.\n"
+        "2. It just works, see `foo.rs`.\n"
+    )
+    with pytest.raises(IssueCheckError) as caught:
+        check(body, origin="body.md")
+    assert caught.value.code is Exit.INVALID
+    assert "#1" in str(caught.value)
+    assert "#2" in str(caught.value)
+
+
+@pytest.mark.parametrize(
+    ("span", "expected"),
+    [
+        ("uv run --frozen pytest -q", True),
+        ("./run_tests --list", True),
+        ("/usr/bin/env python -V", True),
+        ("gh issue view 74", True),
+        ("the job exits 0", True),
+        ("`make test` → exit 0", True),
+        ("PINS.toml", False),
+        ("foo.rs", False),
+        ("tests/data_frameshift.rs", False),
+        ("", False),
+    ],
+)
+def test_looks_like_command(span: str, expected: bool) -> None:
+    """The invocation heuristic is explicit about both sides."""
+    assert looks_like_command(span) is expected
+
+
+def test_trailing_prose_does_not_satisfy_the_last_criterion() -> None:
+    """Review item 3: a code span in flush-left prose after the list does not count."""
+    body = (
+        "## Acceptance criteria\n\n"
+        "1. The precheck works correctly.\n\n"
+        "See `PINS.toml` for background.\n"
+    )
+    with pytest.raises(IssueCheckError) as caught:
+        check(body, origin="body.md")
+    assert "without a backticked command: #1" in str(caught.value)
+
+
+def test_criterion_ends_before_trailing_prose() -> None:
+    """The dropped prose is not part of the item at all, not merely ignored."""
+    body = (
+        "## Acceptance criteria\n\n"
+        "1. `make test` exits 0.\n\n"
+        "See `PINS.toml` for background.\n"
+    )
+    (criterion,) = check(body, origin="body.md").criteria()
+    assert criterion.lines == ("`make test` exits 0.",)
+
+
+@pytest.mark.parametrize("indent", ["", " ", "   ", "    ", "      ", "\t"])
+def test_fenced_command_at_any_item_indent(indent: str) -> None:
+    """Review item 4: a fence indented 4+ spaces under ``1. `` is valid GFM."""
+    body = (
+        f"## Acceptance criteria\n\n1. this run passes:\n\n"
+        f"{indent}```\n{indent}make test\n{indent}```\n"
+    )
+    section = check(body, origin="body.md")
+    assert [c.ordinal for c in section.criteria()] == ["1"]
+
+
+def test_fenced_prose_is_not_a_command() -> None:
+    """A fenced block still has to contain something runnable."""
+    body = (
+        "## Acceptance criteria\n\n1. it works:\n\n"
+        "    ```\n    looks fine to me\n    ```\n"
+    )
+    with pytest.raises(IssueCheckError) as caught:
+        check(body, origin="body.md")
+    assert "without a backticked command: #1" in str(caught.value)
+
+
+def test_non_utf8_body_is_a_clean_usage_error(tmp_path: Path) -> None:
+    """Review item 5: no traceback, and INVALID stays distinct from USAGE."""
+    body = tmp_path / "garbled.md"
+    body.write_bytes(b"## Acceptance criteria\n\n1. \x80bad `make test`\n")
+    outcome = run(["--body-file", str(body)])
+    assert outcome.code == int(Exit.USAGE), outcome
+    assert "not valid UTF-8" in outcome.stderr
+    assert "Traceback" not in outcome.stderr
+    assert outcome.stdout == ""
 
 
 def test_real_issue_74_body_would_pass() -> None:

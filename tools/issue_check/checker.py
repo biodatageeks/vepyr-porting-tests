@@ -4,13 +4,38 @@ Two properties are checked, in this order:
 
 1. the body carries a heading whose text matches :data:`ACCEPTANCE_HEADING`
    (``/acceptance criteria/i``);
-2. that section lists at least one numbered item, and *every* numbered item carries
-   a backticked command — either an inline code span or a fenced block.
+2. that section lists at least one numbered item, and *every* numbered item is
+   command-verifiable.
 
 Rule 2 is what makes the acceptance criteria falsifiable: a prose criterion cannot be
 run, so it cannot fail, so it is not a criterion. Headings and numbered items inside
 fenced code blocks are ignored, so a body that quotes a template does not pass by
 accident.
+
+What counts as command-verifiable
+---------------------------------
+
+A backticked span *somewhere* in the item is not enough: ``1. Reviewers agree the
+`PINS.toml` wording is clear.`` is prose that happens to name a file. A criterion is
+command-verifiable when either
+
+* an **inline code span on the item's first line** looks like an invocation, or
+* a **fenced block belonging to the item** carries a line that looks like one.
+
+Continuation lines other than fenced blocks never contribute, so unrelated prose that
+trails the last item cannot satisfy it — and an item ends at a blank line followed by
+a non-indented, non-item line (GFM loose-list rules), so such prose is not even part
+of the item.
+
+A line or span "looks like an invocation" (:func:`looks_like_command`) when its first
+token is a path-like executable (``./x``, ``../x``, ``/usr/bin/x``), or a known runner
+(:data:`RUNNERS` — ``uv``, ``cargo``, ``gh``, ``git``, ``grep``, ``pytest``, ``test``,
+``python``, …), or when it asserts an exit code (``exit``, ``→``). The list is
+deliberately small and explicit: a rule nobody can predict is worse than a rule that
+occasionally asks the author to write the command out.
+
+Fence indentation follows the item, not a fixed column: a fenced block indented four
+or more spaces under ``1. `` is valid GFM and is accepted.
 """
 
 from __future__ import annotations
@@ -24,9 +49,11 @@ from issue_check.verdict import Exit, IssueCheckError
 
 __all__ = [
     "ACCEPTANCE_HEADING",
+    "RUNNERS",
     "Criterion",
     "Section",
     "check",
+    "looks_like_command",
     "sections",
 ]
 
@@ -37,10 +64,71 @@ ACCEPTANCE_HEADING: Final[re.Pattern[str]] = re.compile(
 
 _HEADING: Final[re.Pattern[str]] = re.compile(r"^\s{0,3}(#{1,6})\s+(?P<text>.+?)\s*#*$")
 _FENCE: Final[re.Pattern[str]] = re.compile(r"^\s{0,3}(?P<fence>`{3,}|~{3,})")
+_INDENTED_FENCE: Final[re.Pattern[str]] = re.compile(r"^\s*(?P<fence>`{3,}|~{3,})")
+"""Fences inside a list item: the continuation indent is the item's, not column 0-3."""
+
 _ITEM: Final[re.Pattern[str]] = re.compile(
     r"^\s{0,3}(?P<ordinal>\d+)[.)]\s+(?P<rest>.*)$"
 )
-_INLINE_CODE: Final[re.Pattern[str]] = re.compile(r"`[^`\n]+`")
+_INLINE_CODE: Final[re.Pattern[str]] = re.compile(r"`(?P<code>[^`\n]+)`")
+
+RUNNERS: Final[frozenset[str]] = frozenset(
+    {
+        "awk",
+        "bash",
+        "cargo",
+        "cat",
+        "curl",
+        "diff",
+        "docker",
+        "env",
+        "find",
+        "gh",
+        "git",
+        "grep",
+        "jq",
+        "just",
+        "ls",
+        "make",
+        "npm",
+        "npx",
+        "pytest",
+        "python",
+        "python3",
+        "rg",
+        "ruff",
+        "sed",
+        "sh",
+        "test",
+        "uv",
+        "uvx",
+    }
+)
+"""Executables a criterion may start with without spelling out a path."""
+
+_PROMPT: Final[re.Pattern[str]] = re.compile(r"^[$>]\s+")
+_EXIT_ASSERTION: Final[re.Pattern[str]] = re.compile(r"(?:\bexit(?:s|ed)?\b|→)")
+_PATHISH: Final[re.Pattern[str]] = re.compile(r"^(?:\./|\.\./|/)[\w./+-]")
+
+
+def looks_like_command(text: str) -> bool:
+    """Whether ``text`` reads as a runnable invocation rather than prose.
+
+    True when the first token is a path-like executable or a member of
+    :data:`RUNNERS`, or when the text asserts an exit code (``exit``, ``→``).
+
+    >>> looks_like_command("uv run pytest -q")
+    True
+    >>> looks_like_command("PINS.toml")
+    False
+    """
+    stripped = _PROMPT.sub("", text.strip())
+    if not stripped:
+        return False
+    if _EXIT_ASSERTION.search(stripped):
+        return True
+    head = stripped.split(maxsplit=1)[0]
+    return bool(_PATHISH.match(head)) or head in RUNNERS
 
 
 @dataclass(frozen=True, slots=True, kw_only=True)
@@ -57,9 +145,26 @@ class Criterion:
 
     @property
     def has_command(self) -> bool:
-        """Whether the criterion carries a backticked command."""
-        return bool(_INLINE_CODE.search(self.text)) or any(
-            _FENCE.match(line) for line in self.lines
+        """Whether the criterion is command-verifiable.
+
+        Only the item's first line (inline code spans) and its fenced blocks count —
+        see the module docstring for why a backticked noun in trailing prose does not.
+        """
+        first = self.lines[0] if self.lines else ""
+        if any(
+            looks_like_command(match.group("code"))
+            for match in _INLINE_CODE.finditer(first)
+        ):
+            return True
+        return any(looks_like_command(line) for line in self.fenced_lines)
+
+    @property
+    def fenced_lines(self) -> tuple[str, ...]:
+        """The content lines of every fenced block inside this criterion."""
+        return tuple(
+            line
+            for _, line, in_fence in _outside_fences(self.lines, fence=_INDENTED_FENCE)
+            if in_fence and not _INDENTED_FENCE.match(line)
         )
 
 
@@ -75,22 +180,26 @@ class Section:
         return tuple(_criteria(self.lines))
 
 
-def _outside_fences(lines: Sequence[str]) -> Iterator[tuple[int, str, bool]]:
+def _outside_fences(
+    lines: Sequence[str], *, fence: re.Pattern[str] = _FENCE
+) -> Iterator[tuple[int, str, bool]]:
     """Yield ``(index, line, in_fence)`` tracking fenced code blocks.
 
     ``in_fence`` is true for the fence delimiters themselves as well as for the lines
-    between them, so callers can skip every fenced line with a single test.
+    between them, so callers can skip every fenced line with a single test. ``fence``
+    selects how much leading indentation opens a fence: :data:`_FENCE` at top level,
+    :data:`_INDENTED_FENCE` inside a list item.
     """
-    fence: str | None = None
+    open_marker: str | None = None
     for index, line in enumerate(lines):
-        match _FENCE.match(line):
+        match fence.match(line):
             case None:
-                yield index, line, fence is not None
-            case marker if fence is None:
-                fence = marker.group("fence")[0]
+                yield index, line, open_marker is not None
+            case marker if open_marker is None:
+                open_marker = marker.group("fence")[0]
                 yield index, line, True
-            case marker if marker.group("fence")[0] == fence:
-                fence = None
+            case marker if marker.group("fence")[0] == open_marker:
+                open_marker = None
                 yield index, line, True
             case _:
                 yield index, line, True
@@ -116,19 +225,41 @@ def sections(body: str) -> tuple[Section, ...]:
 
 
 def _criteria(lines: Sequence[str]) -> Iterator[Criterion]:
-    """Group ``lines`` into numbered items; continuation lines stay with their item."""
+    """Group ``lines`` into numbered items.
+
+    An item owns its indented continuation lines, including fenced blocks at any
+    indentation. It **ends** at a blank line followed by a non-indented line that is
+    not itself an item (GFM loose-list rules), so prose trailing the list belongs to
+    nobody — it cannot make the last criterion look verifiable.
+    """
     ordinal: str | None = None
     buffer: list[str] = []
-    for _, line, in_fence in _outside_fences(lines):
+    blanks: list[str] = []
+
+    def flush() -> Iterator[Criterion]:
+        nonlocal ordinal, buffer, blanks
+        if ordinal is not None:
+            yield Criterion(ordinal=ordinal, lines=tuple(buffer))
+        ordinal, buffer, blanks = None, [], []
+
+    for _, line, in_fence in _outside_fences(lines, fence=_INDENTED_FENCE):
         item = None if in_fence else _ITEM.match(line)
         if item is not None:
-            if ordinal is not None:
-                yield Criterion(ordinal=ordinal, lines=tuple(buffer))
+            yield from flush()
             ordinal, buffer = item.group("ordinal"), [item.group("rest")]
-        elif ordinal is not None:
+        elif ordinal is None:
+            continue
+        elif not in_fence and not line.strip():
+            blanks.append(line)
+        elif in_fence or line[:1].isspace():
+            buffer.extend(blanks)
+            blanks.clear()
             buffer.append(line)
-    if ordinal is not None:
-        yield Criterion(ordinal=ordinal, lines=tuple(buffer))
+        elif blanks:  # blank line, then flush-left prose: the list is over
+            yield from flush()
+        else:  # lazy continuation of the current item
+            buffer.append(line)
+    yield from flush()
 
 
 def check(body: str, *, origin: str) -> Section:

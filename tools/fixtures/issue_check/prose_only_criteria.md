@@ -11,7 +11,7 @@ A precheck that compares the cache root against `PINS.toml`.
 
 1. The precheck works correctly and the tests pass.
 2. `uv run pytest tools/test_pins.py -q` exits 0.
-3. Reviewers agree that the error message is clear enough.
+3. Reviewers agree that the `PINS.toml` error message is clear enough.
 
 ## Out of scope
 

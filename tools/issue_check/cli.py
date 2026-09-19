@@ -73,12 +73,23 @@ def parse_args(argv: Sequence[str]) -> Invocation:
 
 
 def _read(path: Path) -> str:
-    """Read ``path`` as UTF-8, mapping I/O problems to :attr:`Exit.USAGE`."""
+    """Read ``path`` as UTF-8, mapping I/O and decoding problems to :attr:`Exit.USAGE`.
+
+    A body that is not UTF-8 cannot come from ``gh issue view`` (which writes decoded
+    JSON), so it is a broken invocation, not a non-compliant issue — and it must say so
+    in one line instead of a traceback.
+    """
     try:
         return path.read_text(encoding="utf-8")
     except OSError as exc:
         raise IssueCheckError(
             Exit.USAGE, f"--body-file {path}: {exc.strerror or exc}"
+        ) from exc
+    except UnicodeDecodeError as exc:
+        raise IssueCheckError(
+            Exit.USAGE,
+            f"--body-file {path}: not valid UTF-8 "
+            f"(byte {exc.object[exc.start]:#04x} at offset {exc.start})",
         ) from exc
 
 

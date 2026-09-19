@@ -29,7 +29,9 @@ jobs:
       - uses: actions/checkout@v7
 
       - name: Set up uv
-        uses: astral-sh/setup-uv@v10
+        # `astral-sh/setup-uv` publishes floating major tags only up to v7, so v8+
+        # must be pinned to a point release (or a sha) — `@v10` is not a ref.
+        uses: astral-sh/setup-uv@v10.1.0
         with:
           enable-cache: true
 
@@ -44,4 +46,4 @@ jobs:
           printf 'issue #%s: %s bytes of body\n' "$ISSUE" "$(wc -c < issue-body.md)"
 
       - name: Validate the issue structure
-        run: env PYTHONPATH=tools uv run --frozen python -m issue_check --body-file issue-body.md
+        run: ./issue_check --body-file issue-body.md
