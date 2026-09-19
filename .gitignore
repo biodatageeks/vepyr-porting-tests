@@ -14,3 +14,6 @@ __pycache__/
 
 # ./run_tests reports (LEDGER.md, verdict.json, step logs) — local, never committed.
 .run_tests/
+
+# Local agent scratch specs — never repository documentation.
+docs/superpowers/
