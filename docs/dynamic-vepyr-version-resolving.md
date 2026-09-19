@@ -74,8 +74,6 @@ root (`$RUN_TESTS_SRC`, else `<repo>/.run_tests/src` — see `engine.default_src
 - each resolved revision then gets its **own immutable worktree** at `<repo>/<sha>`,
   which means two runs against two engine revisions never fight over one checkout.
 
-`--offline` skips network work and requires the trees to already be there.
-
 ### 4. `engine.toml` patch table
 
 `engine.engine_toml` renders a byte-stable cargo config:

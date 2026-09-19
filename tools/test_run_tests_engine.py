@@ -182,23 +182,3 @@ def test_same_rev_reuses_its_tree(ladder: dict[str, Any]) -> None:
     second = engine.resolve("old", api=ladder["api"], src_root=src_root, run=_run)
     assert second.dfbf.path == first.dfbf.path
     assert stamp.read_text(encoding="utf-8") == "kept"
-
-
-def test_offline_reuses_the_mirror_and_refuses_a_cold_cache(
-    ladder: dict[str, Any],
-) -> None:
-    """``--offline`` needs the mirror; with it, per-sha trees materialise locally."""
-    from run_tests.verdict import RunTestsError
-
-    src_root: Path = ladder["src_root"]
-    with pytest.raises(RunTestsError, match="no mirror of dfbf"):
-        engine.resolve(
-            "old", api=ladder["api"], src_root=src_root, run=_run, offline=True
-        )
-    online = engine.resolve("old", api=ladder["api"], src_root=src_root, run=_run)
-    # Mirror now present: a second, different revision still checks out offline.
-    offline = engine.resolve(
-        "new", api=ladder["api"], src_root=src_root, run=_run, offline=True
-    )
-    assert offline.dfbf.path != online.dfbf.path
-    assert offline.dfbf.head == _git(offline.dfbf.path, "rev-parse", "HEAD")

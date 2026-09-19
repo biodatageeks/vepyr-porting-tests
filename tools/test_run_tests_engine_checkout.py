@@ -241,7 +241,6 @@ def test_clone_and_checkout_carry_skip_smudge_env(tmp_path: Path) -> None:
         rev=sha,
         target=tmp_path / "dfbf",
         run=fake_run,
-        offline=False,
     )
 
     shared_clone = [k for a, k in calls if "clone" in a and "--shared" in a]

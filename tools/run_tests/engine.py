@@ -332,31 +332,19 @@ def _mirror_sha(
     rev: str,
     mirror: Path,
     run: Runner,
-    offline: bool,
 ) -> str:
     """Update the shared bare mirror of ``git_url`` and resolve ``rev`` to a sha."""
     if not mirror.exists():
-        if offline:
-            raise RunTestsError(
-                Exit.ENGINE,
-                f"--offline: no mirror of {name} at {mirror}; run once online",
-            )
         mirror.parent.mkdir(parents=True, exist_ok=True)
         _git(run, ["git", "clone", "--quiet", "--mirror", git_url, str(mirror)])
     git = ["git", "-C", str(mirror)]
     verify = [*git, "rev-parse", "--verify", "--quiet", f"{rev}^{{commit}}"]
-    if not offline:
-        # A mirror fetch updates every ref, so named branches/tags cannot go stale.
-        _git(run, [*git, "fetch", "--quiet", "--prune", "--tags", "origin"])
+    # A mirror fetch updates every ref, so named branches/tags cannot go stale.
+    _git(run, [*git, "fetch", "--quiet", "--prune", "--tags", "origin"])
     try:
         return _git(run, verify)
-    except RunTestsError as exc:
-        if offline:
-            raise RunTestsError(
-                Exit.ENGINE,
-                f"--offline: {name} mirror {mirror} has no rev {rev!r}; "
-                "run once online",
-            ) from exc
+    except RunTestsError:
+        pass
     # A sha on no branch (e.g. a PR head) needs an explicit single-rev fetch.
     run(
         [*git, "fetch", "--quiet", "origin", rev],
@@ -380,7 +368,6 @@ def _checkout_repo(
     rev: str,
     target: Path,
     run: Runner,
-    offline: bool,
 ) -> Checkout:
     """Materialise ``rev`` of ``git_url`` in a worktree keyed by its resolved sha.
 
@@ -396,7 +383,6 @@ def _checkout_repo(
         rev=rev,
         mirror=target / "git",
         run=run,
-        offline=offline,
     )
     tree = target / sha
     fresh = not (tree / ".git").exists()
@@ -466,7 +452,6 @@ def resolve(
     api: GhApi,
     src_root: Path,
     run: Runner | None = None,
-    offline: bool = False,
 ) -> EnginePlan:
     """Resolve ``ref``, checkout the ladder, and build the cargo config text."""
     runner: Runner = run or _default_run
@@ -492,7 +477,6 @@ def resolve(
         rev=dfbf_rev,
         target=src_root / "datafusion-bio-functions",
         run=runner,
-        offline=offline,
     )
     formats = _checkout_repo(
         name="formats",
@@ -500,7 +484,6 @@ def resolve(
         rev=fmt_rev,
         target=src_root / "datafusion-bio-formats",
         run=runner,
-        offline=offline,
     )
     return EnginePlan(
         ref=ref,
@@ -518,7 +501,6 @@ def materialise(
     api: GhApi | None = None,
     src_root: Path | None = None,
     run: Runner | None = None,
-    offline: bool = False,
 ) -> tuple[EnginePlan, Path]:
     """Write ``<repo>/.run_tests/engine.toml``; return ``(plan, config_path)``."""
     plan = resolve(
@@ -526,7 +508,6 @@ def materialise(
         api=api or GhCli(),
         src_root=src_root or default_src_root(),
         run=run,
-        offline=offline,
     )
     report = repo_root / ".run_tests"
     report.mkdir(parents=True, exist_ok=True)
