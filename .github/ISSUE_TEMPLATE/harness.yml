@@ -142,9 +142,9 @@ body:
         Which branch the fix branches from. Not always the default branch (`master`): a batch
         of harness issues once all targeted `harness/issue-14-15-run-tests` while PR #20 was
         still open, and branching them from `master` would have produced a fix against code
-        that did not exist there. Say so explicitly when that is the case.
+        that did not exist there. Say so explicitly when that is the case — e.g. replace this
+        field with `harness/issue-14-15-run-tests` while its PR is open, not `master`.
       value: "master"
-      placeholder: "harness/issue-14-15-run-tests (PR #20, not yet merged — branch from there, not from master)"
     validations:
       required: true
 
