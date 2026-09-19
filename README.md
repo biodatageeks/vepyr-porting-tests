@@ -90,7 +90,9 @@ pin `--vepyr REF` for anything that must be reproducible.
 
 `./issue_check --body-file PATH` reads an issue body and answers one question: does it
 have a heading matching `/acceptance criteria/i`, and does that section contain at
-least one code span or fenced code block?
+least one code span or fenced code block? The section runs to the next heading of the
+same or a higher level, so `### AC-N` sub-sections — their headings included — are part
+of it.
 
 ```bash
 ./issue_check --body-file tools/fixtures/issue_check/valid.md               # exit 0

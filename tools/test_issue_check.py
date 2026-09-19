@@ -33,6 +33,8 @@ def run_cli(*args: str) -> subprocess.CompletedProcess[str]:
         ("valid.md", checker.OK),
         ("no_acceptance_criteria.md", checker.INVALID),
         ("prose_only_criteria.md", checker.INVALID),
+        ("subsection_criteria.md", checker.OK),
+        ("subsection_prose_only.md", checker.INVALID),
     ],
 )
 def test_fixtures(fixture: str, expected: int) -> None:
@@ -57,5 +59,26 @@ def test_non_utf8_body_is_a_usage_error(tmp_path: Path) -> None:
     result = run_cli("--body-file", str(body))
     assert result.returncode == checker.USAGE
     expected = f"issue_check: usage error: {body} is not valid UTF-8"
-    assert result.stdout.strip() == expected
+    assert result.stderr.strip() == expected
+    assert result.stdout == ""
     assert "Traceback" not in result.stderr
+
+
+def test_subsection_text_and_bodies_belong_to_the_section() -> None:
+    """A deeper heading does not close the section; its text and body count."""
+    assert checker.has_acceptance_criteria(
+        "## Acceptance criteria\n\nlead-in\n\n### AC-1 — no `gh` invocation\n"
+    )[0]
+    assert checker.has_acceptance_criteria(
+        "## Acceptance criteria\n\nlead-in\n\n### AC-1\n\n`make test` exits 0.\n"
+    )[0]
+
+
+def test_section_ends_at_a_heading_of_the_same_or_higher_level() -> None:
+    """Code after the next same-or-higher heading is outside the section."""
+    for closing in ("## Out of scope", "# Out of scope"):
+        compliant, reason = checker.has_acceptance_criteria(
+            f"## Acceptance criteria\n\nprose only\n\n{closing}\n\n`make test`\n"
+        )
+        assert not compliant, closing
+        assert "no code span" in reason
