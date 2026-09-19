@@ -96,8 +96,8 @@ def _parser() -> argparse.ArgumentParser:
         default=None,
         metavar="DIR",
         help="cache directory for the VEP 116 corpus; shards are downloaded into it "
-        "(the reference FASTA comes along automatically). Also used as $VEPYR_CACHE_ROOT "
-        "for the run.",
+        "(the reference FASTA comes along automatically). It is also the "
+        "$VEPYR_CACHE_ROOT the data-test run reads.",
     )
     data.add_argument(
         "--add-contigs",
@@ -410,10 +410,15 @@ def _fetch_phase(
         code, detail = _run_fetch(inv, argv, cache_root=cache_root, fetchers=fetchers)
     except RunTestsError as exc:
         _print_error(exc)
-        print(_summary(inv, exc.code, str(exc), targets=targets), end="")
+        print(
+            _summary(inv, exc.code, str(exc), targets=targets, cache_dir=cache_root),
+            end="",
+        )
         return int(exc.code)
     if code is not Exit.OK:
-        print(_summary(inv, code, detail, targets=targets), end="")
+        print(
+            _summary(inv, code, detail, targets=targets, cache_dir=cache_root), end=""
+        )
         return int(code)
     return detail
 

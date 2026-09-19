@@ -9,7 +9,9 @@ plus the revision ``datafusion-bio-function-vep`` pins) made every ``cargo updat
 Two levels:
 
 * :func:`test_committed_lockfile_has_one_source_per_crate` — pure lockfile reading,
-  always runs, guards the committed graph.
+  always runs, guards the committed graph. It reads ``git show HEAD:Cargo.lock``
+  rather than the working-tree file, so a lockfile left rewritten by a killed
+  ``--vepyr`` run cannot make the invariant vacuously true.
 * :func:`test_vepyr_patched_lockfile_has_one_source_per_crate` — **integration**: a
   real ``cargo`` (not the faked runner of ``test_run_tests_cli.py``) re-resolves the
   graph under the real ``--vepyr`` ``[patch]`` config and the invariant is re-checked
@@ -57,9 +59,30 @@ def duplicates(lock_text: str) -> dict[str, set[str]]:
     return {n: s for n, s in ladder_sources(lock_text).items() if len(s) > 1}
 
 
+def committed_lock_text() -> str:
+    """``HEAD:Cargo.lock`` — the *committed* lockfile, never the working tree copy.
+
+    A `--vepyr` run rewrites the working-tree lockfile (path-patched packages carry
+    no ``source`` key), and a run killed before :class:`engine.LockGuard` restores it
+    leaves that rewrite on disk. Reading the file would then make the invariant below
+    vacuously true, so the committed blob is read through git; outside a checkout, or
+    when ``Cargo.lock`` is untracked, the file is the only thing there is.
+    """
+    completed = subprocess.run(
+        ["git", "show", "HEAD:Cargo.lock"],
+        cwd=REPO_ROOT,
+        capture_output=True,
+        text=True,
+        check=False,
+    )
+    if completed.returncode == 0:
+        return completed.stdout
+    return (REPO_ROOT / "Cargo.lock").read_text(encoding="utf-8")
+
+
 def test_committed_lockfile_has_one_source_per_crate() -> None:
     """The committed graph carries exactly one source per ladder crate."""
-    text = (REPO_ROOT / "Cargo.lock").read_text(encoding="utf-8")
+    text = committed_lock_text()
     found = ladder_sources(text)
     assert found, "Cargo.lock lists no datafusion-bio-* packages"
     assert duplicates(text) == {}
