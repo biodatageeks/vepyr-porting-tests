@@ -7,7 +7,7 @@ body:
     attributes:
       value: |
         Use this form for **repo-level tooling and process**: CI, issue forms, generators,
-        harness scripts, docs infrastructure — work about *how we work*.
+        docs infrastructure — work about *how we work*.
 
         This is **not** a data-test port (use the *Data-test* form), and **not** a bug in the
         vepyr engine itself (file that in
@@ -183,7 +183,9 @@ body:
     attributes:
       label: Scope check
       description: >-
-        Routing, confirmed before you typed the body rather than hand-explained after it.
+        Routing and self-check, confirmed before you typed the body rather than hand-explained
+        after it. The first two ticks are routing; the third is your own attestation that the
+        acceptance criteria and negative control above are falsifiable.
       options:
         - label: >-
             This is repo tooling/process, not a ledger row port (those use the *Data-test* form).
