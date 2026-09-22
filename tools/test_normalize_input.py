@@ -87,9 +87,59 @@ def test_the_script_is_executable() -> None:
 
 
 def test_the_source_never_mentions_a_reference_fasta() -> None:
-    """``-f`` would left-align indels and move VEP's answers (AC 9)."""
+    """``-f`` would left-align indels and move VEP's answers (AC 9).
+
+    This is the literal grep issue #85's AC 9 runs, kept so the criterion has a
+    home in the suite. On its own it is *not* a guarantee: the argv is built
+    from a tuple, so the source never contains ``norm `` followed by a flag and
+    the pattern cannot match even if ``-f`` were added. The falsifiable check is
+    :func:`test_the_bcftools_argv_never_carries_a_reference_fasta`.
+    """
     source = SCRIPT.read_text(encoding="utf-8")
     assert re.search(r"norm .*(-f|--fasta-ref)", source) is None
+
+
+def _capture_norm_argv(monkeypatch: pytest.MonkeyPatch) -> list[str]:
+    """Return the argv ``_run_norm`` hands to :func:`subprocess.run`.
+
+    Args:
+        monkeypatch: Fixture used to intercept the subprocess call.
+
+    Returns:
+        The argument vector, with bcftools never actually started.
+    """
+    seen: list[str] = []
+
+    def _fake_run(
+        argv: list[str], **_kwargs: object
+    ) -> subprocess.CompletedProcess[str]:
+        seen[:] = argv
+        return subprocess.CompletedProcess(argv, 0, "", "")
+
+    monkeypatch.setattr(normalize_input.subprocess, "run", _fake_run)
+    normalize_input._run_norm(Path("raw.vcf"), Path("out.vcf"))
+    return seen
+
+
+def test_the_bcftools_argv_never_carries_a_reference_fasta(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    """The real guarantee: no ``-f``/``--fasta-ref`` reaches bcftools.
+
+    Unlike the source grep of AC 9, this fails if a reference FASTA is ever
+    added to ``_NORM_FLAGS`` -- the sabotage that motivated it.
+    """
+    argv = _capture_norm_argv(monkeypatch)
+    assert "-f" not in argv
+    assert "--fasta-ref" not in argv
+
+
+def test_the_bcftools_argv_is_exactly_the_fixed_command(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    """`-m -both` and nothing else, in that order (CLAUDE.md's binding rule)."""
+    argv = _capture_norm_argv(monkeypatch)
+    assert argv == ["bcftools", "norm", "-m", "-both", "-o", "out.vcf", "raw.vcf"]
 
 
 @requires_bcftools
