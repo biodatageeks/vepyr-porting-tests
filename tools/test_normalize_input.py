@@ -306,16 +306,42 @@ def test_an_existing_file_that_is_not_toml_is_refused(tmp_path: Path) -> None:
 
 
 @requires_bcftools
-def test_a_broken_test_toml_makes_the_script_exit_nonzero(
+def test_a_broken_test_toml_leaves_the_whole_test_directory_untouched(
     raw_vcf: Path, tmp_path: Path
 ) -> None:
-    """The refusal reaches the shell as exit 1 with a message naming the file."""
+    """A refused run must write *nothing*, not just refuse the TOML.
+
+    ``input.vcf`` used to be written before ``test.toml`` was even read, so a
+    refusal left the data-test holding a fresh input with no matching
+    ``[input]`` table beside it -- and an exit code saying the run had failed.
+    The same promise the argparse path already keeps.
+    """
     test_dir = tmp_path / "t9"
     test_dir.mkdir()
-    (test_dir / "test.toml").write_text("not = = toml\n", encoding="utf-8")
+    broken = "name = \"demo\"\nbroken = = toml\n"
+    (test_dir / "test.toml").write_text(broken, encoding="utf-8")
+    (test_dir / "input.vcf").write_text("PREVIOUS-GOOD-INPUT\n", encoding="utf-8")
+
     done = _run(str(raw_vcf), str(test_dir))
+
     assert done.returncode == 1
     assert "not valid TOML" in done.stderr
+    assert (test_dir / "test.toml").read_text(encoding="utf-8") == broken
+    assert (
+        test_dir / "input.vcf"
+    ).read_text(encoding="utf-8") == "PREVIOUS-GOOD-INPUT\n"
+
+
+@requires_bcftools
+def test_a_refused_run_creates_no_input_vcf_at_all(
+    raw_vcf: Path, tmp_path: Path
+) -> None:
+    """The same guarantee when the test directory had no input.vcf to begin."""
+    test_dir = tmp_path / "t10"
+    test_dir.mkdir()
+    (test_dir / "test.toml").write_text("not = = toml\n", encoding="utf-8")
+    assert _run(str(raw_vcf), str(test_dir)).returncode == 1
+    assert not (test_dir / "input.vcf").exists()
 
 
 def test_an_extra_flag_is_refused_before_anything_is_written(

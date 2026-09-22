@@ -47,6 +47,7 @@ __all__ = [
     "bcftools_version",
     "main",
     "normalize",
+    "render_input_table",
     "upsert_input_table",
 ]
 
@@ -221,18 +222,26 @@ def _check_toml(text: str, *, toml_path: Path, stage: str) -> None:
         ) from exc
 
 
-def upsert_input_table(toml_path: Path, *, version: str) -> None:
-    """Write the ``[input]`` table of ``toml_path``, leaving other tables alone.
+def render_input_table(toml_path: Path, *, version: str) -> str:
+    """Return what ``toml_path`` should contain, without touching the disk.
+
+    This is the whole of the upsert except the write. Keeping it separate lets
+    the caller find out that a ``test.toml`` will be refused *before* it has
+    replaced any other file in the test directory: a refusal must leave the
+    test unchanged, not half-rewritten.
 
     An existing ``[input]`` table is replaced in place; otherwise the table is
-    appended. The file is created if it does not exist. Comments and blank
-    lines that sit immediately above the following table header are kept with
-    that table -- ``test.toml`` is where the per-test links to the upstream VEP
-    test live, and losing them would defeat the point of recording them.
+    appended. Comments and blank lines that sit immediately above the following
+    table header are kept with that table -- ``test.toml`` is where the
+    per-test links to the upstream VEP test live, and losing them would defeat
+    the point of recording them.
 
     Args:
-        toml_path: Path of the test's ``test.toml``.
+        toml_path: Path of the test's ``test.toml``; need not exist.
         version: Version banner to record, as :func:`bcftools_version` returns.
+
+    Returns:
+        The full text to write, already checked to parse as TOML.
 
     Raises:
         NormalizeError: If the existing file is not valid TOML, or if the
@@ -244,8 +253,7 @@ def upsert_input_table(toml_path: Path, *, version: str) -> None:
         f'bcftools_version = "{version}"\n'
     )
     if not toml_path.exists():
-        toml_path.write_text(table, encoding="utf-8")
-        return
+        return table
 
     original = toml_path.read_text(encoding="utf-8")
     _check_toml(original, toml_path=toml_path, stage="the existing file")
@@ -276,7 +284,23 @@ def upsert_input_table(toml_path: Path, *, version: str) -> None:
         rebuilt = "".join(lines[:start]) + table + "".join(lines[end:])
 
     _check_toml(rebuilt, toml_path=toml_path, stage="the rebuilt file")
-    toml_path.write_text(rebuilt, encoding="utf-8")
+    return rebuilt
+
+
+def upsert_input_table(toml_path: Path, *, version: str) -> None:
+    """Write the ``[input]`` table of ``toml_path``, leaving other tables alone.
+
+    Args:
+        toml_path: Path of the test's ``test.toml``.
+        version: Version banner to record, as :func:`bcftools_version` returns.
+
+    Raises:
+        NormalizeError: If the existing file is not valid TOML, or if the
+            rebuilt document would not be; the file is then left untouched.
+    """
+    toml_path.write_text(
+        render_input_table(toml_path, version=version), encoding="utf-8"
+    )
 
 
 def normalize(raw: Path, test_dir: Path) -> Path:
@@ -303,9 +327,16 @@ def normalize(raw: Path, test_dir: Path) -> Path:
         _run_norm(raw, staged)
         body = _strip_stamps(staged.read_text(encoding="utf-8"))
 
+    # Both documents are settled before either is written. A refused test.toml
+    # must leave the test exactly as it was found -- an input.vcf replaced by a
+    # run that then reported failure is the mismatch between the file and the
+    # [input] table recorded beside it that this script exists to rule out.
+    toml_path = test_dir / "test.toml"
+    toml_text = render_input_table(toml_path, version=version)
+
     out = test_dir / "input.vcf"
     out.write_text(body, encoding="utf-8")
-    upsert_input_table(test_dir / "test.toml", version=version)
+    toml_path.write_text(toml_text, encoding="utf-8")
     return out
 
 
