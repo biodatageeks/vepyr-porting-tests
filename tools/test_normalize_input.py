@@ -16,6 +16,7 @@ import re
 import shutil
 import subprocess
 import sys
+import tomllib
 from importlib.machinery import SourceFileLoader
 from pathlib import Path
 from types import ModuleType
@@ -214,19 +215,107 @@ def test_test_toml_records_the_fixed_command_and_the_tool_version(
 def test_an_existing_test_toml_keeps_its_other_tables(
     raw_vcf: Path, tmp_path: Path
 ) -> None:
-    """The script owns ``[input]`` only; #32 and #80 own the rest."""
+    """The script owns ``[input]`` only; #32 and #80 own the rest.
+
+    The comment above ``[vep]`` is the case that matters: ``test.toml`` is
+    where the links to the upstream VEP test are recorded, and those links live
+    in comments. An end-of-table scan that stops at the next ``[`` swallows
+    them, so they are asserted explicitly here rather than implied.
+    """
     test_dir = tmp_path / "t7"
     test_dir.mkdir()
     (test_dir / "test.toml").write_text(
-        'name = "demo"\n\n[input]\ncommand = "stale"\n\n[vep]\nargs = "--cache"\n',
+        'name = "demo"\n'
+        "\n"
+        "[input]\n"
+        'command = "stale"\n'
+        "\n"
+        "# The VEP invocation used to build expected.vcf\n"
+        "# https://github.com/Ensembl/ensembl-vep/blob/release/116.0/t/AnnotationSource.t\n"
+        "[vep]\n"
+        'args = "--cache"\n',
         encoding="utf-8",
     )
     assert _run(str(raw_vcf), str(test_dir)).returncode == 0
     text = (test_dir / "test.toml").read_text(encoding="utf-8")
     assert 'name = "demo"' in text
-    assert "[vep]\nargs = \"--cache\"" in text
     assert "stale" not in text
     assert 'command = "bcftools norm -m -both -o <out.vcf> <in.vcf.gz>"' in text
+    # Both comment lines survive, still attached to [vep], still after a blank
+    # separator. A scan that ate the trivia would glue [vep] to the version key.
+    assert (
+        "\n"
+        "# The VEP invocation used to build expected.vcf\n"
+        "# https://github.com/Ensembl/ensembl-vep/blob/release/116.0/t/AnnotationSource.t\n"
+        "[vep]\n"
+        'args = "--cache"\n'
+    ) in text
+    assert tomllib.loads(text)["vep"]["args"] == "--cache"
+
+
+def test_a_table_with_no_trivia_before_the_next_one_still_round_trips(
+    tmp_path: Path,
+) -> None:
+    """The backward scan must not run past the table it is replacing."""
+    toml_path = tmp_path / "test.toml"
+    toml_path.write_text("[input]\ncommand = \"stale\"\n[vep]\n", encoding="utf-8")
+    normalize_input.upsert_input_table(toml_path, version="bcftools 1.23")
+    text = toml_path.read_text(encoding="utf-8")
+    assert "stale" not in text
+    assert "[vep]" in text
+    assert tomllib.loads(text)["input"]["bcftools_version"] == "bcftools 1.23"
+
+
+def test_an_empty_input_table_is_replaced_without_eating_the_next_header(
+    tmp_path: Path,
+) -> None:
+    """``end`` may never reach ``start``, even when the table body is blank."""
+    toml_path = tmp_path / "test.toml"
+    toml_path.write_text("[input]\n\n[vep]\nargs = \"--cache\"\n", encoding="utf-8")
+    normalize_input.upsert_input_table(toml_path, version="bcftools 1.23")
+    parsed = tomllib.loads(toml_path.read_text(encoding="utf-8"))
+    assert parsed["input"]["command"] == normalize_input.COMMAND_TEMPLATE
+    assert parsed["vep"]["args"] == "--cache"
+
+
+def test_a_bracket_inside_a_multiline_string_is_refused_not_corrupted(
+    tmp_path: Path,
+) -> None:
+    """The line scan cannot see multi-line strings, so it must refuse to guess.
+
+    A ``[``-starting line inside a multi-line string looks like a table header.
+    Before the tomllib guard this truncated the table and wrote a file that no
+    longer parsed -- silent corruption of the file #80 reads.
+    """
+    toml_path = tmp_path / "test.toml"
+    original = '[input]\nnotes = """\n[vep] section below is authoritative\n"""\n'
+    toml_path.write_text(original, encoding="utf-8")
+    assert tomllib.loads(original), "negative control: the input is valid TOML"
+
+    with pytest.raises(normalize_input.NormalizeError, match="not valid TOML"):
+        normalize_input.upsert_input_table(toml_path, version="bcftools 1.23")
+    assert toml_path.read_text(encoding="utf-8") == original, "left untouched"
+
+
+def test_an_existing_file_that_is_not_toml_is_refused(tmp_path: Path) -> None:
+    """Garbage in must not become differently-shaped garbage out."""
+    toml_path = tmp_path / "test.toml"
+    toml_path.write_text("this is not = = toml\n", encoding="utf-8")
+    with pytest.raises(normalize_input.NormalizeError, match="the existing file"):
+        normalize_input.upsert_input_table(toml_path, version="bcftools 1.23")
+
+
+@requires_bcftools
+def test_a_broken_test_toml_makes_the_script_exit_nonzero(
+    raw_vcf: Path, tmp_path: Path
+) -> None:
+    """The refusal reaches the shell as exit 1 with a message naming the file."""
+    test_dir = tmp_path / "t9"
+    test_dir.mkdir()
+    (test_dir / "test.toml").write_text("not = = toml\n", encoding="utf-8")
+    done = _run(str(raw_vcf), str(test_dir))
+    assert done.returncode == 1
+    assert "not valid TOML" in done.stderr
 
 
 def test_an_extra_flag_is_refused_before_anything_is_written(

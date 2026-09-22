@@ -37,6 +37,7 @@ import shutil
 import subprocess
 import sys
 import tempfile
+import tomllib
 from dataclasses import dataclass
 from pathlib import Path
 from typing import Final
@@ -177,15 +178,65 @@ def _strip_stamps(text: str) -> str:
     return "".join(kept)
 
 
+def _is_trivia(line: str) -> bool:
+    """Say whether ``line`` is a blank line or a whole-line TOML comment.
+
+    Such lines directly above a table header belong to *that* table -- they are
+    its separator and its documentation -- so replacing the table above them
+    must not consume them.
+
+    Args:
+        line: One line of a TOML file, newline included or not.
+
+    Returns:
+        ``True`` for blank and ``#``-comment lines, ``False`` otherwise.
+    """
+    stripped = line.strip()
+    return not stripped or stripped.startswith("#")
+
+
+def _check_toml(text: str, *, toml_path: Path, stage: str) -> None:
+    """Fail loudly unless ``text`` parses as TOML.
+
+    ``upsert_input_table`` edits lines rather than parsing, which keeps every
+    comment in the file intact but cannot understand TOML's multi-line strings:
+    a line starting with ``[`` inside one looks exactly like a table header.
+    Rather than silently writing a file that :mod:`tomllib` can no longer read
+    -- and that the test runner would later choke on -- both the file as found
+    and the file as rebuilt are parsed, and either failure aborts the run.
+
+    Args:
+        text: Candidate TOML document.
+        toml_path: Path named in the error message.
+        stage: Human-readable description of which document this is.
+
+    Raises:
+        NormalizeError: If ``text`` is not valid TOML.
+    """
+    try:
+        tomllib.loads(text)
+    except tomllib.TOMLDecodeError as exc:
+        raise NormalizeError(
+            f"{toml_path}: {stage} is not valid TOML: {exc}"
+        ) from exc
+
+
 def upsert_input_table(toml_path: Path, *, version: str) -> None:
     """Write the ``[input]`` table of ``toml_path``, leaving other tables alone.
 
     An existing ``[input]`` table is replaced in place; otherwise the table is
-    appended. The file is created if it does not exist.
+    appended. The file is created if it does not exist. Comments and blank
+    lines that sit immediately above the following table header are kept with
+    that table -- ``test.toml`` is where the per-test links to the upstream VEP
+    test live, and losing them would defeat the point of recording them.
 
     Args:
         toml_path: Path of the test's ``test.toml``.
         version: Version banner to record, as :func:`bcftools_version` returns.
+
+    Raises:
+        NormalizeError: If the existing file is not valid TOML, or if the
+            rebuilt document would not be.
     """
     table = (
         f"{_INPUT_TABLE}\n"
@@ -196,28 +247,35 @@ def upsert_input_table(toml_path: Path, *, version: str) -> None:
         toml_path.write_text(table, encoding="utf-8")
         return
 
-    lines = toml_path.read_text(encoding="utf-8").splitlines(keepends=True)
+    original = toml_path.read_text(encoding="utf-8")
+    _check_toml(original, toml_path=toml_path, stage="the existing file")
+
+    lines = original.splitlines(keepends=True)
     start = next(
         (i for i, ln in enumerate(lines) if ln.strip() == _INPUT_TABLE),
         None,
     )
     if start is None:
-        head = "".join(lines)
+        head = original
         if head and not head.endswith("\n"):
             head += "\n"
         sep = "\n" if head else ""
-        toml_path.write_text(f"{head}{sep}{table}", encoding="utf-8")
-        return
+        rebuilt = f"{head}{sep}{table}"
+    else:
+        end = next(
+            (
+                i
+                for i in range(start + 1, len(lines))
+                if lines[i].lstrip().startswith("[")
+            ),
+            len(lines),
+        )
+        # Give the trailing blank/comment run back to the table that follows it.
+        while end - 1 > start and _is_trivia(lines[end - 1]):
+            end -= 1
+        rebuilt = "".join(lines[:start]) + table + "".join(lines[end:])
 
-    end = next(
-        (
-            i
-            for i in range(start + 1, len(lines))
-            if lines[i].lstrip().startswith("[")
-        ),
-        len(lines),
-    )
-    rebuilt = "".join(lines[:start]) + table + "".join(lines[end:])
+    _check_toml(rebuilt, toml_path=toml_path, stage="the rebuilt file")
     toml_path.write_text(rebuilt, encoding="utf-8")
 
 
