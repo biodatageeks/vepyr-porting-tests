@@ -419,6 +419,27 @@ def test_an_unreadable_test_toml_blames_the_read_not_the_write(
 
 
 @requires_bcftools
+def test_a_failed_run_leaves_an_empty_dir_and_no_scratch_file(
+    tmp_path: Path,
+) -> None:
+    """Pin the one thing a failed run *does* leave behind.
+
+    ``test_dir`` is created before bcftools runs, so a bcftools failure cannot
+    unmake it. The docstrings say so rather than claiming a failed run changes
+    nothing at all; this holds them to it, and to the scratch dir being gone.
+    """
+    bad = tmp_path / "bad.vcf"
+    bad.write_text("not a vcf at all\n", encoding="utf-8")
+    test_dir = tmp_path / "t15"
+
+    done = _run(str(bad), str(test_dir))
+
+    assert done.returncode == 1
+    assert test_dir.is_dir(), "created before bcftools ran, and not removed"
+    assert list(test_dir.iterdir()) == [], "no scratch dir, no half-written files"
+
+
+@requires_bcftools
 def test_no_scratch_file_survives_a_successful_run(
     raw_vcf: Path, tmp_path: Path
 ) -> None:

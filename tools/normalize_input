@@ -29,7 +29,9 @@ where it is stable and auditable.
 
 Both documents are built and validated first, written to scratch files inside
 the test directory, and only then renamed into place. A run that fails while
-building, validating or staging therefore changes nothing at all. The commit
+building, validating or staging therefore leaves every *file* exactly as it
+was; the only mark it can leave is the test directory itself, which is created
+before bcftools runs and is not removed again. The commit
 itself is a rename per file: each is atomic on its own, but the pair is not, so
 a rename that fails after an earlier one succeeded can still leave ``input.vcf``
 updated beside a stale ``test.toml``. See :func:`_publish` for what that costs.
@@ -359,10 +361,6 @@ def _publish(scratch: Path, documents: dict[Path, str]) -> None:
     pair mismatched.
 
     A rename needs write permission on the *directory*, not on the file being
-    replaced, so the common read-only-``test.toml`` case is an update rather
-    than a failure at all.
-
-    A rename needs write permission on the *directory*, not on the file being
     replaced, so this also succeeds where a plain write would not: a read-only
     ``test.toml`` in a writable test directory is updated rather than failing
     halfway through the run.
@@ -389,7 +387,10 @@ def normalize(raw: Path, test_dir: Path) -> Path:
     Nothing in ``test_dir`` is modified until both documents are known good and
     fully written to scratch files beside them; they are then renamed into
     place. A rejected ``test.toml``, a bcftools error, or an I/O failure while
-    staging therefore leaves the data-test exactly as it was found.
+    staging therefore leaves every file in the data-test exactly as it was
+    found. ``test_dir`` itself is the exception: it is created before bcftools
+    runs, so a failed run can leave an empty directory that was not there
+    before. No scratch file survives either way.
 
     The one case that does not hold is a failure *between* the two renames,
     which can leave a new ``input.vcf`` beside an unchanged ``test.toml``;
