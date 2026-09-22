@@ -272,6 +272,10 @@ def render_input_table(toml_path: Path, *, version: str) -> str:
         f'bcftools_version = "{version}"\n'
     )
     if not toml_path.exists():
+        # Validated like every other return: `version` is interpolated into a
+        # basic TOML string, so a quote or backslash in the bcftools banner
+        # would otherwise write an unparseable file and exit 0.
+        _check_toml(table, toml_path=toml_path, stage="the new file")
         return table
 
     try:

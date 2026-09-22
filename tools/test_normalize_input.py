@@ -298,6 +298,37 @@ def test_a_bracket_inside_a_multiline_string_is_refused_not_corrupted(
     assert toml_path.read_text(encoding="utf-8") == original, "left untouched"
 
 
+@pytest.mark.parametrize("existing", [False, True], ids=["new_file", "existing_file"])
+def test_a_banner_that_would_break_the_toml_is_refused(
+    tmp_path: Path, existing: bool
+) -> None:
+    """Both branches validate, or the guard #80 relies on is only half there.
+
+    ``version`` goes into a basic TOML string unescaped, so a quote in the
+    bcftools banner makes the table unparseable. The new-file branch used to
+    return it unchecked and the script exited 0 on a corrupt ``test.toml``.
+    """
+    toml_path = tmp_path / "test.toml"
+    if existing:
+        toml_path.write_text('name = "demo"\n', encoding="utf-8")
+
+    with pytest.raises(normalize_input.NormalizeError, match="not valid TOML"):
+        normalize_input.render_input_table(toml_path, version='bcftools 1.23 "x"')
+
+    if existing:
+        assert toml_path.read_text(encoding="utf-8") == 'name = "demo"\n'
+    else:
+        assert not toml_path.exists()
+
+
+def test_a_normal_banner_still_renders_for_a_new_file(tmp_path: Path) -> None:
+    """Negative control: the guard above rejects the banner, not every banner."""
+    rendered = normalize_input.render_input_table(
+        tmp_path / "test.toml", version="bcftools 1.23"
+    )
+    assert tomllib.loads(rendered)["input"]["bcftools_version"] == "bcftools 1.23"
+
+
 def test_an_existing_file_that_is_not_toml_is_refused(tmp_path: Path) -> None:
     """Garbage in must not become differently-shaped garbage out."""
     toml_path = tmp_path / "test.toml"
