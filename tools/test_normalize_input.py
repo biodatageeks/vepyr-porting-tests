@@ -12,6 +12,7 @@ from __future__ import annotations
 
 import gzip
 import importlib.util
+import os
 import re
 import shutil
 import subprocess
@@ -330,6 +331,79 @@ def test_a_broken_test_toml_leaves_the_whole_test_directory_untouched(
     assert (
         test_dir / "input.vcf"
     ).read_text(encoding="utf-8") == "PREVIOUS-GOOD-INPUT\n"
+
+
+@requires_bcftools
+@pytest.mark.skipif(os.geteuid() == 0, reason="root ignores permission bits")
+def test_an_unwritable_test_dir_fails_cleanly_and_changes_nothing(
+    raw_vcf: Path, tmp_path: Path
+) -> None:
+    """A write that cannot happen must exit 1, not raise a traceback.
+
+    The documents are staged inside the test directory and renamed into place,
+    so a directory that refuses to be written fails before either final path
+    is touched -- and fails as the script's own error, not as a bare
+    ``PermissionError`` from the interpreter.
+    """
+    test_dir = tmp_path / "t11"
+    test_dir.mkdir()
+    toml_before = 'name = "demo"\n'
+    vcf_before = "PREVIOUS-GOOD-INPUT\n"
+    (test_dir / "test.toml").write_text(toml_before, encoding="utf-8")
+    (test_dir / "input.vcf").write_text(vcf_before, encoding="utf-8")
+    test_dir.chmod(0o555)
+    try:
+        done = _run(str(raw_vcf), str(test_dir))
+    finally:
+        test_dir.chmod(0o755)
+
+    assert done.returncode == 1
+    assert "Traceback" not in done.stderr, done.stderr
+    assert done.stderr.startswith("normalize_input: ")
+    assert (test_dir / "test.toml").read_text(encoding="utf-8") == toml_before
+    assert (test_dir / "input.vcf").read_text(encoding="utf-8") == vcf_before
+
+
+@requires_bcftools
+@pytest.mark.skipif(os.geteuid() == 0, reason="root ignores permission bits")
+def test_a_read_only_test_toml_in_a_writable_dir_is_still_updated(
+    raw_vcf: Path, tmp_path: Path
+) -> None:
+    """The rename path replaces a mode-444 test.toml instead of dying on it.
+
+    Writing to the file directly raised ``PermissionError`` halfway through the
+    run, after ``input.vcf`` had already been replaced. A rename needs write
+    permission on the directory, not on the file, so the pair now lands
+    together.
+    """
+    test_dir = tmp_path / "t12"
+    test_dir.mkdir()
+    (test_dir / "test.toml").write_text('name = "demo"\n', encoding="utf-8")
+    (test_dir / "test.toml").chmod(0o444)
+
+    done = _run(str(raw_vcf), str(test_dir))
+
+    assert done.returncode == 0, done.stderr
+    assert "Traceback" not in done.stderr
+    parsed = tomllib.loads((test_dir / "test.toml").read_text(encoding="utf-8"))
+    assert parsed["name"] == "demo"
+    assert parsed["input"]["command"] == normalize_input.COMMAND_TEMPLATE
+    body = [
+        ln
+        for ln in (test_dir / "input.vcf").read_text().splitlines()
+        if not ln.startswith("#")
+    ]
+    assert len(body) == 2
+
+
+@requires_bcftools
+def test_no_scratch_file_survives_a_successful_run(
+    raw_vcf: Path, tmp_path: Path
+) -> None:
+    """Staging happens inside the test dir, so it must not leave litter."""
+    test_dir = tmp_path / "t13"
+    assert _run(str(raw_vcf), str(test_dir)).returncode == 0
+    assert sorted(p.name for p in test_dir.iterdir()) == ["input.vcf", "test.toml"]
 
 
 @requires_bcftools

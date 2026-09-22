@@ -27,12 +27,19 @@ and a temporary path, so they differ between two otherwise identical runs. They
 are stripped from ``input.vcf``; their content lives in ``test.toml`` instead,
 where it is stable and auditable.
 
-Exit codes: ``0`` success, ``1`` bcftools missing or failing, ``2`` bad usage.
+A run either succeeds completely or changes nothing: both documents are built
+and validated first, written to a scratch file inside the test directory, and
+only then renamed into place.
+
+Exit codes: ``0`` success, ``1`` bcftools missing or failing, a ``test.toml``
+that is not valid TOML, or a test directory that cannot be written; ``2`` bad
+usage.
 """
 
 from __future__ import annotations
 
 import argparse
+import os
 import shutil
 import subprocess
 import sys
@@ -227,8 +234,15 @@ def render_input_table(toml_path: Path, *, version: str) -> str:
 
     This is the whole of the upsert except the write. Keeping it separate lets
     the caller find out that a ``test.toml`` will be refused *before* it has
-    replaced any other file in the test directory: a refusal must leave the
-    test unchanged, not half-rewritten.
+    replaced any other file in the test directory.
+
+    On its own this covers **validation** failures only: it guarantees that a
+    document this function rejects is never written, not that writing the one
+    it returns will succeed. Protection against a *write* failing partway
+    through the pair of documents comes from :func:`_publish`, which stages
+    both and renames them into place. :func:`normalize` combines the two, and
+    is where the promise that a failed run leaves the test unchanged actually
+    holds.
 
     An existing ``[input]`` table is replaced in place; otherwise the table is
     appended. Comments and blank lines that sit immediately above the following
@@ -290,6 +304,16 @@ def render_input_table(toml_path: Path, *, version: str) -> str:
 def upsert_input_table(toml_path: Path, *, version: str) -> None:
     """Write the ``[input]`` table of ``toml_path``, leaving other tables alone.
 
+    :func:`normalize` does not call this: it needs ``test.toml`` and
+    ``input.vcf`` to land together, so it renders the text with
+    :func:`render_input_table` and hands it to :func:`_publish` alongside the
+    VCF. This remains the public one-liner for a caller that wants only the
+    table updated and has no second document to keep in step with it -- the
+    ``[input]`` recorder on its own -- and is exercised as such by the tests.
+
+    The write is a plain one, so it is not atomic; callers that need the
+    file to survive a failed write should follow :func:`normalize`.
+
     Args:
         toml_path: Path of the test's ``test.toml``.
         version: Version banner to record, as :func:`bcftools_version` returns.
@@ -303,8 +327,46 @@ def upsert_input_table(toml_path: Path, *, version: str) -> None:
     )
 
 
+def _publish(scratch: Path, documents: dict[Path, str]) -> None:
+    """Put ``documents`` in place, each by an atomic same-directory rename.
+
+    Every document is first written in full inside ``scratch``, which lives in
+    the destination directory and so is on the same filesystem; only once all
+    of them exist are the renames done, back to back. :func:`os.replace` is
+    atomic per file, so no reader can observe a half-written ``input.vcf`` or
+    ``test.toml``, and an ``OSError`` -- a full disk, a directory that turns
+    out not to be writable -- is raised while the destinations are still
+    untouched rather than after one of them has been overwritten.
+
+    A rename needs write permission on the *directory*, not on the file being
+    replaced, so this also succeeds where a plain write would not: a read-only
+    ``test.toml`` in a writable test directory is updated rather than failing
+    halfway through the run.
+
+    Args:
+        scratch: Temporary directory inside the destination directory.
+        documents: Final path mapped to the text it should end up holding.
+
+    Raises:
+        OSError: If any document cannot be written or renamed.
+    """
+    staged: list[tuple[Path, Path]] = []
+    for final, text in documents.items():
+        tmp = scratch / f"{final.name}.new"
+        tmp.write_text(text, encoding="utf-8")
+        staged.append((tmp, final))
+    for tmp, final in staged:
+        os.replace(tmp, final)
+
+
 def normalize(raw: Path, test_dir: Path) -> Path:
     """Normalise ``raw`` into ``test_dir/input.vcf`` and record it in test.toml.
+
+    Nothing in ``test_dir`` is modified until both documents are known good and
+    fully written to a scratch file beside it; they are then renamed into place.
+    A run that fails -- for any reason, whether a rejected ``test.toml``, a
+    bcftools error or an I/O failure -- therefore leaves the data-test exactly
+    as it found it.
 
     Args:
         raw: Raw VCF, plain or bgzipped.
@@ -315,28 +377,31 @@ def normalize(raw: Path, test_dir: Path) -> Path:
 
     Raises:
         NormalizeError: If bcftools is missing, or the raw file does not exist,
-            or bcftools rejects the input.
+            or bcftools rejects the input, or ``test.toml`` is not valid TOML,
+            or the test directory cannot be written.
     """
     if not raw.is_file():
         raise NormalizeError(f"no such raw VCF: {raw}")
     version = bcftools_version()
-    test_dir.mkdir(parents=True, exist_ok=True)
+    try:
+        test_dir.mkdir(parents=True, exist_ok=True)
+    except OSError as exc:
+        raise NormalizeError(f"could not create {test_dir}: {exc}") from exc
 
-    with tempfile.TemporaryDirectory(dir=test_dir) as scratch:
-        staged = Path(scratch) / "staged.vcf"
-        _run_norm(raw, staged)
-        body = _strip_stamps(staged.read_text(encoding="utf-8"))
-
-    # Both documents are settled before either is written. A refused test.toml
-    # must leave the test exactly as it was found -- an input.vcf replaced by a
-    # run that then reported failure is the mismatch between the file and the
-    # [input] table recorded beside it that this script exists to rule out.
     toml_path = test_dir / "test.toml"
-    toml_text = render_input_table(toml_path, version=version)
-
     out = test_dir / "input.vcf"
-    out.write_text(body, encoding="utf-8")
-    toml_path.write_text(toml_text, encoding="utf-8")
+    try:
+        with tempfile.TemporaryDirectory(dir=test_dir) as scratch:
+            scratch_dir = Path(scratch)
+            staged = scratch_dir / "staged.vcf"
+            _run_norm(raw, staged)
+            # Both documents are settled -- bcftools has run and test.toml has
+            # been read and validated -- before either final path is touched.
+            body = _strip_stamps(staged.read_text(encoding="utf-8"))
+            toml_text = render_input_table(toml_path, version=version)
+            _publish(scratch_dir, {out: body, toml_path: toml_text})
+    except OSError as exc:
+        raise NormalizeError(f"could not write into {test_dir}: {exc}") from exc
     return out
 
 
