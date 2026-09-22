@@ -1,0 +1,274 @@
+#!/usr/bin/env -S uv run --script
+# /// script
+# requires-python = ">=3.12"
+# dependencies = []
+# ///
+"""Normalise one data-test input VCF — the only place in this repo that does it.
+
+Every data-test input must reach VEP and vepyr as *the same bytes*, produced by
+*the same command*. This script is that command::
+
+    tools/normalize_input <raw> <test-dir>
+
+It runs the one fixed bcftools invocation the project rule fixes (see
+``CLAUDE.md``), writes ``<test-dir>/input.vcf``, and records the invocation
+together with the bcftools version in the ``[input]`` table of
+``<test-dir>/test.toml``.
+
+The script takes **two positional arguments and nothing else**. It deliberately
+defines no options, so any extra switch is an argparse usage error (exit 2)
+before bcftools is ever started. In particular a reference FASTA cannot be
+passed: left-aligning indels would change VEP's own answers, and the oracle
+would no longer describe the file under test.
+
+Two header lines that bcftools stamps onto its output --
+``##bcftools_normVersion`` and ``##bcftools_normCommand`` -- carry a timestamp
+and a temporary path, so they differ between two otherwise identical runs. They
+are stripped from ``input.vcf``; their content lives in ``test.toml`` instead,
+where it is stable and auditable.
+
+Exit codes: ``0`` success, ``1`` bcftools missing or failing, ``2`` bad usage.
+"""
+
+from __future__ import annotations
+
+import argparse
+import shutil
+import subprocess
+import sys
+import tempfile
+from dataclasses import dataclass
+from pathlib import Path
+from typing import Final
+
+__all__ = [
+    "NormalizeError",
+    "bcftools_version",
+    "main",
+    "normalize",
+    "upsert_input_table",
+]
+
+_BCFTOOLS: Final[str] = "bcftools"
+
+COMMAND_TEMPLATE: Final[str] = "bcftools norm -m -both -o <out.vcf> <in.vcf.gz>"
+"""The command recorded in ``test.toml``: a template, identical for every test.
+
+The concrete run differs only in the two paths, which are per-test and, for the
+output, a temporary file -- neither is part of the contract being recorded.
+"""
+
+_NORM_FLAGS: Final[tuple[str, ...]] = ("-m", "-both")
+"""Splits multiallelic records into one line per allele. Nothing else."""
+
+_STAMP_PREFIXES: Final[tuple[str, ...]] = (
+    "##bcftools_normVersion",
+    "##bcftools_normCommand",
+)
+"""Header lines bcftools stamps that are not reproducible run to run."""
+
+_INPUT_TABLE: Final[str] = "[input]"
+
+
+class NormalizeError(RuntimeError):
+    """Normalisation could not be carried out; the message is user-facing."""
+
+
+@dataclass(frozen=True, slots=True, kw_only=True)
+class Args:
+    """Parsed command line.
+
+    Attributes:
+        raw: Source VCF -- plain ``.vcf`` or bgzipped ``.vcf.gz``; bcftools
+            detects the format itself, so both are passed through unchanged.
+        test_dir: Data-test directory that receives ``input.vcf`` and the
+            ``[input]`` table of ``test.toml``. Created if absent.
+    """
+
+    raw: Path
+    test_dir: Path
+
+
+def _parse_args(argv: list[str] | None = None) -> Args:
+    """Parse ``argv``, accepting exactly two positionals and no options.
+
+    Args:
+        argv: Argument list; ``None`` means :data:`sys.argv` minus the program.
+
+    Returns:
+        The parsed arguments.
+
+    Raises:
+        SystemExit: With code 2 on any usage error, including any extra switch.
+    """
+    parser = argparse.ArgumentParser(
+        prog="normalize_input",
+        description="Normalise a raw VCF into a data-test's input.vcf.",
+        epilog=f"Always runs: {COMMAND_TEMPLATE}",
+        allow_abbrev=False,
+    )
+    parser.add_argument("raw", type=Path, help="raw .vcf or .vcf.gz to normalise")
+    parser.add_argument("test_dir", type=Path, help="data-test directory to write")
+    ns = parser.parse_args(argv)
+    return Args(raw=ns.raw, test_dir=ns.test_dir)
+
+
+def bcftools_version() -> str:
+    """Return the first line of ``bcftools --version`` (e.g. ``bcftools 1.23``).
+
+    Returns:
+        The version banner, stripped of trailing whitespace.
+
+    Raises:
+        NormalizeError: If bcftools is not on ``PATH`` or does not answer.
+    """
+    if shutil.which(_BCFTOOLS) is None:
+        raise NormalizeError(
+            "bcftools is not on PATH; install bcftools (>= 1.20) and retry"
+        )
+    try:
+        done = subprocess.run(
+            [_BCFTOOLS, "--version"],
+            check=True,
+            capture_output=True,
+            text=True,
+        )
+    except (OSError, subprocess.CalledProcessError) as exc:
+        raise NormalizeError(f"could not run `bcftools --version`: {exc}") from exc
+    first, _, _ = done.stdout.partition("\n")
+    if not first.strip():
+        raise NormalizeError("`bcftools --version` printed nothing")
+    return first.strip()
+
+
+def _run_norm(raw: Path, out: Path) -> None:
+    """Run the one fixed bcftools invocation, writing ``out``.
+
+    Args:
+        raw: Source VCF, plain or bgzipped.
+        out: Destination path handed to bcftools.
+
+    Raises:
+        NormalizeError: If bcftools exits non-zero; its stderr is included.
+    """
+    argv = [_BCFTOOLS, "norm", *_NORM_FLAGS, "-o", str(out), str(raw)]
+    done = subprocess.run(argv, capture_output=True, text=True)
+    if done.returncode != 0:
+        raise NormalizeError(
+            f"`{' '.join(argv)}` failed with exit {done.returncode}\n"
+            f"{done.stderr.rstrip()}"
+        )
+
+
+def _strip_stamps(text: str) -> str:
+    """Drop the two unreproducible bcftools header stamps from VCF ``text``.
+
+    Args:
+        text: A VCF as bcftools wrote it.
+
+    Returns:
+        The same VCF without the stamped version/command header lines.
+    """
+    kept = [
+        line
+        for line in text.splitlines(keepends=True)
+        if not line.startswith(_STAMP_PREFIXES)
+    ]
+    return "".join(kept)
+
+
+def upsert_input_table(toml_path: Path, *, version: str) -> None:
+    """Write the ``[input]`` table of ``toml_path``, leaving other tables alone.
+
+    An existing ``[input]`` table is replaced in place; otherwise the table is
+    appended. The file is created if it does not exist.
+
+    Args:
+        toml_path: Path of the test's ``test.toml``.
+        version: Version banner to record, as :func:`bcftools_version` returns.
+    """
+    table = (
+        f"{_INPUT_TABLE}\n"
+        f'command = "{COMMAND_TEMPLATE}"\n'
+        f'bcftools_version = "{version}"\n'
+    )
+    if not toml_path.exists():
+        toml_path.write_text(table, encoding="utf-8")
+        return
+
+    lines = toml_path.read_text(encoding="utf-8").splitlines(keepends=True)
+    start = next(
+        (i for i, ln in enumerate(lines) if ln.strip() == _INPUT_TABLE),
+        None,
+    )
+    if start is None:
+        head = "".join(lines)
+        if head and not head.endswith("\n"):
+            head += "\n"
+        sep = "\n" if head else ""
+        toml_path.write_text(f"{head}{sep}{table}", encoding="utf-8")
+        return
+
+    end = next(
+        (
+            i
+            for i in range(start + 1, len(lines))
+            if lines[i].lstrip().startswith("[")
+        ),
+        len(lines),
+    )
+    rebuilt = "".join(lines[:start]) + table + "".join(lines[end:])
+    toml_path.write_text(rebuilt, encoding="utf-8")
+
+
+def normalize(raw: Path, test_dir: Path) -> Path:
+    """Normalise ``raw`` into ``test_dir/input.vcf`` and record it in test.toml.
+
+    Args:
+        raw: Raw VCF, plain or bgzipped.
+        test_dir: Data-test directory; created with parents if needed.
+
+    Returns:
+        Path of the written ``input.vcf``.
+
+    Raises:
+        NormalizeError: If bcftools is missing, or the raw file does not exist,
+            or bcftools rejects the input.
+    """
+    if not raw.is_file():
+        raise NormalizeError(f"no such raw VCF: {raw}")
+    version = bcftools_version()
+    test_dir.mkdir(parents=True, exist_ok=True)
+
+    with tempfile.TemporaryDirectory(dir=test_dir) as scratch:
+        staged = Path(scratch) / "staged.vcf"
+        _run_norm(raw, staged)
+        body = _strip_stamps(staged.read_text(encoding="utf-8"))
+
+    out = test_dir / "input.vcf"
+    out.write_text(body, encoding="utf-8")
+    upsert_input_table(test_dir / "test.toml", version=version)
+    return out
+
+
+def main(argv: list[str] | None = None) -> int:
+    """Entry point.
+
+    Args:
+        argv: Argument list; ``None`` means the real command line.
+
+    Returns:
+        Process exit code: ``0`` on success, ``1`` on a normalisation failure.
+    """
+    args = _parse_args(argv)
+    try:
+        out = normalize(args.raw, args.test_dir)
+    except NormalizeError as exc:
+        print(f"normalize_input: {exc}", file=sys.stderr)
+        return 1
+    print(out)
+    return 0
+
+
+if __name__ == "__main__":
+    raise SystemExit(main())
