@@ -27,9 +27,12 @@ and a temporary path, so they differ between two otherwise identical runs. They
 are stripped from ``input.vcf``; their content lives in ``test.toml`` instead,
 where it is stable and auditable.
 
-A run either succeeds completely or changes nothing: both documents are built
-and validated first, written to a scratch file inside the test directory, and
-only then renamed into place.
+Both documents are built and validated first, written to scratch files inside
+the test directory, and only then renamed into place. A run that fails while
+building, validating or staging therefore changes nothing at all. The commit
+itself is a rename per file: each is atomic on its own, but the pair is not, so
+a rename that fails after an earlier one succeeded can still leave ``input.vcf``
+updated beside a stale ``test.toml``. See :func:`_publish` for what that costs.
 
 Exit codes: ``0`` success, ``1`` bcftools missing or failing, a ``test.toml``
 that is not valid TOML, or a test directory that cannot be written; ``2`` bad
@@ -269,7 +272,12 @@ def render_input_table(toml_path: Path, *, version: str) -> str:
     if not toml_path.exists():
         return table
 
-    original = toml_path.read_text(encoding="utf-8")
+    try:
+        original = toml_path.read_text(encoding="utf-8")
+    except OSError as exc:
+        # Reported here rather than by the caller's write-side handler, which
+        # would blame the wrong operation for an unreadable file.
+        raise NormalizeError(f"could not read {toml_path}: {exc}") from exc
     _check_toml(original, toml_path=toml_path, stage="the existing file")
 
     lines = original.splitlines(keepends=True)
@@ -333,10 +341,26 @@ def _publish(scratch: Path, documents: dict[Path, str]) -> None:
     Every document is first written in full inside ``scratch``, which lives in
     the destination directory and so is on the same filesystem; only once all
     of them exist are the renames done, back to back. :func:`os.replace` is
-    atomic per file, so no reader can observe a half-written ``input.vcf`` or
-    ``test.toml``, and an ``OSError`` -- a full disk, a directory that turns
-    out not to be writable -- is raised while the destinations are still
-    untouched rather than after one of them has been overwritten.
+    atomic per file, so no reader can ever observe a half-written ``input.vcf``
+    or ``test.toml``, and a failure while *staging* -- a full disk, a directory
+    that turns out not to be writable -- happens while both destinations are
+    still untouched.
+
+    What this does **not** give is a transaction across the two files. The
+    renames are atomic individually, not together: if the first succeeds and
+    the second fails -- an immutable file (``chflags uchg``, ``chattr +i``), a
+    network filesystem, a path protected by something outside this process --
+    then ``input.vcf`` has been replaced while ``test.toml`` still holds the
+    old text, and the run reports failure having left the two disagreeing.
+    Closing that honestly would need a journal or a directory-level swap; a
+    writability pre-flight only narrows the window and cannot remove it. So it
+    is documented rather than half-fixed: staging, validation and bcftools
+    failures change nothing, and a failure during the commit can leave the
+    pair mismatched.
+
+    A rename needs write permission on the *directory*, not on the file being
+    replaced, so the common read-only-``test.toml`` case is an update rather
+    than a failure at all.
 
     A rename needs write permission on the *directory*, not on the file being
     replaced, so this also succeeds where a plain write would not: a read-only
@@ -363,10 +387,15 @@ def normalize(raw: Path, test_dir: Path) -> Path:
     """Normalise ``raw`` into ``test_dir/input.vcf`` and record it in test.toml.
 
     Nothing in ``test_dir`` is modified until both documents are known good and
-    fully written to a scratch file beside it; they are then renamed into place.
-    A run that fails -- for any reason, whether a rejected ``test.toml``, a
-    bcftools error or an I/O failure -- therefore leaves the data-test exactly
-    as it found it.
+    fully written to scratch files beside them; they are then renamed into
+    place. A rejected ``test.toml``, a bcftools error, or an I/O failure while
+    staging therefore leaves the data-test exactly as it was found.
+
+    The one case that does not hold is a failure *between* the two renames,
+    which can leave a new ``input.vcf`` beside an unchanged ``test.toml``;
+    :func:`_publish` explains why that window is documented rather than closed.
+    Re-running on the same raw file repairs it, since the whole operation is
+    idempotent.
 
     Args:
         raw: Raw VCF, plain or bgzipped.

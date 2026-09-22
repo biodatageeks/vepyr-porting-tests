@@ -397,6 +397,28 @@ def test_a_read_only_test_toml_in_a_writable_dir_is_still_updated(
 
 
 @requires_bcftools
+@pytest.mark.skipif(os.geteuid() == 0, reason="root ignores permission bits")
+def test_an_unreadable_test_toml_blames_the_read_not_the_write(
+    raw_vcf: Path, tmp_path: Path
+) -> None:
+    """The error names the operation that actually failed."""
+    test_dir = tmp_path / "t14"
+    test_dir.mkdir()
+    toml_path = test_dir / "test.toml"
+    toml_path.write_text('name = "demo"\n', encoding="utf-8")
+    toml_path.chmod(0o000)
+    try:
+        done = _run(str(raw_vcf), str(test_dir))
+    finally:
+        toml_path.chmod(0o644)
+
+    assert done.returncode == 1
+    assert "could not read" in done.stderr
+    assert "could not write" not in done.stderr
+    assert not (test_dir / "input.vcf").exists()
+
+
+@requires_bcftools
 def test_no_scratch_file_survives_a_successful_run(
     raw_vcf: Path, tmp_path: Path
 ) -> None:
