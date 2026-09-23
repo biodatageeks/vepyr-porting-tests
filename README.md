@@ -108,6 +108,109 @@ semi-manual. `.github/workflows/issue-check.yml` runs it on `issues`
 (opened/edited/labeled) and on `workflow_dispatch`; it blocks nothing, the result is
 visible in Actions only.
 
+## ./bless
+
+`./bless` makes and checks the oracle of a data-test directory `tests/data/<name>/`:
+`expected_output.vcf`, the real output of native VEP 116 on the directory's
+normalised `input.vcf` (made by `tools/normalize_input`, #85). It runs Ensembl's
+official image `ensemblorg/ensembl-vep:release_116.0`, always with the same command:
+
+```
+vep --offline --cache --dir_cache <CACHE> --species homo_sapiens --cache_version 116 \
+    --assembly GRCh38 --fasta <FASTA> --vcf --input_file input.vcf \
+    --output_file expected_output.vcf --force_overwrite
+```
+
+Three modes:
+
+| Command | Needs | Does |
+|---------|-------|------|
+| `./bless CACHE FASTA <dir>` | Docker, cache, FASTA | Runs VEP, writes `expected_output.vcf`, fills `[vep]` and `[compare] body_md5` in `test.toml` |
+| `./bless --check <dir>` | only the repo | Recomputes the md5 of the body (lines not starting with `#`) of `expected_output.vcf` on disk and compares it with `[compare] body_md5`. No Docker, no cache, changes nothing |
+| `./bless --check --reproduce CACHE FASTA <dir>` | Docker, cache, FASTA | Re-runs the image recorded in `[vep] image` into a temp directory and compares that fresh body md5 with `[compare] body_md5`. Changes nothing |
+
+`--check` is the cheap integrity check anyone can run when reviewing a PR: it
+catches an oracle that was hand-edited or corrupted after it was blessed.
+`--check --reproduce` is the expensive audit: it proves the file is still derivable
+from the pinned image, cache and input, not just unedited. It is opt-in.
+
+**Cache and FASTA.** A bless and `--check --reproduce` need exactly one flag from each
+pair. There is no default path and no environment variable; neither or both flags of
+a pair exits 1 with a message naming the pair.
+
+| Flag | Meaning |
+|------|---------|
+| `--vep-cache-dir PATH` | An existing VEP cache root (the directory that holds `homo_sapiens/116_GRCh38/`). It must be complete: `info.txt` and the directories `1`–`22`, `X`, `Y`, `MT`. An incomplete cache exits 1 naming what is missing; nothing is fetched or written into it |
+| `--download-vep-cache-to-dir PATH` | Fetches `homo_sapiens_vep_116_GRCh38.tar.gz` (27.6 GB) from `https://ftp.ensembl.org/pub/release-116/variation/indexed_vep_cache/`, checks it against Ensembl's `CHECKSUMS` value pinned in `tools/bless/ensembl.py`, unpacks it into `PATH`, then uses it, all in the same run |
+| `--vep-fasta PATH` | An existing uncompressed GRCh38 FASTA. A missing, unreadable or gzipped file exits 1. A `.fai` index is written next to it when absent |
+| `--download-vep-fasta-to PATH` | Fetches `Homo_sapiens.GRCh38.dna.primary_assembly.fa.gz` from `https://ftp.ensembl.org/pub/release-116/fasta/homo_sapiens/dna/`, checks it the same way, decompresses it to `PATH`, then uses it |
+
+```bash
+# an existing cache and FASTA (e.g. on vepyr-tests-01, or a previous download)
+./bless --vep-cache-dir ~/vep-cache --vep-fasta ~/GRCh38.fa tests/data/NAME
+# fetch both first, in the same run
+./bless --download-vep-cache-to-dir ~/vep-cache --download-vep-fasta-to ~/GRCh38.fa tests/data/NAME
+# mixed: existing cache, fetched FASTA
+./bless --vep-cache-dir ~/vep-cache --download-vep-fasta-to ~/GRCh38.fa tests/data/NAME
+```
+
+Downloads run as parallel HTTP range requests (Ensembl's FTP is slow per
+connection) and resume: re-running the same command after an interruption keeps the
+chunks already fetched. A path filled by a `--download-...` flag is ordinary local
+state afterwards; pass it to `--vep-cache-dir`/`--vep-fasta` next time and nothing is
+downloaded. `bless` does not remember paths; the flags are the only state.
+
+**`--dry-run`** prints the planned steps (`# fetch ...` for each download, the copy of
+`input.vcf` into a temp directory) and the exact `docker run ... vep ...` command,
+then exits 0 without running anything. For a bless it shows the tag
+`ensemblorg/ensembl-vep:release_116.0`; the real run resolves it to a digest first.
+
+**What a bless records** in `test.toml`:
+
+```toml
+[vep]
+image = "ensemblorg/ensembl-vep@sha256:..."   # the digest that ran, never the tag
+command = "vep --offline --cache --dir_cache /opt/vep/.vep ..."  # paths inside the container
+date = "2026-09-23"
+cache_source = "https://ftp.ensembl.org/pub/release-116/variation/indexed_vep_cache/homo_sapiens_vep_116_GRCh38.tar.gz"
+cache_checksum = "sha256:... sum:56036 26996736"
+fasta_source = "https://ftp.ensembl.org/pub/release-116/fasta/homo_sapiens/dna/Homo_sapiens.GRCh38.dna.primary_assembly.fa.gz"
+fasta_checksum = "sha256:... sum:22450 861294"
+[compare]
+body_md5 = "..."
+```
+
+The source and checksum come from a `.bless-source.toml` record that a download
+leaves next to the cache/FASTA. A cache or FASTA that `bless` did not download
+is recorded as `local:<path>` with checksum `unverified`.
+
+**From scratch on a plain machine** (Docker, network, about 60 GB free; no
+`vepyr-tests-01`, no existing cache):
+
+```bash
+git clone https://github.com/biodatageeks/vepyr-porting-tests && cd vepyr-porting-tests
+tools/normalize_input raw.vcf.gz tests/data/my_test        # writes input.vcf + [input]
+./bless --download-vep-cache-to-dir ~/vep116 --download-vep-fasta-to ~/GRCh38.fa tests/data/my_test
+./bless --check tests/data/my_test                           # exit 0
+./bless --check --reproduce --vep-cache-dir ~/vep116 --vep-fasta ~/GRCh38.fa tests/data/my_test
+```
+
+**Docker Desktop (macOS).** The cache, the FASTA's directory and a temp work
+directory are bind-mounted into the container, so they must be inside a directory
+listed under Settings > Resources > File sharing. Before any download, `bless`
+probes each path from inside a container and exits 1 naming the first one Docker
+cannot see, so an unshared `--download-vep-cache-to-dir` fails in seconds, not
+after a 27 GB fetch.
+
+`bless` refuses a directory whose `test.toml` `[input]` table does not carry the
+`tools/normalize_input` command. It does not read issue bodies and never logs into
+another machine: to use `vepyr-tests-01`'s cache, log in there and run the same
+command with its local paths.
+
+Exit codes: `0` success (for `--check`, the hash matches), `1` any failure, always
+with one `bless: ...` line on stderr naming the problem, `2` usage (unknown flag,
+no `<test-dir>`).
+
 ## tests/common (cache + assertion helpers)
 
 Fetch a cache, then point `$VEPYR_CACHE_ROOT` at the same directory (or pass
