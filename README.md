@@ -128,7 +128,9 @@ live as `tests/data_*.rs` and are discovered by `./run_tests --list`.
 `tools/normalize_input <raw> <test-dir>` writes a data-test's `input.vcf` with
 the one fixed `bcftools norm -m -both` command (issue #85) and requires exactly
 **bcftools 1.23 on htslib 1.23.1** — the toolchain the oracles were generated
-with — refusing any other version before it touches the test directory.
+with — refusing any other version before it touches the test directory. VEP and vepyr
+always read that same normalised `input.vcf`; a data-test directory does not
+store the raw pre-normalisation file (rationale: issue #90).
 
 ### Caveats
 
