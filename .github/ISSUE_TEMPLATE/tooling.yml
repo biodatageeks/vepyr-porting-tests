@@ -1,0 +1,199 @@
+name: Tooling / meta issue
+description: Repo tooling, CI, issue templates, docs infrastructure — work about how we work
+title: "[tooling] "
+labels: ["tooling"]
+body:
+  - type: markdown
+    attributes:
+      value: |
+        Use this form for **repo-level tooling and process**: CI, issue forms, generators,
+        docs infrastructure — work about *how we work*.
+
+        This is **not** a data-test port (use the *Data-test* form), and **not** a bug in the
+        vepyr engine itself (file that in
+        [biodatageeks/vepyr](https://github.com/biodatageeks/vepyr/issues/new/choose)).
+
+        ## What this form is for
+
+        The `[tooling]` class is small, but it is the class that **changes the rules**: an intake
+        form, a ground-truth generator, a CI gate. An issue that changes the rules and is not
+        itself falsifiable is the worst case, not the mildest. So the fields below ask for the
+        two things prose reliably loses: the **evidence** that the problem is real today, and a
+        **negative control** showing the acceptance criteria can actually fail.
+
+        Write `n/a — <reason>` wherever a field genuinely does not apply. An explicit `n/a` with
+        a reason is an answer; a blank is not.
+
+  - type: textarea
+    id: problem-statement
+    attributes:
+      label: Problem statement
+      description: >-
+        What is wrong or missing today, concretely. Name files, issue numbers and quoted text —
+        the standard to meet is "here is the defective line, verbatim", not "X is inconsistent".
+      placeholder: >-
+        The current form asks for none of these as URLs. Only (3) has a home at all: the `source`
+        textarea, described as "sitekwb path and/or ledger row". (1), (2) and (4) are nowhere in
+        the form and survive only as prose inside the Step 1 textareas.
+    validations:
+      required: true
+
+  - type: textarea
+    id: evidence
+    attributes:
+      label: Evidence (commands run, and their output)
+      description: >-
+        The commands that establish the problem statement is true today, with their actual
+        output. Include the state you verified is ALREADY done, so the implementer does not redo
+        it. A claim about the current repo is cheap to assert and cheap to check — so check it
+        once, here, rather than leaving it to every reader. Write `n/a — <reason>` for a purely
+        forward-looking proposal with nothing yet to observe.
+      placeholder: |
+        $ gh api repos/biodatageeks/vepyr-porting-tests/contents/.github/workflows?ref=<sha>
+        gh: Not Found (HTTP 404)
+        $ gh api repos/biodatageeks/vepyr-porting-tests/contents/.github?ref=<sha> --jq '.[].name'
+        ISSUE_TEMPLATE
+      render: shell
+    validations:
+      required: true
+
+  - type: textarea
+    id: proposed-change
+    attributes:
+      label: Proposed change
+      description: >-
+        The concrete change — a YAML, diff or script sketch where one applies, not a description
+        of one. If options are genuinely open, list them as numbered directions and say which you
+        favour and why.
+      placeholder: >-
+        Add a `Step 0 — Provenance links` block to `.github/ISSUE_TEMPLATE/data-test.yml`, placed
+        before Step 1, with four `input` fields plus one `textarea` recording how the expected
+        values were computed. YAML sketch below.
+    validations:
+      required: true
+
+  - type: textarea
+    id: milestone-rationale
+    attributes:
+      label: Milestone rationale
+      description: >-
+        Say which milestone and why — including, and especially, why *none*. The repo has only
+        `1 — Skeleton` and `2 — First data-test pilot`; if neither fits, say so and say what
+        would. "Pending an owner decision, do not self-assign" is a different answer from
+        "neither milestone fits", and the difference must be legible.
+      value: >-
+        No milestone: the repo has only `1 — Skeleton` and `2 — First data-test pilot`, and this
+        work belongs to neither. If a `tooling`/`infra` milestone is created later, move this
+        issue there together with the other open `[tooling]` issues.
+    validations:
+      required: true
+
+  - type: textarea
+    id: relations
+    attributes:
+      label: Relation to other issues
+      description: >-
+        Which open issues this overlaps, depends on, supersedes or must land with — one clause
+        each on the direction of the relation. State ordering constraints explicitly: "these two
+        should land as one template revision, to avoid two rounds of back-filling" is a real
+        scheduling fact that prose elsewhere loses. Write `n/a — standalone` if there are none.
+      placeholder: >-
+        They intersect, and in the same direction: the `gt-run` issue proposes adding a
+        machine-readable block to `data-test.yml`. This issue is the sibling change on the
+        provenance axis rather than the variant axis, and the two should land as one template
+        revision if both are accepted.
+    validations:
+      required: true
+
+  - type: textarea
+    id: acceptance
+    attributes:
+      label: Acceptance criteria
+      description: >-
+        A **numbered** list. Each criterion must name the exact command to run, in backticks —
+        e.g. `test -f .github/workflows/ci.yml` — together with the status it must return
+        (`# exit 0`, `# exit 1`, or whatever the expected exit code is). A criterion that cannot
+        be run, or cannot fail, is not a criterion; a criterion that checks **presence** rather
+        than **meaning** is weak, so prefer a command that would fail if the content were wrong.
+        Where something genuinely needs a human, say so plainly (a semi-manual criterion is
+        fine), and name who reviews it and what record they leave.
+      placeholder: >-
+        1. The file exists and parses: `test -f .github/workflows/ci.yml && python3 -c "import
+        yaml; yaml.safe_load(open('.github/workflows/ci.yml'))"` → exit 0.
+
+        2. It actually runs the Rust gates: `grep -qE 'cargo fmt|cargo clippy' .github/workflows/ci.yml`
+        → exit 0.
+
+        3. No micro-cache fixtures remain: `git grep -nE 'micro_cache' -- ':!README.md'` → exit 1
+        (found nothing — a negative control).
+
+        4. Semi-manual: a fresh reader follows README *Quick start* top to bottom on a clean
+        checkout and reaches a green `cargo test`; reviewer records the outcome in a PR comment.
+    validations:
+      required: true
+
+  - type: textarea
+    id: negative-control
+    attributes:
+      label: Negative control — how would the criteria FAIL?
+      description: >-
+        Name at least one concrete edit to the repo that must flip a criterion above from pass to
+        fail, and say which criterion. A check that cannot fail is decoration. If you cannot name
+        such an edit, the criteria are describing the work rather than gating it.
+      placeholder: >-
+        Introducing a single `https://github.com/.../blob/main/...` URL into
+        `.github/ISSUE_TEMPLATE/data-test.yml` must flip criterion 3 to a failure; deleting the
+        `negative-control` block from the file must flip criterion 2.
+    validations:
+      required: true
+
+  - type: textarea
+    id: out-of-scope
+    attributes:
+      label: Out of scope / explicit follow-up
+      description: >-
+        What this issue deliberately does not do — and for each carve-out, either the follow-up
+        issue to file (name its title) or a statement that no follow-up is needed and why. An
+        unnamed carve-out is a task that will be forgotten. "Nothing is out of scope" is an
+        acceptable answer and takes four words to write.
+      placeholder: >-
+        Automated CI validation of newly opened issue bodies is deliberately not in this issue:
+        the repo has no `.github/workflows/` at all today, so adding the first workflow is its own
+        topic. Follow-up to file if this is accepted: "CI check that issue bodies match their
+        form's required fields".
+    validations:
+      required: true
+
+  - type: textarea
+    id: open-questions
+    attributes:
+      label: Open questions
+      description: >-
+        Decisions genuinely still open, each with the alternatives and what would settle it.
+        Leave blank if none — manufacturing one is noise.
+      placeholder: >-
+        Does field (2) always have a single answer? For `t/Runner.t` it clearly does; for
+        `OutputFactory.ledger.toml` rows the behaviour may cross several modules. Revisit after
+        the first ports are back-filled — if the answer is consistently `n/a`, drop the field.
+    validations:
+      required: false
+
+  - type: checkboxes
+    id: scope-check
+    attributes:
+      label: Scope check
+      description: >-
+        Routing and self-check, confirmed before you typed the body rather than hand-explained
+        after it. The first two ticks are routing; the third is your own attestation that the
+        acceptance criteria and negative control above are falsifiable.
+      options:
+        - label: >-
+            This is repo tooling/process, not a ledger row port (those use the *Data-test* form).
+          required: true
+        - label: >-
+            This is not a bug in the vepyr engine itself (that belongs in `biodatageeks/vepyr`).
+          required: true
+        - label: >-
+            The acceptance criteria above name runnable commands, and the negative control names
+            an edit that would flip one of them to a failure.
+          required: true
