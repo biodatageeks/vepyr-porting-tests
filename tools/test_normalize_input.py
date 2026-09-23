@@ -210,6 +210,41 @@ def test_test_toml_records_the_fixed_command_and_the_tool_version(
     assert "[input]" in lines
     assert 'command = "bcftools norm -m -both -o <out.vcf> <in.vcf.gz>"' in lines
     assert f'bcftools_version = "{banner}"' in lines
+    # Success here is tied to the *pinned* version, not to "some version":
+    # the run could only have got this far because the banner matched.
+    assert banner == normalize_input._REQUIRED_VERSION == "bcftools 1.23"
+
+
+def test_the_pinned_version_is_the_one_this_project_records() -> None:
+    """The pin is a stated constant, not whatever happens to be installed."""
+    assert normalize_input._REQUIRED_VERSION == "bcftools 1.23"
+
+
+def test_a_wrong_bcftools_version_is_refused_before_anything_is_created(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch, capsys: pytest.CaptureFixture[str]
+) -> None:
+    """An unpinned bcftools must stop the run before it touches the test dir.
+
+    Negative control: against the pre-pin script this fails twice over -- the
+    message names no versions, and ``test_dir`` has already been created by the
+    time the run gives up.
+    """
+    raw = tmp_path / "multi.vcf"
+    raw.write_text(MULTIALLELIC_VCF, encoding="utf-8")
+
+    def _fake_run(
+        argv: list[str], **_kwargs: object
+    ) -> subprocess.CompletedProcess[str]:
+        assert argv[1] == "--version", f"bcftools norm must not run: {argv}"
+        return subprocess.CompletedProcess(argv, 0, "bcftools 1.20\n", "")
+
+    monkeypatch.setattr(normalize_input.shutil, "which", lambda _name: "/usr/bin/x")
+    monkeypatch.setattr(normalize_input.subprocess, "run", _fake_run)
+    target = tmp_path / "t_pin"
+    assert normalize_input.main([str(raw), str(target)]) == 1
+    err = capsys.readouterr().err
+    assert "bcftools 1.20" in err and "bcftools 1.23" in err
+    assert not target.exists()
 
 
 @requires_bcftools

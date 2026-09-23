@@ -36,9 +36,15 @@ itself is a rename per file: each is atomic on its own, but the pair is not, so
 a rename that fails after an earlier one succeeded can still leave ``input.vcf``
 updated beside a stale ``test.toml``. See :func:`_publish` for what that costs.
 
-Exit codes: ``0`` success, ``1`` bcftools missing or failing, a ``test.toml``
-that is not valid TOML, or a test directory that cannot be written; ``2`` bad
-usage.
+bcftools itself is pinned: the run is refused unless the banner is exactly
+:data:`_REQUIRED_VERSION`. The command is only half of the contract -- the
+other half is the tool that executes it -- so "whatever bcftools is on PATH"
+would let a silent upstream behaviour change alter ``input.vcf`` under an
+oracle that was generated against a different binary.
+
+Exit codes: ``0`` success, ``1`` bcftools missing, bcftools being the wrong
+version, bcftools failing, a ``test.toml`` that is not valid TOML, or a test
+directory that cannot be written; ``2`` bad usage.
 """
 
 from __future__ import annotations
@@ -57,6 +63,7 @@ from typing import Final
 __all__ = [
     "NormalizeError",
     "bcftools_version",
+    "check_pinned_version",
     "main",
     "normalize",
     "render_input_table",
@@ -64,6 +71,19 @@ __all__ = [
 ]
 
 _BCFTOOLS: Final[str] = "bcftools"
+
+_REQUIRED_VERSION: Final[str] = "bcftools 1.23"
+"""The one bcftools release this repo normalises with. Not "the latest".
+
+Every oracle, command-ledger entry and ``PROVENANCE.md`` in this project's
+history was produced and cross-checked with ``bcftools 1.23`` (htslib 1.23.1);
+it is also the banner already recorded in the ``[input]`` tables of the
+existing ``test.toml`` files. Pinning it exactly means a data-test's
+``input.vcf`` cannot quietly change because a different bcftools happened to be
+on ``PATH``: the bytes VEP saw when the oracle was generated are the bytes
+vepyr is handed. Changing this constant is a deliberate act -- it invalidates
+the recorded provenance and every affected oracle must be regenerated.
+"""
 
 COMMAND_TEMPLATE: Final[str] = "bcftools norm -m -both -o <out.vcf> <in.vcf.gz>"
 """The command recorded in ``test.toml``: a template, identical for every test.
@@ -130,6 +150,11 @@ def _parse_args(argv: list[str] | None = None) -> Args:
 def bcftools_version() -> str:
     """Return the first line of ``bcftools --version`` (e.g. ``bcftools 1.23``).
 
+    This *reports* the version and does not judge it; enforcing the pin is
+    :func:`check_pinned_version`'s job, so that a caller wanting only to record
+    the banner -- as :func:`render_input_table` does -- need not care which
+    release it is.
+
     Returns:
         The version banner, stripped of trailing whitespace.
 
@@ -138,7 +163,7 @@ def bcftools_version() -> str:
     """
     if shutil.which(_BCFTOOLS) is None:
         raise NormalizeError(
-            "bcftools is not on PATH; install bcftools (>= 1.20) and retry"
+            f"bcftools is not on PATH; install {_REQUIRED_VERSION} and retry"
         )
     try:
         done = subprocess.run(
@@ -153,6 +178,26 @@ def bcftools_version() -> str:
     if not first.strip():
         raise NormalizeError("`bcftools --version` printed nothing")
     return first.strip()
+
+
+def check_pinned_version(found: str) -> None:
+    """Refuse any bcftools other than :data:`_REQUIRED_VERSION`.
+
+    The comparison is exact rather than a lower bound: a newer release is not
+    "good enough", because the point of the pin is that the binary writing
+    ``input.vcf`` is the same one the oracle was generated against.
+
+    Args:
+        found: The banner :func:`bcftools_version` returned.
+
+    Raises:
+        NormalizeError: If ``found`` is not exactly the required banner.
+    """
+    if found != _REQUIRED_VERSION:
+        raise NormalizeError(
+            f"bcftools version mismatch: found {found!r}, this project "
+            f"requires exactly {_REQUIRED_VERSION!r}"
+        )
 
 
 def _run_norm(raw: Path, out: Path) -> None:
@@ -409,14 +454,23 @@ def normalize(raw: Path, test_dir: Path) -> Path:
     Returns:
         Path of the written ``input.vcf``.
 
+    bcftools must be exactly :data:`_REQUIRED_VERSION`; that is checked before
+    ``test_dir`` is created, so a host with the wrong bcftools leaves not even
+    an empty directory behind.
+
     Raises:
-        NormalizeError: If bcftools is missing, or the raw file does not exist,
-            or bcftools rejects the input, or ``test.toml`` is not valid TOML,
-            or the test directory cannot be written.
+        NormalizeError: If bcftools is missing or is not the pinned version, or
+            the raw file does not exist, or bcftools rejects the input, or
+            ``test.toml`` is not valid TOML, or the test directory cannot be
+            written.
     """
     if not raw.is_file():
         raise NormalizeError(f"no such raw VCF: {raw}")
     version = bcftools_version()
+    # Ordered like the missing-bcftools check above it: the version is settled
+    # before `test_dir` is created and long before `bcftools norm` is started,
+    # so a wrong bcftools leaves the filesystem exactly as it was.
+    check_pinned_version(version)
     try:
         test_dir.mkdir(parents=True, exist_ok=True)
     except OSError as exc:
