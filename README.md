@@ -103,6 +103,11 @@ Shared modules under `tests/common/`: `cache` / `ledger` (issue #5), plus
 `annotate`, `csq`, and `provenance` for data-problem pilots (issue #14). Data-tests
 live as `tests/data_*.rs` and are discovered by `./run_tests --list`.
 
+`tools/normalize_input <raw> <test-dir>` writes a data-test's `input.vcf` with
+the one fixed `bcftools norm -m -both` command (issue #85) and requires exactly
+**bcftools 1.23 on htslib 1.23.1** — the toolchain the oracles were generated
+with — refusing any other version before it touches the test directory.
+
 ### Caveats
 
 **Windows.** `./run_tests` is a bash script (it bootstraps `uv` and then runs
