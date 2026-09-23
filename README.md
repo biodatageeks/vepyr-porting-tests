@@ -86,6 +86,28 @@ per run and reported as `vepyr sha` in the summary. That default is deliberately
 floating — a run today and a run tomorrow can test different engine code — so
 pin `--vepyr REF` for anything that must be reproducible.
 
+## ./issue_check (pre-work issue gate)
+
+`./issue_check --body-file PATH` reads an issue body and answers one question: does it
+have a heading matching `/acceptance criteria/i`, and does that section contain at
+least one code span or fenced code block? The section runs to the next heading of the
+same or a higher level, so `### AC-N` sub-sections — their headings included — are part
+of it.
+
+```bash
+./issue_check --body-file tools/fixtures/issue_check/valid.md               # exit 0
+./issue_check --body-file tools/fixtures/issue_check/prose_only_criteria.md # exit 1
+gh issue view 74 --json body --jq .body > body.md && ./issue_check --body-file body.md
+```
+
+Exit codes describe the checker: `0` compliant, `1` not compliant, `2` invoked wrong
+(bad flag, unreadable or non-UTF-8 `--body-file`). It is a presence check, not a
+meaning check: it does not judge whether the criteria are good, whether a backticked
+span is a command, and it never runs them — a criterion may expect any exit code or be
+semi-manual. `.github/workflows/issue-check.yml` runs it on `issues`
+(opened/edited/labeled) and on `workflow_dispatch`; it blocks nothing, the result is
+visible in Actions only.
+
 ## tests/common (cache + assertion helpers)
 
 Fetch a cache, then point `$VEPYR_CACHE_ROOT` at the same directory (or pass

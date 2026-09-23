@@ -1,0 +1,49 @@
+name: issue-check
+
+# Gate from the repo policy: an issue must carry command-verifiable acceptance
+# criteria BEFORE implementation starts. The job fails when `issue_check` rejects the
+# body, so a non-compliant issue is visibly red instead of silently accepted.
+
+on:
+  issues:
+    types: [opened, edited, labeled]
+  workflow_dispatch:
+    inputs:
+      issue:
+        description: "Issue number to validate"
+        required: true
+        type: string
+
+permissions:
+  contents: read
+  issues: read
+
+concurrency:
+  group: issue-check-${{ github.event.issue.number || inputs.issue }}
+  cancel-in-progress: true
+
+jobs:
+  check:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v7
+
+      - name: Set up uv
+        # `astral-sh/setup-uv` publishes floating major tags only up to v7, so v8+
+        # must be pinned to a point release (or a sha) — `@v10` is not a ref.
+        uses: astral-sh/setup-uv@v10.1.0
+        with:
+          enable-cache: true
+
+      - name: Fetch the issue body
+        env:
+          GH_TOKEN: ${{ github.token }}
+          GH_REPO: ${{ github.repository }}
+          ISSUE: ${{ github.event.issue.number || inputs.issue }}
+        run: |
+          set -euo pipefail
+          gh issue view "$ISSUE" --json body --jq .body > issue-body.md
+          printf 'issue #%s: %s bytes of body\n' "$ISSUE" "$(wc -c < issue-body.md)"
+
+      - name: Validate the issue structure
+        run: ./issue_check --body-file issue-body.md
