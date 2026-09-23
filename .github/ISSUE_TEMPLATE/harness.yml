@@ -1,0 +1,212 @@
+name: Harness issue
+description: A bug, gap or change in the test harness itself (./run_tests, tools/run_tests/*, tests/common/*)
+title: "[harness] "
+labels: ["tooling"]
+body:
+  - type: markdown
+    attributes:
+      value: |
+        Use this form for the **harness** — `./run_tests`, `tools/run_tests/*`, `tests/common/*`,
+        and the repo plumbing around them.
+
+        Not for a data-test port (use the **Data-test** form), and not for a bug in the vepyr
+        engine itself — file that in
+        [biodatageeks/vepyr](https://github.com/biodatageeks/vepyr/issues/new/choose).
+
+        The fields below are the header block that the existing `[harness]` issues already
+        re-type by hand (`**Kind:**`, `**Target branch:**`, `**Depends on:**`), plus the two
+        things they keep omitting: a **SHA-pinned permalink** to the code under discussion,
+        and a **link** to the review comment the finding came from.
+
+  # ---------------------------------------------------------------------------
+  # Routing and subject
+  # ---------------------------------------------------------------------------
+
+  - type: dropdown
+    id: kind
+    attributes:
+      label: Kind
+      description: >-
+        The same word the existing `[harness]` issues put in their `**Kind:**` header line.
+        `bug` = current behaviour is wrong; `hardening` = correct today, fragile against
+        hostile or malformed input; `refactor` = no behaviour change.
+      options: [bug, enhancement, hardening, refactor, docs]
+    validations:
+      required: true
+
+  - type: input
+    id: subject-permalink
+    attributes:
+      label: Affected code (permalink)
+      description: >-
+        GitHub permalink pinned to a 40-hex commit SHA (`.../blob/<sha>/path#L286`), never a
+        `blob/main/` or `blob/master/` URL and never a bare `path.py:286`. Open the file on
+        GitHub, select the lines, press `y`, copy the URL. If the code lives on an unmerged
+        branch, permalink the commit on that branch — that is precisely the case where a line
+        number rots fastest. Several files: list the primary one here, the rest under
+        *Out of scope* or in the body of *Current behaviour*.
+      placeholder: "https://github.com/biodatageeks/vepyr-porting-tests/blob/<40-hex-sha>/tools/run_tests/engine.py#L286"
+    validations:
+      required: true
+
+  # ---------------------------------------------------------------------------
+  # The defect
+  # ---------------------------------------------------------------------------
+
+  - type: textarea
+    id: current-behavior
+    attributes:
+      label: Current behaviour
+      description: What the harness does today, and why that is wrong or insufficient.
+      placeholder: >-
+        `git checkout --quiet --detach <rev>` resolves <rev> against the clone-time local
+        branch ref, not against what the preceding `git fetch origin <rev>` retrieved. For an
+        engine repo already cloned into the cache, every later `--vepyr <branch>` run checks
+        out the revision as of the original clone while the summary prints the freshly
+        resolved sha.
+    validations:
+      required: true
+
+  - type: textarea
+    id: expected-behavior
+    attributes:
+      label: Expected behaviour
+      description: What it should do instead. State the observable difference, not the patch.
+      placeholder: >-
+        The checked-out worktree is provably the fetched head: `git -C <checkout> rev-parse HEAD`
+        equals the sha printed in the run summary, on the second and every later run.
+    validations:
+      required: true
+
+  - type: textarea
+    id: repro
+    attributes:
+      label: Repro command and observed exit status
+      description: >-
+        The exact command, and what it actually did — copy the status and the error text, do
+        not paraphrase them. Write `n/a — <reason>` for a pure gap or docs issue with nothing
+        to reproduce.
+      placeholder: |
+        $ cargo update --config engine.toml \
+            -p datafusion-bio-function-vep \
+            -p datafusion-bio-format-ensembl-cache \
+            -p datafusion-bio-format-vcf
+        error: the package ID specification `datafusion-bio-format-vcf` is ambiguous
+        $ echo $?
+        101
+      render: shell
+    validations:
+      required: true
+
+  - type: dropdown
+    id: exit-code
+    attributes:
+      label: README exit code implicated
+      description: >-
+        Which documented `./run_tests` exit does the user actually see? A code that is not in
+        the README table (cargo's own `101`) or a symbolic constant with no mapped exit
+        (`MISSING_VEPYR`) is itself worth saying out loud — pick *other* and explain under
+        *Current behaviour*.
+      options:
+        - "0 — ok"
+        - "1 — data-tests failed"
+        - "2 — usage (missing cache or --vepyr)"
+        - "3 — revision clash vs PINS.toml"
+        - "4 — incomplete selection or missing cache pieces"
+        - "5 — verification failure"
+        - "6 — engine resolve/checkout failure"
+        - "other / none — explain in Current behaviour"
+    validations:
+      required: false
+
+  # ---------------------------------------------------------------------------
+  # Provenance and sequencing
+  # ---------------------------------------------------------------------------
+
+  - type: input
+    id: origin
+    attributes:
+      label: Originating review comment or PR (link)
+      description: >-
+        Where this finding came from, as a link a reviewer can open — a PR review comment URL,
+        not "from the review thread". Write `new` if it did not come out of a review.
+      placeholder: "https://github.com/biodatageeks/vepyr-porting-tests/pull/20#discussion_r<id>"
+    validations:
+      required: true
+
+  - type: input
+    id: target-branch
+    attributes:
+      label: Target branch
+      description: >-
+        Which branch the fix branches from. Not always the default branch (`master`): a batch
+        of harness issues once all targeted `harness/issue-14-15-run-tests` while PR #20 was
+        still open, and branching them from `master` would have produced a fix against code
+        that did not exist there. Say so explicitly when that is the case — replace this field
+        with the unmerged base branch (as `harness/issue-14-15-run-tests` was while PR #20 was
+        open) rather than `master`.
+      value: "master"
+    validations:
+      required: true
+
+  - type: input
+    id: depends-on
+    attributes:
+      label: Depends on
+      description: Issues or PRs that must land first, and one clause each on why. `none` is a valid answer.
+      placeholder: "#29 (main() refactor — this changes the dispatch path that refactor reshapes)"
+    validations:
+      required: false
+
+  # ---------------------------------------------------------------------------
+  # Closing conditions
+  # ---------------------------------------------------------------------------
+
+  - type: textarea
+    id: acceptance
+    attributes:
+      label: Acceptance criteria
+      description: >-
+        Write them as a **numbered list**, and make **every item name a command in backticks**
+        plus the status it must return — any expected exit code is fine, and a semi-manual
+        item is fine as long as it still names the command a reader runs. "Behaves correctly"
+        is not a criterion, and neither is a criterion that only asserts a command is
+        *present* rather than what it must *do*. At least one item must be able to FAIL on
+        today's code — if every criterion passes before the fix, they are decoration. Keep the
+        standing regression gate (`pytest tools/` and/or `cargo check --tests` green) as the
+        last item, as the existing issues do.
+      placeholder: |
+        1. `grep -rn "FASTA_NAME" tools/` → exit 1 (the constant is gone, not merely bypassed).
+        2. `pytest tools/test_precheck.py -k renamed_fasta` → exit 0: with a fixture whose
+           `[grch38_fasta].fa_name` is bumped, a cache laid out under the NEW name passes
+           `precheck_cache`.
+        3. Semi-manual: `./run_tests --cache-dir DIR --vepyr master` → exit 0, and the summary
+           line read by eye names the same sha as `git -C <checkout> rev-parse HEAD`.
+        4. `pytest tools/` → exit 0 (standing regression gate).
+    validations:
+      required: true
+
+  - type: textarea
+    id: out-of-scope
+    attributes:
+      label: Out of scope
+      description: >-
+        What this issue deliberately does not touch, and where it goes instead — a sibling
+        issue number, or "answered inline, no action". Saying both keeps the leftovers from
+        becoming silent debt.
+      placeholder: >-
+        Anything in #31 (`docs/dynamic-vepyr-version-resolving.md`, the "targets" wording, the
+        `cli.py`/`engine.py` docstrings). #31 owns those exact lines — touching them here makes
+        the two PRs conflict.
+    validations:
+      required: false
+
+  - type: checkboxes
+    id: scope-check
+    attributes:
+      label: Scope check
+      options:
+        - label: This is about the harness, not a ledger row port (those use the *Data-test* form).
+          required: true
+        - label: This is not a bug in the vepyr engine itself (that belongs in `biodatageeks/vepyr`).
+          required: true
