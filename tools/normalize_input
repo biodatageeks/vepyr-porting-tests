@@ -36,15 +36,18 @@ itself is a rename per file: each is atomic on its own, but the pair is not, so
 a rename that fails after an earlier one succeeded can still leave ``input.vcf``
 updated beside a stale ``test.toml``. See :func:`_publish` for what that costs.
 
-bcftools itself is pinned: the run is refused unless the banner is exactly
-:data:`_REQUIRED_VERSION`. The command is only half of the contract -- the
-other half is the tool that executes it -- so "whatever bcftools is on PATH"
-would let a silent upstream behaviour change alter ``input.vcf`` under an
-oracle that was generated against a different binary.
+The toolchain itself is pinned: the run is refused unless both banner lines
+match exactly -- :data:`_REQUIRED_VERSION` and the :data:`_REQUIRED_HTSLIB`
+build under it. The command is only half of the contract -- the other half is
+the tool that executes it -- so "whatever bcftools is on PATH" would let a
+silent upstream behaviour change alter ``input.vcf`` under an oracle that was
+generated against a different binary. htslib is checked alongside bcftools
+because that is where the VCF handling actually lives.
 
-Exit codes: ``0`` success, ``1`` bcftools missing, bcftools being the wrong
-version, bcftools failing, a ``test.toml`` that is not valid TOML, or a test
-directory that cannot be written; ``2`` bad usage.
+Exit codes: ``0`` success, ``1`` bcftools missing, bcftools or htslib being the
+wrong version, a banner that cannot be read, bcftools failing, a ``test.toml``
+that is not valid TOML, or a test directory that cannot be written; ``2`` bad
+usage.
 """
 
 from __future__ import annotations
@@ -62,7 +65,9 @@ from typing import Final
 
 __all__ = [
     "NormalizeError",
+    "ToolVersions",
     "bcftools_version",
+    "bcftools_versions",
     "check_pinned_version",
     "main",
     "normalize",
@@ -84,6 +89,20 @@ on ``PATH``: the bytes VEP saw when the oracle was generated are the bytes
 vepyr is handed. Changing this constant is a deliberate act -- it invalidates
 the recorded provenance and every affected oracle must be regenerated.
 """
+
+_REQUIRED_HTSLIB: Final[str] = "htslib 1.23.1"
+"""The htslib build that must be under :data:`_REQUIRED_VERSION`.
+
+bcftools is a thin front end: VCF parsing, writing and much of what ``norm``
+does happen in htslib, so the bcftools release number alone does not identify
+the code that produces ``input.vcf``. The same ``bcftools 1.23`` linked against
+a different htslib is a different normaliser. The oracles were made with htslib
+1.23.1, so that is pinned too, and the rationale in :data:`_REQUIRED_VERSION`
+applies here unchanged.
+"""
+
+_HTSLIB_PREFIX: Final[str] = "Using "
+"""What bcftools puts in front of its second banner line (``Using htslib X``)."""
 
 COMMAND_TEMPLATE: Final[str] = "bcftools norm -m -both -o <out.vcf> <in.vcf.gz>"
 """The command recorded in ``test.toml``: a template, identical for every test.
@@ -147,23 +166,48 @@ def _parse_args(argv: list[str] | None = None) -> Args:
     return Args(raw=ns.raw, test_dir=ns.test_dir)
 
 
-def bcftools_version() -> str:
-    """Return the first line of ``bcftools --version`` (e.g. ``bcftools 1.23``).
+@dataclass(frozen=True, slots=True, kw_only=True)
+class ToolVersions:
+    """The two version lines ``bcftools --version`` prints.
 
-    This *reports* the version and does not judge it; enforcing the pin is
+    Attributes:
+        bcftools: First banner line, e.g. ``bcftools 1.23``. This is the value
+            recorded in ``test.toml``.
+        htslib: Second banner line with its ``Using `` prefix removed, e.g.
+            ``htslib 1.23.1``. Not recorded -- it is implied by the pin -- but
+            it is checked.
+    """
+
+    bcftools: str
+    htslib: str
+
+
+def bcftools_versions() -> ToolVersions:
+    """Read both version lines from a single ``bcftools --version`` run.
+
+    One run rather than one per line: two runs could in principle disagree (a
+    ``PATH`` change between them), and the pair is checked as one thing.
+
+    This *reports* the versions and does not judge them; enforcing the pin is
     :func:`check_pinned_version`'s job, so that a caller wanting only to record
     the banner -- as :func:`render_input_table` does -- need not care which
     release it is.
 
     Returns:
-        The version banner, stripped of trailing whitespace.
+        Both lines, stripped, with the htslib line's ``Using `` prefix removed.
 
     Raises:
-        NormalizeError: If bcftools is not on ``PATH`` or does not answer.
+        NormalizeError: If bcftools is not on ``PATH``, does not answer, prints
+            nothing, or prints no second line. The last is not supposed to
+            happen -- every bcftools since long before 1.23 prints ``Using
+            htslib X`` -- but an ``IndexError`` traceback would be a poor way
+            to find out, and a banner we cannot read is a banner we cannot
+            check, which under a pin means refusing rather than guessing.
     """
     if shutil.which(_BCFTOOLS) is None:
         raise NormalizeError(
-            f"bcftools is not on PATH; install {_REQUIRED_VERSION} and retry"
+            f"bcftools is not on PATH; install {_REQUIRED_VERSION} "
+            f"({_REQUIRED_HTSLIB}) and retry"
         )
     try:
         done = subprocess.run(
@@ -174,29 +218,64 @@ def bcftools_version() -> str:
         )
     except (OSError, subprocess.CalledProcessError) as exc:
         raise NormalizeError(f"could not run `bcftools --version`: {exc}") from exc
-    first, _, _ = done.stdout.partition("\n")
-    if not first.strip():
+    lines = [line.strip() for line in done.stdout.splitlines()]
+    if not lines or not lines[0]:
         raise NormalizeError("`bcftools --version` printed nothing")
-    return first.strip()
+    if len(lines) < 2 or not lines[1]:
+        raise NormalizeError(
+            "`bcftools --version` printed no htslib line; expected a second "
+            f"line naming {_REQUIRED_HTSLIB}"
+        )
+    return ToolVersions(
+        bcftools=lines[0],
+        htslib=lines[1].removeprefix(_HTSLIB_PREFIX),
+    )
 
 
-def check_pinned_version(found: str) -> None:
-    """Refuse any bcftools other than :data:`_REQUIRED_VERSION`.
+def bcftools_version() -> str:
+    """Return the first line of ``bcftools --version`` (e.g. ``bcftools 1.23``).
 
-    The comparison is exact rather than a lower bound: a newer release is not
-    "good enough", because the point of the pin is that the binary writing
-    ``input.vcf`` is the same one the oracle was generated against.
+    The one line that goes into ``test.toml``; :func:`bcftools_versions` is the
+    full reading.
 
-    Args:
-        found: The banner :func:`bcftools_version` returned.
+    Returns:
+        The version banner, stripped of trailing whitespace.
 
     Raises:
-        NormalizeError: If ``found`` is not exactly the required banner.
+        NormalizeError: As :func:`bcftools_versions`.
     """
-    if found != _REQUIRED_VERSION:
+    return bcftools_versions().bcftools
+
+
+def check_pinned_version(found: ToolVersions) -> None:
+    """Refuse anything but :data:`_REQUIRED_VERSION` on :data:`_REQUIRED_HTSLIB`.
+
+    Both lines are checked here, in one function, rather than by a pair of
+    callers: they are not two independent pins but one identification of one
+    normaliser, and splitting them would let a caller enforce half of it. The
+    messages stay separate so the reported mismatch names the component that
+    actually differs.
+
+    The comparisons are exact rather than lower bounds: a newer release is not
+    "good enough", because the point of the pin is that the code writing
+    ``input.vcf`` is the code the oracle was generated against.
+
+    Args:
+        found: The versions :func:`bcftools_versions` returned.
+
+    Raises:
+        NormalizeError: If either line is not exactly the required one.
+    """
+    if found.bcftools != _REQUIRED_VERSION:
         raise NormalizeError(
-            f"bcftools version mismatch: found {found!r}, this project "
-            f"requires exactly {_REQUIRED_VERSION!r}"
+            f"bcftools version mismatch: found {found.bcftools!r}, this "
+            f"project requires exactly {_REQUIRED_VERSION!r}"
+        )
+    if found.htslib != _REQUIRED_HTSLIB:
+        raise NormalizeError(
+            f"htslib version mismatch: found {found.htslib!r} under "
+            f"{found.bcftools!r}, this project requires exactly "
+            f"{_REQUIRED_HTSLIB!r}"
         )
 
 
@@ -454,23 +533,25 @@ def normalize(raw: Path, test_dir: Path) -> Path:
     Returns:
         Path of the written ``input.vcf``.
 
-    bcftools must be exactly :data:`_REQUIRED_VERSION`; that is checked before
-    ``test_dir`` is created, so a host with the wrong bcftools leaves not even
-    an empty directory behind.
+    bcftools must be exactly :data:`_REQUIRED_VERSION` on
+    :data:`_REQUIRED_HTSLIB`; that is checked before ``test_dir`` is created,
+    so a host with the wrong toolchain leaves not even an empty directory
+    behind.
 
     Raises:
-        NormalizeError: If bcftools is missing or is not the pinned version, or
-            the raw file does not exist, or bcftools rejects the input, or
-            ``test.toml`` is not valid TOML, or the test directory cannot be
-            written.
+        NormalizeError: If bcftools is missing, or bcftools or its htslib is
+            not the pinned version, or the raw file does not exist, or bcftools
+            rejects the input, or ``test.toml`` is not valid TOML, or the test
+            directory cannot be written.
     """
     if not raw.is_file():
         raise NormalizeError(f"no such raw VCF: {raw}")
-    version = bcftools_version()
-    # Ordered like the missing-bcftools check above it: the version is settled
-    # before `test_dir` is created and long before `bcftools norm` is started,
-    # so a wrong bcftools leaves the filesystem exactly as it was.
-    check_pinned_version(version)
+    versions = bcftools_versions()
+    # Ordered like the missing-bcftools check above it: both versions are
+    # settled before `test_dir` is created and long before `bcftools norm` is
+    # started, so a wrong toolchain leaves the filesystem exactly as it was.
+    check_pinned_version(versions)
+    version = versions.bcftools
     try:
         test_dir.mkdir(parents=True, exist_ok=True)
     except OSError as exc:

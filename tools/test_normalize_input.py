@@ -215,9 +215,53 @@ def test_test_toml_records_the_fixed_command_and_the_tool_version(
     assert banner == normalize_input._REQUIRED_VERSION == "bcftools 1.23"
 
 
-def test_the_pinned_version_is_the_one_this_project_records() -> None:
+def test_the_pinned_versions_are_stated_constants() -> None:
     """The pin is a stated constant, not whatever happens to be installed."""
     assert normalize_input._REQUIRED_VERSION == "bcftools 1.23"
+    assert normalize_input._REQUIRED_HTSLIB == "htslib 1.23.1"
+
+
+@requires_bcftools
+def test_the_installed_htslib_is_the_pinned_one() -> None:
+    """The htslib line is read off the banner and equals the pin (AC 1)."""
+    assert normalize_input.bcftools_versions().htslib == "htslib 1.23.1"
+
+
+def _refuse_banner(
+    stdout: str,
+    tmp_path: Path,
+    monkeypatch: pytest.MonkeyPatch,
+    capsys: pytest.CaptureFixture[str],
+) -> str:
+    """Run ``main`` against a faked ``bcftools --version`` banner.
+
+    ``bcftools norm`` must never be reached, so the fake asserts on its own
+    argv rather than quietly pretending to normalise.
+
+    Args:
+        stdout: What ``bcftools --version`` should appear to print.
+        tmp_path: Directory holding the raw VCF and the refused test dir.
+        monkeypatch: Fixture used to fake ``which`` and ``subprocess.run``.
+        capsys: Fixture used to read the error message.
+
+    Returns:
+        The captured stderr.
+    """
+    raw = tmp_path / "multi.vcf"
+    raw.write_text(MULTIALLELIC_VCF, encoding="utf-8")
+
+    def _fake_run(
+        argv: list[str], **_kwargs: object
+    ) -> subprocess.CompletedProcess[str]:
+        assert argv[1] == "--version", f"bcftools norm must not run: {argv}"
+        return subprocess.CompletedProcess(argv, 0, stdout, "")
+
+    monkeypatch.setattr(normalize_input.shutil, "which", lambda _name: "/usr/bin/x")
+    monkeypatch.setattr(normalize_input.subprocess, "run", _fake_run)
+    target = tmp_path / "t_pin"
+    assert normalize_input.main([str(raw), str(target)]) == 1
+    assert not target.exists(), "a refused toolchain must not create the test dir"
+    return capsys.readouterr().err
 
 
 def test_a_wrong_bcftools_version_is_refused_before_anything_is_created(
@@ -229,22 +273,39 @@ def test_a_wrong_bcftools_version_is_refused_before_anything_is_created(
     message names no versions, and ``test_dir`` has already been created by the
     time the run gives up.
     """
-    raw = tmp_path / "multi.vcf"
-    raw.write_text(MULTIALLELIC_VCF, encoding="utf-8")
-
-    def _fake_run(
-        argv: list[str], **_kwargs: object
-    ) -> subprocess.CompletedProcess[str]:
-        assert argv[1] == "--version", f"bcftools norm must not run: {argv}"
-        return subprocess.CompletedProcess(argv, 0, "bcftools 1.20\n", "")
-
-    monkeypatch.setattr(normalize_input.shutil, "which", lambda _name: "/usr/bin/x")
-    monkeypatch.setattr(normalize_input.subprocess, "run", _fake_run)
-    target = tmp_path / "t_pin"
-    assert normalize_input.main([str(raw), str(target)]) == 1
-    err = capsys.readouterr().err
+    err = _refuse_banner(
+        "bcftools 1.20\nUsing htslib 1.20\n", tmp_path, monkeypatch, capsys
+    )
     assert "bcftools 1.20" in err and "bcftools 1.23" in err
-    assert not target.exists()
+
+
+def test_a_wrong_htslib_under_the_right_bcftools_is_refused(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch, capsys: pytest.CaptureFixture[str]
+) -> None:
+    """bcftools is a front end; the htslib under it is what parses the VCF.
+
+    Negative control: the bcftools line here is exactly the pinned one, so a
+    script that checked only that line -- every revision of this one before the
+    htslib pin -- would run bcftools and trip the fake's assertion.
+    """
+    err = _refuse_banner(
+        "bcftools 1.23\nUsing htslib 1.20.0\n", tmp_path, monkeypatch, capsys
+    )
+    assert "htslib 1.20.0" in err and "htslib 1.23.1" in err
+
+
+def test_a_banner_without_an_htslib_line_is_refused_not_crashed(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch, capsys: pytest.CaptureFixture[str]
+) -> None:
+    """A banner that cannot be read is refused, not indexed into blindly.
+
+    No released bcftools does this, but the failure mode is chosen rather than
+    inherited: an unreadable banner is an unverifiable one, and under a pin
+    that means stopping -- with a message, not an ``IndexError``.
+    """
+    err = _refuse_banner("bcftools 1.23\n", tmp_path, monkeypatch, capsys)
+    assert "htslib" in err
+    assert "IndexError" not in err
 
 
 @requires_bcftools
