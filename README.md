@@ -29,7 +29,7 @@ export VEPYR_CACHE_ROOT=/mnt/hf-cache
 | Flag | Status in this commit |
 |------|------------------------|
 | `--help` | Exit 0 |
-| `--list` | Lists the `tests/data_*.rs` targets present in the working tree; exit 0 |
+| `--list` | Lists the data-test directories `tests/data/<name>/` present in the working tree; exit 0 |
 | `--cache-dir DIR` | Downloads the pinned VEP 116 shards into `DIR` and writes `PROVENANCE.json`; then runs data-tests when targets exist |
 | `--add-contigs LIST` | Adds the named contigs to `DIR` (not `--contigs`). Default: whole genome |
 | `--flavours LIST` | Default `ensembl,refseq,merged` |
@@ -39,10 +39,10 @@ export VEPYR_CACHE_ROOT=/mnt/hf-cache
 | `--no-trim-manifests` | Leaves `chrom_manifest.json` naming shards that were not fetched |
 | `--vepyr REF` | Resolves `REF` on biodatageeks/vepyr and path-patches that revision's dfbf/formats ladder. **Optional:** omitted, data-tests run against `master`'s current HEAD; the summary prints the full 40-char resolved sha either way. Pass `REF` whenever a pinned, reproducible run is wanted (CI, bisecting, ledger evidence) |
 
-**"Targets" means cargo test targets** — the `tests/data_*.rs` files. One file is
-one target, named by its stem (`tests/data_foo.rs` → `data_foo`), and each becomes
-one `--test data_foo` argument in the `cargo test` invocation. `--list` prints
-exactly that set.
+**"Targets" means data-test directories** — `tests/data/<name>/` holding a
+`test.toml` (see [Porting method](#porting-method)). `--list` prints their names.
+They all run inside the one generic cargo target, so the `cargo test` invocation
+carries a single `--test data_dirs`.
 
 **`--vepyr REF` examples.** `REF` is anything `biodatageeks/vepyr` can dereference:
 
@@ -235,7 +235,8 @@ cargo check --tests
 
 Shared modules under `tests/common/`: `cache` / `ledger` (issue #5), plus
 `annotate`, `csq`, and `provenance` for data-problem pilots (issue #14). Data-tests
-live as `tests/data_*.rs` and are discovered by `./run_tests --list`.
+live as directories `tests/data/<name>/`, run by `tests/data_dirs.rs` and listed
+by `./run_tests --list`.
 
 `tools/normalize_input <raw> <test-dir>` writes a data-test's `input.vcf` with
 the one fixed `bcftools norm -m -both` command (issue #85) and requires exactly
@@ -259,100 +260,90 @@ requested contig. `motif` and `regulatory` have no `chrMT`, so
 `--add-contigs chrMT` alone is refused (exit 4). Legal minimal examples:
 `chrY`, or `chr21,chrMT` (`chr21` covers the entities that lack `chrMT`).
 
-The sections below describe the **porting method** used to extract, classify,
-and implement those tests. Code and ledger fragments are **illustrative**.
-
 ## Porting method
 
-In the Ensembl VEP test suite there are 1970 assertions across 49 `t/*.t`
-files. They were all extracted as a source corpus.
+A data-test is a **directory**, `tests/data/<name>/`, compared against the real
+output of native Ensembl VEP 116. One generic cargo test, `tests/data_dirs.rs`,
+walks the directories; there is no hand-typed expected table in Rust code.
 
-```mermaid
-flowchart LR
-  A["VEP test file<br/>(.t)"]
-  B["VEP assertions<br/>(a few per file)"]
-  C["Assertion entry<br/>in .ledger.toml"]
-  D["Classification<br/>portable / non-portable"]
-  E["Rust test<br/>(if applicable)"]
-
-  A --> B
-  B -->|mapped to| C
-  C -->|classified| D
-  D -->|if portable| E
+```
+tests/data/<name>/
+  input.vcf             # normalised input: tools/normalize_input (#85)
+  expected_output.vcf   # real VEP 116 output on input.vcf: ./bless (#32)
+  test.toml             # provenance, how vepyr runs, the body md5
 ```
 
-**Illustrative** — original Perl test fragment:
+**Making one.** Pick a candidate, write its raw VCF, then:
 
-```perl
-## BASIC TESTS
-##############
-
-# use test
-use_ok('Bio::EnsEMBL::VEP::CacheDir');
-
-# need to get a config object for further tests
-use_ok('Bio::EnsEMBL::VEP::Config');
-
-my $cfg_hash = $test_cfg->base_testing_cfg;
-
-my $cfg = Bio::EnsEMBL::VEP::Config->new($cfg_hash);
-ok($cfg, 'get new config object');
-
-my $cd = Bio::EnsEMBL::VEP::CacheDir->new({config => $cfg, root_dir => $cfg_hash->{dir}});
-ok($cd, 'new is defined');
-
-is(ref($cd), 'Bio::EnsEMBL::VEP::CacheDir', 'check class');
+```bash
+tools/normalize_input raw.vcf.gz tests/data/<name>   # input.vcf + [input]
+./bless --vep-cache-dir ~/vep116 --vep-fasta ~/GRCh38.fa tests/data/<name>   # oracle + [vep] + [compare]
+# then fill name, description, [origin] and [vepyr] by hand
+VEPYR_CACHE_ROOT=/mnt/hf-cache cargo test --test data_dirs
 ```
 
-Extracted assertions are stored as ledger entries in `.toml` files (in the
-source method), formatted like the example below.
+VEP and vepyr read the same `input.vcf`, byte for byte. Candidates come from the
+assertion ledger in [sitekwb/vepyr-porting-tests](https://github.com/sitekwb/vepyr-porting-tests)
+(`ledger/*.ledger.toml`); a directory names its source row in `[origin] ledger`.
 
-**Illustrative** — ledger assertion entry:
+**`test.toml`**, one line per key (`?` = optional). Every table is checked against
+this list, and any other key fails the test with `[<name>] unknown key: <key>`:
 
 ```toml
-[[assertion]]
-n               = 4
-perl_line       = 42
-perl_kind       = "ok"
-desc            = "BASIC TESTS: CacheDir->new({config, root_dir}) resolves and accepts the v84 test cache"
-category        = "analog-port"
-coverage_area   = "annotation-source-setup"
-rust_test       = "tests/port_cache_dir.rs::provider_accepts_a_v84_shaped_cache_root"
-rationale       = "Not a bare truthiness probe: `new` calls `init` (CacheDir.pm:113) whose first statement is `my $dir = $self->dir` (CacheDir.pm:221), so this line asserts that directory resolution succeeded for the base testing config. vepyr has no CacheDir object; the constructor that consumes a cache directory is `TranscriptTableProvider::new(EnsemblCacheOptions{..})`, and the defined/undef distinction becomes `Ok`/`Err` — a different channel, hence analog-port. The named test rebuilds ensembl-vep's own `homo_sapiens/84_GRCh38` layout in a tempdir, constructs the provider and asserts it resolved the three chromosome directories. It is also the positive control for n=12, n=13 and n=14, whose negative arms use the same fixture."
-vep116_delta    = "unchanged"
+name = "runner_consequence_content"   # equals the directory name
+description = "..."                    # one sentence
+[origin]
+vep_test        = "https://github.com/Ensembl/ensembl-vep/blob/release/116.0/t/Runner.t#L244-L292"
+vep_test_pinned = ".../blob/57ea5c52340acc1f156267f810ad162e26597082/t/Runner.t#L244-L292"
+vep_subject     = ".../blob/57ea5c52.../modules/Bio/EnsEMBL/VEP/Runner.pm#L396"
+ledger          = "Runner.ledger.toml n=16"   # ? source row in the sitekwb ledger
+issue           = 16                           # ? issue that introduced the test
+[input]                                        # written by tools/normalize_input
+command          = "bcftools norm -m -both -o <out.vcf> <in.vcf.gz>"
+bcftools_version = "bcftools 1.23"
+[vep]                                          # written by ./bless
+image = "..."  command = "..."  date = "..."
+cache_source = "..."  cache_checksum = "..."  fasta_source = "..."  fasta_checksum = "..."
+[vepyr]
+flavour                = "ensembl"             # picks the cache directory, never a config flag
+entities               = ["transcript", "exon", "translation_core"]
+required_contigs       = ["chr21"]
+everything             = false
+fields                 = ["Allele", "..."]     # VEP's 23 default CSQ fields
+preserve_record_layout = true
+reference_fasta        = false                 # true: $VEPYR_CACHE_ROOT's GRCh38 FASTA
+buffer_size            = 5000                  # ?
+[compare]
+body_md5         = "..."                       # written by ./bless
+known_divergence = 123                         # ? issue number of an accepted mismatch
+[[vepyr_run]]                                  # ? repeatable; overrides [vepyr] keys
+buffer_size = 1
 ```
 
-Each assertion is classified into one of six categories:
-`unit-port`, `analog-port`, `failed`, `deferred`, `no-feature`, `vepyr-only`.
-Classification fields stored with the assertion include:
+(The `[vep]` line above is abbreviated; in a real file each key is on its own line.)
 
-- `category` — how the assertion maps from Ensembl VEP to vepyr
-- `coverage_area` — short identifier for the feature area
-- `rust_test` — Rust test path/name, if any
-- `rationale` — freeform justification of the classification and mapping
-- `vep116_delta` — change notes since Ensembl VEP release 116
+**What the runner checks**, per directory:
 
-From portable classifications, corresponding Rust tests are created.
+1. *Self-check:* `[compare] body_md5` equals the md5 of the body of
+   `expected_output.vcf` (body = every line not starting with `#`), otherwise
+   `[<name>] oracle edited`.
+2. vepyr annotates `input.vcf` once per run (one run from `[vepyr]`, or one per
+   `[[vepyr_run]]` entry, each printed as `run <n>/<N>: <overrides>`).
+3. The md5 of vepyr's body must equal `body_md5`. Otherwise
+   `[<name>] body md5 mismatch`, `expected <md5>, got <md5>`, and the first
+   differing record on a `VEP:` and a `vepyr:` line. CSQ group order is part of the
+   body, so it is asserted too.
+4. With `known_divergence` set, a mismatch is expected and passes; once vepyr
+   matches, the test fails with `[<name>] known_divergence obsolete` until the key
+   is removed.
 
-**Illustrative** — Rust test fragment:
+`preserve_record_layout = true` and an explicit 23-field `fields` list are needed
+for byte parity: the engine's defaults are `false` and a 74-field CSQ layout.
 
-```rust
-/// Ledger n=4 — the constructor accepts a well-formed cache directory.
-#[test]
-fn provider_accepts_a_v84_shaped_cache_root() {
-    let (_tmp, leaf) = v84_cache();
-    let provider = TranscriptTableProvider::new(ensembl_options(&leaf))
-        .expect("v84-shaped cache root is accepted");
-    assert_eq!(
-        provider.chromosomes(),
-        Some(v84_chroms().as_slice()),
-        "the transcript entity resolves to the three chromosome directories",
-    );
-}
-```
-
-This repository will carry a curated subset of those ports as data-problem
-tests.
+`DATA_DIRS_ROOT` overrides the walked directory. `cargo test --test data_dirs
+selftest` runs the same loader and compare on the synthetic fixture
+`tests/fixtures/data_dirs_selftest/` against a synthetic one-shard cache, with no
+downloaded data.
 
 Corpus dataset pins (`PINS.toml`) are documented in
 [docs/dataset-pins.md](docs/dataset-pins.md).

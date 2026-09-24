@@ -1,9 +1,10 @@
 """Command line for ``./run_tests`` — fetch, ``--vepyr``, and data-test runs.
 
 ``--cache-dir`` materialises the pinned VEP 116 corpus. With a cache root
-(``--cache-dir`` or ``$VEPYR_CACHE_ROOT``), discovered ``tests/data_*.rs`` targets
-run under a path-patched engine ladder: ``--vepyr REF`` pins the revision, and
-omitting it resolves ``biodatageeks/vepyr``'s current ``master`` HEAD (issue #30).
+(``--cache-dir`` or ``$VEPYR_CACHE_ROOT``), discovered ``tests/data/<name>/`` test
+directories run under a path-patched engine ladder: ``--vepyr REF`` pins the
+revision, and omitting it resolves ``biodatageeks/vepyr``'s current ``master`` HEAD
+(issue #30).
 """
 
 from __future__ import annotations
@@ -150,7 +151,7 @@ def _parser() -> argparse.ArgumentParser:
     run.add_argument(
         "--list",
         action="store_true",
-        help="print data-problem targets (tests/data_*.rs) and exit 0.",
+        help="print data-test directories (tests/data/<name>/) and exit 0.",
     )
     return parser
 
@@ -431,7 +432,7 @@ def _no_targets_phase(
     detail: str | None,
     fetched: bool,
 ) -> int:
-    """Nothing to run: fetch (if any) succeeded, but no ``tests/data_*.rs`` exists."""
+    """Nothing to run: fetch (if any) succeeded, but no ``tests/data/<name>/``."""
     if not fetched:
         # Env-only with zero targets: still prove the cache looks sane.
         try:

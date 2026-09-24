@@ -10,11 +10,14 @@
 //! command naming `./run_tests` (`--cache-dir`, `--flavours`, `--add-contigs`).
 //!
 //! **Required contigs.** Contigs are not discovered from the VCF at runtime. Each
-//! ledger assertion declares `required_contigs` — exactly the contigs of the loci
-//! under test (not wider, not narrower). Helpers read that field (see [`super::ledger`])
-//! and pass it to [`requires_shards`]. The field is filled when each data-problem
-//! assertion is ported (Milestone 2); this module only enforces shards for the list
-//! it is given.
+//! data-test directory declares them in `tests/data/<name>/test.toml` as
+//! `[vepyr] required_contigs` (with the cache `entities` it reads) — exactly the
+//! contigs of the loci under test (not wider, not narrower). The generic runner
+//! `tests/data_dirs.rs` passes both to [`requires_shards`]; the older per-file
+//! data-tests read the same field from an assertion fragment (see [`super::ledger`]).
+//! The cache flavour is chosen by the directory under the root
+//! ([`Flavour::dir_name`]), never by an engine config flag. This module only enforces
+//! shards for the list it is given.
 //!
 //! ```text
 //! ./run_tests --cache-dir /mnt/hf-cache --add-contigs chr21,chrMT
@@ -54,6 +57,13 @@ impl Flavour {
     /// The `PINS.toml` table carrying this flavour's revision.
     pub fn pin_name(self) -> String {
         format!("hf_cache_{}", self.key())
+    }
+
+    /// Inverse of [`Flavour::key`] — how a `test.toml` `[vepyr] flavour` names it.
+    pub fn from_key(key: &str) -> Option<Self> {
+        [Self::Ensembl, Self::RefSeq, Self::Merged]
+            .into_iter()
+            .find(|flavour| flavour.key() == key)
     }
 }
 
@@ -97,6 +107,13 @@ impl Entity {
             Self::TranslationSift => "translation_sift",
             Self::Variation => "variation",
         }
+    }
+
+    /// Inverse of [`Entity::dir_name`] — how a `test.toml` `[vepyr] entities` names it.
+    pub fn from_dir_name(name: &str) -> Option<Self> {
+        Self::ALL
+            .into_iter()
+            .find(|entity| entity.dir_name() == name)
     }
 }
 

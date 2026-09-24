@@ -1,17 +1,20 @@
-//! Ledger field `required_contigs` — the SSOT for which cache shards a data-problem
-//! assertion needs.
+//! `required_contigs` read from a ledger-style `[[assertion]]` TOML fragment.
 //!
-//! Contigs are a **declared contract** on the ledger assertion, not discovered at
-//! runtime from the VCF:
+//! Data-tests are directories, `tests/data/<name>/`, and declare their contigs in
+//! `test.toml` as `[vepyr] required_contigs`; the generic runner `tests/data_dirs.rs`
+//! reads that table itself. This module serves the older per-file data-tests
+//! (`tests/data_*.rs`) that still carry an assertion fragment inline, until they are
+//! migrated to directories (#67).
+//!
+//! Contigs are a **declared contract**, not discovered at runtime from the VCF:
 //!
 //! - Field name: `required_contigs` (array of contig strings, e.g. `["chr21", "chrMT"]`).
-//! - Value = exactly the contigs of the variant loci that assertion exercises — not a
-//!   wider “just in case” set, not narrower than the VCF / fixture loci.
-//! - Filled when each data-problem assertion is ported (Milestone 2). This module only
-//!   **reads** the field and feeds [`super::cache::requires_shards`].
+//! - Value = exactly the contigs of the variant loci the test exercises — not a
+//!   wider “just in case” set, not narrower than the input loci.
+//! - This module only **reads** the field and feeds [`super::cache::requires_shards`].
 //!
-//! This repository does not yet ship a full `ledger/` corpus; callers pass a TOML
-//! fragment (or a future ledger file body) into these helpers.
+//! The sitekwb ledger (`sitekwb/vepyr-porting-tests`, `ledger/*.ledger.toml`) is the
+//! source of candidate tests; a directory names its source row in `[origin] ledger`.
 
 use super::cache::{Entity, FullCache, requires_shards};
 

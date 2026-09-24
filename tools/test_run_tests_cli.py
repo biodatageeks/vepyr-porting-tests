@@ -152,15 +152,23 @@ def test_help_lists_required_flags_and_not_contigs() -> None:
     assert "--contigs " not in result.stdout
 
 
+def _add_data_dir(repo: Path, name: str) -> Path:
+    """Create a stub data-test directory ``tests/data/<name>/`` with a ``test.toml``."""
+    directory = repo / tests.DATA_DIR / name
+    directory.mkdir(parents=True, exist_ok=True)
+    (directory / "test.toml").write_text(f'name = "{name}"\n')
+    return directory
+
+
 def test_list_reports_zero_data_problem_targets(harness: Harness) -> None:
-    """``--list`` over a repository with no ``tests/data_*.rs`` reports none.
+    """``--list`` over a repository with no ``tests/data/<name>/`` reports none.
 
     The count is taken against the throwaway repository of the ``harness``
     fixture, never the real checkout: the repository does carry data-problem
     targets, so asserting on its contents would test the tree rather than the
     CLI, and would break whenever a target is added or removed.
     """
-    assert not list((harness.repo / "tests").glob("data_*.rs"))
+    assert not (harness.repo / tests.DATA_DIR).exists()
     result = harness.run("--list")
     assert result.code == 0
     assert "0 data-problem target(s)" in result.stdout
@@ -170,10 +178,10 @@ def test_list_reports_zero_data_problem_targets(harness: Harness) -> None:
 def test_list_reports_discovered_data_targets(
     harness: Harness, monkeypatch: pytest.MonkeyPatch
 ) -> None:
-    (harness.repo / "tests" / "data_example.rs").write_text("// stub\n")
+    _add_data_dir(harness.repo, "example")
     result = harness.run("--list")
     assert result.code == 0
-    assert "data  data_example" in result.stdout
+    assert "data  example" in result.stdout
     assert "1 data-problem target(s)" in result.stdout
 
 
@@ -253,7 +261,7 @@ def test_env_cache_root_honours_dry_run(
     """
     harness.root.mkdir()
     monkeypatch.setenv(tests.CACHE_ENV, str(harness.root))
-    (harness.repo / "tests" / "data_pilot.rs").write_text("// stub\n")
+    _add_data_dir(harness.repo, "pilot")
 
     def snapshot() -> set[Path]:
         return {
@@ -438,7 +446,7 @@ def test_vepyr_run_invokes_cargo_with_cache_env(
         ).code
         == int(Exit.OK)
     )
-    (harness.repo / "tests" / "data_pilot.rs").write_text("// stub\n")
+    _add_data_dir(harness.repo, "pilot")
 
     src = tmp_path / "src"
     dfbf = src / "datafusion-bio-functions" / "datafusion" / "bio-function-vep"
@@ -485,9 +493,10 @@ def test_vepyr_run_invokes_cargo_with_cache_env(
     cargo_test = [c for c in harness.cargo.calls if c[0][:2] == ["cargo", "test"]]
     assert cargo_test
     argv, env = cargo_test[0]
-    assert "--test" in argv and "data_pilot" in argv
+    assert argv[argv.index("--test") + 1] == tests.RUNNER_TARGET
+    assert "pilot" not in argv
     assert env[tests.CACHE_ENV] == str(harness.root)
-    assert "targets          : data_pilot" in result.summary
+    assert "targets          : pilot" in result.summary
     # Issue #21: no `cargo update -p <bare crate name>` pre-step — the path
     # `[patch]` tables re-lock the ladder on their own, and bare specs were
     # ambiguous whenever one crate name resolved to two sources.
@@ -508,7 +517,7 @@ def test_cargo_failure_is_exit_1(
         ).code
         == int(Exit.OK)
     )
-    (harness.repo / "tests" / "data_pilot.rs").write_text("// stub\n")
+    _add_data_dir(harness.repo, "pilot")
     harness.cargo.test_exit_code = 1
 
     src = harness.repo / ".run_tests" / "src"
@@ -641,7 +650,7 @@ def test_relative_cache_dir_prechecks_the_directory_cargo_is_given(
     )
     assert (elsewhere / "relative-cache").is_dir()
 
-    (harness.repo / "tests" / "data_pilot.rs").write_text("// stub\n")
+    _add_data_dir(harness.repo, "pilot")
     _stub_engine(tmp_path / "src", monkeypatch)
 
     prechecked: list[Path] = []
@@ -739,7 +748,7 @@ def test_omitted_vepyr_resolves_master_head_and_prints_the_sha(
         ).code
         == int(Exit.OK)
     )
-    (harness.repo / "tests" / "data_pilot.rs").write_text("// stub\n")
+    _add_data_dir(harness.repo, "pilot")
     _stub_engine(tmp_path / "src", monkeypatch)
 
     master_sha = "b" * 40
@@ -780,7 +789,7 @@ def test_explicit_vepyr_ref_is_not_marked_default(
         ).code
         == int(Exit.OK)
     )
-    (harness.repo / "tests" / "data_pilot.rs").write_text("// stub\n")
+    _add_data_dir(harness.repo, "pilot")
     _stub_engine(tmp_path / "src", monkeypatch)
 
     pinned = "c" * 40
