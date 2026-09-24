@@ -1,0 +1,10 @@
+##fileformat=VCFv4.2
+##FILTER=<ID=PASS,Description="All filters passed">
+##contig=<ID=chr1,length=1000>
+##VEP="synthetic" (self-test fixture: not a real VEP run)
+##INFO=<ID=CSQ,Number=.,Type=String,Description="Consequence annotations from Ensembl VEP. Format: Allele|Consequence|IMPACT|SYMBOL|Gene|Feature_type|Feature|BIOTYPE|EXON|INTRON|HGVSc|HGVSp|cDNA_position|CDS_position|Protein_position|Amino_acids|Codons|Existing_variation|DISTANCE|STRAND|FLAGS|SYMBOL_SOURCE|HGNC_ID">
+#CHROM	POS	ID	REF	ALT	QUAL	FILTER	INFO
+chr1	100	.	A	G	.	PASS	CSQ=G|intergenic_variant|MODIFIER||||||||||||||||||||
+chr1	200	.	C	T	.	PASS	CSQ=T|intergenic_variant|MODIFIER||||||||||||||||||||
+chr1	200	.	C	A	.	PASS	CSQ=A|intergenic_variant|MODIFIER||||||||||||||||||||
+chr1	300	.	G	C	.	PASS	CSQ=C|intergenic_variant|MODIFIER||||||||||||||||||||

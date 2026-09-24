@@ -1,7 +1,12 @@
 //! Shared helpers for data-problem tests.
 //!
+//! A data-test is a directory `tests/data/<name>/` (`input.vcf`,
+//! `expected_output.vcf`, `test.toml`), run by the one generic runner
+//! `tests/data_dirs.rs`; these modules are what that runner and the remaining
+//! per-file `tests/data_*.rs` tests share.
+//!
 //! - [`cache`] — sole bridge to `$VEPYR_CACHE_ROOT` / `PROVENANCE.json` / FASTA
-//! - [`ledger`] — reads assertion field `required_contigs` and feeds `requires_shards`
+//! - [`ledger`] — reads `required_contigs` from an assertion fragment (per-file tests)
 //! - [`annotate`] — thin `annotate_to_vcf` wrapper over a checked cache
 //! - [`csq`] — CSQ layout / group / field helpers
 //! - [`provenance`] — elide run-specific VCF header lines for comparisons

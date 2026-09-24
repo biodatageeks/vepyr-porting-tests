@@ -33,6 +33,15 @@ toml = "1"
 datafusion-bio-function-vep = { git = "https://github.com/biodatageeks/datafusion-bio-functions.git", branch = "master", features = ["cache-builder"] }
 tokio = { version = "1", features = ["rt-multi-thread", "macros"] }
 tempfile = "3"
+# tests/data_dirs.rs: body md5 of VEP and vepyr outputs.
+md-5 = "0.10"
+# tests/data_dirs.rs `selftest`: writes the one-row synthetic variation shard the
+# fixture under tests/fixtures/data_dirs_selftest/ is annotated against, so the
+# loader and compare logic run end to end without the Hub cache. Only the files
+# they write reach the engine; the major version follows the engine's parquet.
+arrow-array = "58"
+arrow-schema = "58"
+parquet = { version = "58", default-features = false, features = ["arrow"] }
 
 # Compile harness: pulls in tests/common so `cargo check --tests` type-checks the
 # cache bridge and shared helpers. Not a smoke or data-problem test.

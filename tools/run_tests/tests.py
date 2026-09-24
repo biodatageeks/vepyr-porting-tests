@@ -1,6 +1,8 @@
 """Discover data-test targets and precheck ``$VEPYR_CACHE_ROOT`` before cargo.
 
-Targets are the stems of ``tests/data_*.rs`` (not ``common_compile``). Precheck mirrors
+Targets are the data-test directories ``tests/data/<name>/`` that hold a
+``test.toml`` (issue #80). All of them run under the one generic cargo test target
+``tests/data_dirs.rs``, so the cargo invocation names that target once. Precheck mirrors
 the fail-loud repairs in ``tests/common/cache.rs``: provenance vs ``PINS.toml``, FASTA,
 and — when a target declares contigs later — shard presence. Until pilots land, precheck
 covers provenance + FASTA only.
@@ -26,16 +28,34 @@ __all__ = [
 ]
 
 CACHE_ENV: Final[str] = "VEPYR_CACHE_ROOT"
-_DATA_GLOB: Final[str] = "data_*.rs"
+DATA_DIR: Final[str] = "tests/data"
+"""Where data-test directories live, relative to the repository root."""
+RUNNER_TARGET: Final[str] = "data_dirs"
+"""The cargo test target (``tests/data_dirs.rs``) that walks :data:`DATA_DIR`."""
+_TEST_TOML: Final[str] = "test.toml"
 
 
 def data_targets(repo_root: Path) -> tuple[str, ...]:
-    """Sorted stems of ``tests/data_*.rs``."""
-    tests_dir = repo_root / "tests"
-    if not tests_dir.is_dir():
+    """Sorted names of the data-test directories ``tests/data/<name>/``.
+
+    A directory counts only when it holds a ``test.toml``: that file is what the
+    generic runner loads, so a directory without one is not a test.
+
+    Args:
+        repo_root: Repository root.
+
+    Returns:
+        Directory names, sorted; empty when ``tests/data`` does not exist.
+    """
+    data_dir = repo_root / DATA_DIR
+    if not data_dir.is_dir():
         return ()
     return tuple(
-        sorted(path.stem for path in tests_dir.glob(_DATA_GLOB) if path.is_file())
+        sorted(
+            path.name
+            for path in data_dir.iterdir()
+            if path.is_dir() and (path / _TEST_TOML).is_file()
+        )
     )
 
 
@@ -51,12 +71,24 @@ def list_table(targets: Sequence[str]) -> str:
 
 
 def cargo_argv(targets: Sequence[str], *, config: Path | None = None) -> list[str]:
-    """``cargo test --no-fail-fast [--config …] --test t1 --test t2 …``."""
+    """``cargo test --no-fail-fast [--config …] --test data_dirs``.
+
+    Every data-test directory runs inside the one :data:`RUNNER_TARGET`, so the
+    directories themselves are not cargo arguments; with no directories there is
+    nothing to run and no ``--test`` is added.
+
+    Args:
+        targets: Data-test directory names, as :func:`data_targets` returns them.
+        config: Optional cargo ``--config`` file (the engine ``[patch]`` tables).
+
+    Returns:
+        The argv to execute.
+    """
     argv = ["cargo", "test", "--no-fail-fast"]
     if config is not None:
         argv += ["--config", str(config)]
-    for name in targets:
-        argv += ["--test", name]
+    if targets:
+        argv += ["--test", RUNNER_TARGET]
     return argv
 
 
