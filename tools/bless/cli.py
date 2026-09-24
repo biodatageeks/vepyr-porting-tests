@@ -25,8 +25,14 @@ import sys
 import tempfile
 from dataclasses import dataclass
 from pathlib import Path
+from typing import Final
 
 from bless import BlessError, ensembl, testdir, vep
+
+#: Default parent of the per-run Docker work directory: ``<repo-root>/.bless/``,
+#: located from this file (not the caller's cwd), like ``./run_tests``'s
+#: ``<repo-root>/.run_tests/``. Git-ignored.
+DEFAULT_DOCKER_WORK_DIR: Final[Path] = Path(__file__).resolve().parents[2] / ".bless"
 
 _EPILOG = """\
 exactly one cache flag and one FASTA flag are required for a bless and for
@@ -94,6 +100,15 @@ def _parser() -> argparse.ArgumentParser:
         "--dry-run",
         action="store_true",
         help="print the exact command(s) and run nothing",
+    )
+    p.add_argument(
+        "--docker-work-dir",
+        type=Path,
+        metavar="PATH",
+        default=None,
+        help="directory under which each run gets its own bless-* work "
+        "directory, bind-mounted into the VEP container; must be shared with "
+        f"Docker (default: <repo-root>/.bless/, here {DEFAULT_DOCKER_WORK_DIR})",
     )
     cache = p.add_argument_group("VEP cache (exactly one, no default)")
     cache.add_argument(
@@ -192,6 +207,7 @@ def _run_vep(
     fasta: Source,
     *,
     image: str | None,
+    work_root: Path,
     dry_run: bool,
 ) -> VepRun | None:
     """Validate sources, fetch if asked, and run VEP in a fresh temp dir.
@@ -201,6 +217,7 @@ def _run_vep(
         cache: Cache choice.
         fasta: FASTA choice.
         image: Pinned image to run, or ``None`` to resolve :data:`vep.IMAGE_TAG`.
+        work_root: Parent of the per-run work directory (created if missing).
         dry_run: Print the command instead of running it.
 
     Returns:
@@ -216,7 +233,7 @@ def _run_vep(
                     f"# fetch {art.url} (verify Ensembl sum {art.ensembl_sum!r}) "
                     f"-> {src.path}"
                 )
-        work = Path(tempfile.gettempdir()) / "bless-XXXXXX"
+        work = work_root / "bless-XXXXXX"
         print(f"# cp {test.input_vcf} {work}/{testdir.INPUT_NAME}")
         mounts = vep.Mounts(cache_dir=cache.path, fasta=fasta.path, work_dir=work)
         print(shlex.join(vep.docker_argv(image or vep.IMAGE_TAG, mounts)))
@@ -234,7 +251,14 @@ def _run_vep(
                 f"cannot create {directory} for {flag}: {exc.strerror or exc}"
             ) from exc
     pinned = vep.resolve_digest(docker, image or vep.IMAGE_TAG)
-    work = Path(tempfile.mkdtemp(prefix="bless-"))
+    try:
+        work_root.mkdir(parents=True, exist_ok=True)
+        work = Path(tempfile.mkdtemp(prefix="bless-", dir=work_root))
+    except OSError as exc:
+        raise BlessError(
+            f"cannot create a work directory in {work_root} for --docker-work-dir: "
+            f"{exc.strerror or exc}"
+        ) from exc
     try:
         # Probe before any download: a path Docker cannot mount fails in seconds.
         vep.require_mountable(docker, pinned, [cache.path, fasta.path.parent, work])
@@ -259,14 +283,19 @@ def _run_vep(
 
 
 def _bless(
-    test: testdir.TestDir, cache: Source, fasta: Source, *, dry_run: bool
+    test: testdir.TestDir,
+    cache: Source,
+    fasta: Source,
+    *,
+    work_root: Path,
+    dry_run: bool,
 ) -> None:
     """Make the oracle and record its metadata.
 
     Raises:
         BlessError: On any failure; the directory is then left unchanged.
     """
-    run = _run_vep(test, cache, fasta, image=None, dry_run=dry_run)
+    run = _run_vep(test, cache, fasta, image=None, work_root=work_root, dry_run=dry_run)
     if run is None:
         return
     work, pinned = run.work, run.image
@@ -300,7 +329,12 @@ def _bless(
 
 
 def _reproduce(
-    test: testdir.TestDir, cache: Source, fasta: Source, *, dry_run: bool
+    test: testdir.TestDir,
+    cache: Source,
+    fasta: Source,
+    *,
+    work_root: Path,
+    dry_run: bool,
 ) -> None:
     """Re-run the recorded image and compare the fresh body md5.
 
@@ -314,7 +348,9 @@ def _reproduce(
             f"{test.toml_path}: [vep] image is missing or not pinned by digest "
             f"({vep.IMAGE_REPO}@sha256:...); bless the directory first"
         )
-    run = _run_vep(test, cache, fasta, image=image, dry_run=dry_run)
+    run = _run_vep(
+        test, cache, fasta, image=image, work_root=work_root, dry_run=dry_run
+    )
     if run is None:
         return
     work = run.work
@@ -373,10 +409,13 @@ def main(argv: list[str] | None = None) -> int:
         )
         test = testdir.load(args.test_dir)
         test.require_normalised_input()
-        if args.reproduce:
-            _reproduce(test, cache, fasta, dry_run=args.dry_run)
-        else:
-            _bless(test, cache, fasta, dry_run=args.dry_run)
+        work_root = (
+            DEFAULT_DOCKER_WORK_DIR
+            if args.docker_work_dir is None
+            else args.docker_work_dir.expanduser().absolute()
+        )
+        run = _reproduce if args.reproduce else _bless
+        run(test, cache, fasta, work_root=work_root, dry_run=args.dry_run)
     except BlessError as exc:
         print(f"bless: {exc}", file=sys.stderr)
         return 1

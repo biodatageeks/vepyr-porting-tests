@@ -14,6 +14,8 @@ __pycache__/
 
 # ./run_tests reports (LEDGER.md, verdict.json, step logs) — local, never committed.
 .run_tests/
+# ./bless per-run Docker work directories (default --docker-work-dir) — never committed.
+.bless/
 
 # Local agent scratch specs — never repository documentation.
 docs/superpowers/
