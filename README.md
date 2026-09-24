@@ -195,7 +195,16 @@ tools/normalize_input raw.vcf.gz tests/data/my_test        # writes input.vcf + 
 ./bless --check --reproduce --vep-cache-dir ~/vep116 --vep-fasta ~/GRCh38.fa tests/data/my_test
 ```
 
-**Docker Desktop (macOS).** The cache, the FASTA's directory and a temp work
+**Work directory.** Each VEP run copies `input.vcf` into its own `bless-*`
+directory created under `--docker-work-dir PATH`, which is bind-mounted into the
+container and removed afterwards. Without the flag it is `<repo-root>/.bless/`
+(located from the script, not the current directory; listed in `.gitignore`),
+mirroring `./run_tests`'s `<repo-root>/.run_tests/`. There is no environment
+fallback (`TMPDIR` is not used). If the repo checkout itself is not in a
+Docker-Desktop-shared location, pass `--docker-work-dir` at a path that is, just as
+`--vep-cache-dir` and `--vep-fasta` must be.
+
+**Docker Desktop (macOS).** The cache, the FASTA's directory and the work
 directory are bind-mounted into the container, so they must be inside a directory
 listed under Settings > Resources > File sharing. Before any download, `bless`
 probes each path from inside a container and exits 1 naming the first one Docker

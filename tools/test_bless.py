@@ -277,3 +277,107 @@ def test_wrapper_runs_without_path(test_dir: Path) -> None:
 def test_bless_error_is_runtime_error() -> None:
     """BlessError stays catchable as RuntimeError."""
     assert issubclass(BlessError, RuntimeError)
+
+
+def _fake_docker(monkeypatch: pytest.MonkeyPatch) -> None:
+    """Stub the docker lookup and digest resolution (no daemon needed)."""
+    monkeypatch.setattr(vep, "require_docker", lambda: "docker")
+    monkeypatch.setattr(
+        vep, "resolve_digest", lambda _d, _r: f"{vep.IMAGE_REPO}@sha256:{'a' * 64}"
+    )
+
+
+def test_default_docker_work_dir_is_repo_dot_bless() -> None:
+    """The default is <repo-root>/.bless/, located from the source, not the cwd."""
+    repo_root = Path(__file__).resolve().parents[1]
+    assert (repo_root / "tools" / "bless" / "cli.py").is_file()
+    assert cli.DEFAULT_DOCKER_WORK_DIR == repo_root / ".bless"
+    assert ".bless/" in (repo_root / ".gitignore").read_text().splitlines()
+
+
+@pytest.mark.parametrize("override", [False, True], ids=["default", "override"])
+def test_docker_work_dir_resolution(
+    override: bool,
+    complete_cache: Path,
+    fasta: Path,
+    test_dir: Path,
+    tmp_path: Path,
+    capsys: pytest.CaptureFixture[str],
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    """Dry run and real run both place the work dir under the resolved root.
+
+    Without the flag the root is ``cli.DEFAULT_DOCKER_WORK_DIR`` (patched to a tmp
+    path so the test never writes into the checkout); with it, the flag's path,
+    a relative one resolved against the cwd.
+    """
+    default_root = tmp_path / "default-root"
+    monkeypatch.setattr(cli, "DEFAULT_DOCKER_WORK_DIR", default_root)
+    monkeypatch.chdir(tmp_path)
+    root = tmp_path / "override" if override else default_root
+    flags = ["--docker-work-dir", "override"] if override else []
+    base = ["--vep-cache-dir", str(complete_cache), "--vep-fasta", str(fasta)]
+
+    code, out, _ = run([*flags, "--dry-run", *base, str(test_dir)], capsys)
+    assert code == 0
+    assert f"{root}/bless-XXXXXX:{vep.WORK_MOUNT}" in out
+
+    _fake_docker(monkeypatch)
+    probed: list[list[Path]] = []
+
+    def refuse(_docker: str, _image: str, paths: list[Path]) -> None:
+        probed.append(paths)
+        raise BlessError("stop before VEP")
+
+    monkeypatch.setattr(vep, "require_mountable", refuse)
+    code, _, err = run([*flags, *base, str(test_dir)], capsys)
+    assert code == 1 and "stop before VEP" in err
+    work = probed[0][-1]
+    assert work.parent == root and work.name.startswith("bless-")
+    assert not work.exists()  # removed on failure
+
+
+def test_unshared_docker_work_dir_gets_the_mount_error(
+    complete_cache: Path,
+    fasta: Path,
+    test_dir: Path,
+    tmp_path: Path,
+    capsys: pytest.CaptureFixture[str],
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    """An unmountable --docker-work-dir fails with require_mountable's own message."""
+    _fake_docker(monkeypatch)
+    unshared = tmp_path / "unshared"
+
+    def fake_run(argv: list[str], **_kw: object) -> subprocess.CompletedProcess[str]:
+        host = Path(argv[argv.index("-v") + 1].rsplit(":", 2)[0])
+        if host.is_relative_to(unshared):
+            return subprocess.CompletedProcess(
+                argv,
+                125,
+                "",
+                "docker: Error response from daemon: Mounts denied: \n"
+                f"The path {host} is not shared from the host and is not known "
+                "to Docker.\n",
+            )
+        return subprocess.CompletedProcess(
+            argv, 0, "\n".join(p.name for p in host.iterdir()), ""
+        )
+
+    monkeypatch.setattr(vep.subprocess, "run", fake_run)
+    code, _, err = run(
+        [
+            "--docker-work-dir",
+            str(unshared),
+            "--vep-cache-dir",
+            str(complete_cache),
+            "--vep-fasta",
+            str(fasta),
+            str(test_dir),
+        ],
+        capsys,
+    )
+    assert code == 1
+    assert err.startswith(f"bless: docker cannot mount {unshared}/bless-")
+    assert "is not shared from the host" in err
+    assert "Settings > Resources > File sharing" in err
