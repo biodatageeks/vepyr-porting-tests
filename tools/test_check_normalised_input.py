@@ -1,8 +1,8 @@
 """Tests for ``tools/check_normalised_input.py`` (#89).
 
-CI runs the script in the ``input-normalised-check`` workflow. Most tests inject a fake normaliser so they run anywhere. The integration
-tests run the real ``tools/normalize_input`` and are skipped unless bcftools
-1.23 on htslib 1.23.1 is on ``PATH`` -- the only toolchain it accepts.
+CI runs the script in the ``input-normalised-check`` workflow. Most tests
+inject a fake normaliser so they run anywhere. The integration tests run
+the real ``tools/normalize_input`` and are skipped unless bcftools 1.23 on htslib 1.23.1 is on ``PATH`` -- the only toolchain it accepts.
 """
 
 from __future__ import annotations
