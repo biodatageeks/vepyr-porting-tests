@@ -1,0 +1,64 @@
+name: input-normalised-check
+
+# Every data-test input.vcf and the [input] table of its test.toml must be exactly
+# what tools/normalize_input produces (#89). ./check_normalised_input re-normalises each
+# committed input.vcf in a temp dir and fails on any byte difference.
+# It checks that input.vcf is already normalised (a fixed point of normalize_input)
+# and that [input] matches what the script writes. It does NOT verify the raw
+# source file: raw inputs are not committed (#90); raw provenance is #111.
+# No path filter: the check always runs so it can be a required status.
+
+on:
+  pull_request:
+  push:
+    branches: [master]
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: input-normalised-check-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  check:
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    defaults:
+      run:
+        # Login shell so the micromamba environment is activated.
+        shell: bash -el {0}
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+
+      - name: Set up bcftools 1.23 / htslib 1.23.1 (the pin in tools/normalize_input)
+        uses: mamba-org/setup-micromamba@f457c30a868e4760d3a6fcea5f25dc655b8edf39 # v3.2.1
+        with:
+          environment-name: bcftools
+          # `==` is an exact match; `bcftools=1.23` would also accept 1.23.1.
+          create-args: >-
+            -c conda-forge -c bioconda
+            bcftools==1.23
+            htslib==1.23.1
+          init-shell: bash
+          cache-environment: true
+
+      - name: Set up uv
+        uses: astral-sh/setup-uv@c18668ad3cf93ea998bef934396af7bb5c839dc7 # v10.2.0
+        with:
+          enable-cache: true
+
+      - name: Record the bcftools banner
+        run: |
+          set -euo pipefail
+          bcftools --version | head -2 | tee banner.txt
+          {
+            echo '### bcftools --version'
+            echo '```'
+            cat banner.txt
+            echo '```'
+          } >> "$GITHUB_STEP_SUMMARY"
+
+      - name: Check data-test inputs
+        run: ./check_normalised_input
