@@ -1,0 +1,23 @@
+# Synthetic fixture for tools/build_test_index (#92): every optional column set.
+name = "alpha_full"
+description = "Synthetic test, with a comma and a \"quoted\" word."
+
+[origin]
+vep_test = "https://example.org/release/t/Alpha.t#L1-L2"
+vep_test_pinned = "https://example.org/pinned/t/Alpha.t#L1-L2"
+vep_subject = "https://example.org/pinned/modules/Alpha.pm#L10"
+ledger = "https://example.org/ledger/Alpha.ledger.toml#L1-L9"
+issue = 1001
+
+[vepyr]
+required_contigs = ["chr21", "chr22"]
+
+[compare]
+body_md5 = "0123456789abcdef0123456789abcdef"
+known_divergence = 1002
+
+[[vepyr_run]]
+buffer_size = 1
+
+[[vepyr_run]]
+buffer_size = 2
