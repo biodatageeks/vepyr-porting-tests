@@ -1,6 +1,6 @@
-"""Tests for ``tools/check_inputs.py`` (#89; CI workflow ``input-normalised-check``).
+"""Tests for ``tools/check_normalised_input.py`` (#89).
 
-Most tests inject a fake normaliser so they run anywhere. The integration
+CI runs the script in the ``input-normalised-check`` workflow. Most tests inject a fake normaliser so they run anywhere. The integration
 tests run the real ``tools/normalize_input`` and are skipped unless bcftools
 1.23 on htslib 1.23.1 is on ``PATH`` -- the only toolchain it accepts.
 """
@@ -15,8 +15,8 @@ from typing import Final
 
 import pytest
 
-import check_inputs
-from check_inputs import Status, check_test, discover, main
+import check_normalised_input
+from check_normalised_input import Status, check_test, discover, main
 
 REPO: Final[Path] = Path(__file__).resolve().parent.parent
 DATA: Final[Path] = REPO / "tests" / "data"
@@ -142,7 +142,7 @@ def test_never_writes_under_data_dir(tmp_path: Path) -> None:
 def test_real_data_tests_pass(tmp_path: Path) -> None:
     copy = tmp_path / "d"
     shutil.copytree(DATA, copy)
-    results = list(check_inputs.check_all(copy))
+    results = list(check_normalised_input.check_all(copy))
     assert results and all(r.status is Status.OK for r in results), results
     assert not filecmp.dircmp(DATA, copy).diff_files
 

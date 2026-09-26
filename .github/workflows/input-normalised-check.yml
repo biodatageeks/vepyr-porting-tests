@@ -1,7 +1,7 @@
 name: input-normalised-check
 
 # Every data-test input.vcf and the [input] table of its test.toml must be exactly
-# what tools/normalize_input produces (#89). ./check_inputs re-normalises each
+# what tools/normalize_input produces (#89). ./check_normalised_input re-normalises each
 # committed input.vcf in a temp dir and fails on any byte difference.
 # It checks that input.vcf is already normalised (a fixed point of normalize_input)
 # and that [input] matches what the script writes. It does NOT verify the raw
@@ -61,4 +61,4 @@ jobs:
           } >> "$GITHUB_STEP_SUMMARY"
 
       - name: Check data-test inputs
-        run: ./check_inputs
+        run: ./check_normalised_input

@@ -6,7 +6,7 @@
 committed (#90), and re-normalising a normalised file is a fixed point -- and
 compares the result with what is committed::
 
-    ./check_inputs [DATA_DIR]        # DATA_DIR defaults to tests/data
+    ./check_normalised_input [DATA_DIR]        # DATA_DIR defaults to tests/data
 
 For every immediate subdirectory of ``DATA_DIR`` that holds a ``test.toml``,
 the committed ``test.toml`` is copied into a fresh temporary directory, the
@@ -159,7 +159,7 @@ def check_test(
     """
     committed_vcf = test_dir / INPUT_VCF
     committed_toml = test_dir / TEST_TOML
-    with tempfile.TemporaryDirectory(prefix="check_inputs.") as tmp:
+    with tempfile.TemporaryDirectory(prefix="check_normalised_input.") as tmp:
         scratch = Path(tmp)
         shutil.copyfile(committed_toml, scratch / TEST_TOML)
         done = normalize(committed_vcf, scratch)
@@ -211,7 +211,7 @@ def _parse_args(argv: Sequence[str] | None) -> Path:
         The data directory to check.
     """
     parser = argparse.ArgumentParser(
-        prog="check_inputs",
+        prog="check_normalised_input",
         description=(
             "Verify every data-test input.vcf and test.toml [input] table is "
             "what tools/normalize_input produces."
@@ -242,7 +242,7 @@ def main(
     """
     data_dir = _parse_args(argv)
     if not data_dir.is_dir():
-        print(f"check_inputs: not a directory: {data_dir}", file=sys.stderr)
+        print(f"check_normalised_input: not a directory: {data_dir}", file=sys.stderr)
         return 1
     found = failed = 0
     for result in check_all(data_dir, normalize=normalize):
@@ -253,7 +253,7 @@ def main(
             print(result.details, end="", flush=True)
     if found == 0:
         print(
-            f"check_inputs: no data-test (*/{TEST_TOML}) under {data_dir}",
+            f"check_normalised_input: no data-test (*/{TEST_TOML}) under {data_dir}",
             file=sys.stderr,
         )
         return 1
