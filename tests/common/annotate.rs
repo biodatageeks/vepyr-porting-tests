@@ -1,27 +1,10 @@
-//! Annotate a VCF body against a [`FullCache`] and return the written text.
+//! Annotate a VCF body against an already-checked cache directory and return the
+//! written text.
 
 use std::path::Path;
 
 use datafusion_bio_function_vep::vcf_sink::{self, AnnotateVcfConfig};
 use tempfile::TempDir;
-
-use super::cache::{Entity, FullCache};
-use super::ledger::requires_shards_for_assertion;
-
-/// Enforce `required_contigs` from `assertion_toml`, then annotate `input_body`.
-///
-/// Returns `(Ok(row_count) or Err(message), output VCF text, TempDir)`. Keep the
-/// `TempDir` alive while reading paths derived from it.
-pub async fn annotate_vcf(
-    cache: &FullCache,
-    entities: &[Entity],
-    assertion_toml: &str,
-    input_body: &str,
-    config: &AnnotateVcfConfig,
-) -> (Result<usize, String>, String, TempDir) {
-    requires_shards_for_assertion(cache, entities, assertion_toml);
-    annotate_vcf_at(&cache.dir(), input_body, config).await
-}
 
 /// Annotate `input_body` against an already-checked cache directory.
 pub async fn annotate_vcf_at(

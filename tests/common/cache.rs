@@ -13,8 +13,7 @@
 //! data-test directory declares them in `tests/data/<name>/test.toml` as
 //! `[vepyr] required_contigs` (with the cache `entities` it reads) — exactly the
 //! contigs of the loci under test (not wider, not narrower). The generic runner
-//! `tests/data_dirs.rs` passes both to [`requires_shards`]; the older per-file
-//! data-tests read the same field from an assertion fragment (see [`super::ledger`]).
+//! `tests/data_dirs.rs` passes both to [`requires_shards`].
 //! The cache flavour is chosen by the directory under the root
 //! ([`Flavour::dir_name`]), never by an engine config flag. This module only enforces
 //! shards for the list it is given.

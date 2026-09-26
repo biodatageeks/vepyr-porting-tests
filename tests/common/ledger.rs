@@ -2,9 +2,7 @@
 //!
 //! Data-tests are directories, `tests/data/<name>/`, and declare their contigs in
 //! `test.toml` as `[vepyr] required_contigs`; the generic runner `tests/data_dirs.rs`
-//! reads that table itself. This module serves the older per-file data-tests
-//! (`tests/data_*.rs`) that still carry an assertion fragment inline, until they are
-//! migrated to directories (#67).
+//! reads that table itself. This module is kept for `tests/common_compile.rs`.
 //!
 //! Contigs are a **declared contract**, not discovered at runtime from the VCF:
 //!
