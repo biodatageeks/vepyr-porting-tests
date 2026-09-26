@@ -504,6 +504,9 @@ def test_reproduce_refuses_foreign_or_unlisted_command(
         vep.VEP_COMMAND.replace("--offline ", ""),  # prefix altered
         vep.vep_command(("--fa",)),  # unlisted alias after the prefix
         vep.vep_command(("--check_existing", "--check_existing")),  # duplicate
+        vep.VEP_COMMAND + " '--check_existing'",  # quoted: not canonical
+        vep.VEP_COMMAND + "  --check_existing",  # extra whitespace
+        vep.VEP_COMMAND + " ",  # trailing whitespace
     ):
         _set_vep(test_dir, command)
         code, _, err = run(
@@ -542,8 +545,19 @@ def test_check_refuses_typed_flags(
     assert code == 0, err
 
 
-def test_vep_flag_rejections() -> None:
-    """parse_extra accepts only exact allowlist tokens, each once."""
+def test_vep_flag_rejections(capsys: pytest.CaptureFixture[str]) -> None:
+    """parse_extra accepts only exact allowlist tokens, each once.
+
+    Also: every allowlist entry is a boolean ``--name`` flag, and the bare
+    ``--vep-flag <flag>`` form is refused with a message naming the ``=`` form.
+    """
+    for allowed in vep.ALLOWED_VEP_FLAGS:
+        assert allowed.startswith("--"), allowed
+        assert "=" not in allowed and not any(c.isspace() for c in allowed), allowed
+    with pytest.raises(SystemExit) as stop:
+        cli.main(["--dry-run", "--vep-flag", "--check_existing", "x"])
+    assert stop.value.code == 2
+    assert "--vep-flag needs the = form" in capsys.readouterr().err
     assert vep.parse_extra(["--check_existing"]) == ("--check_existing",)
     assert vep.parse_extra([]) == ()
     for flag in (

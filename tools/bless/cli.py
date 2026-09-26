@@ -410,7 +410,14 @@ def main(argv: list[str] | None = None) -> int:
     Returns:
         Exit code.
     """
-    args = _parser().parse_args(argv)
+    parser = _parser()
+    raw = sys.argv[1:] if argv is None else argv
+    if "--vep-flag" in raw[: raw.index("--") if "--" in raw else len(raw)]:
+        parser.error(
+            "--vep-flag needs the = form, because a VEP flag starts with '-': "
+            "write --vep-flag=<flag> (e.g. --vep-flag=--check_existing)"
+        )
+    args = parser.parse_args(argv)
     try:
         if args.reproduce and not args.check:
             raise BlessError(

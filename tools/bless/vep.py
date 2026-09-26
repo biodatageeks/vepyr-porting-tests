@@ -97,8 +97,10 @@ def split_recorded(command: str, *, where: str) -> tuple[str, ...]:
         The flags after :data:`VEP_ARGV`, checked by :func:`parse_extra`.
 
     Raises:
-        BlessError: If the command does not start with :data:`VEP_ARGV` or its
-            extra flags are not allowed.
+        BlessError: If the command does not start with :data:`VEP_ARGV`, its
+            extra flags are not allowed, or it differs from the string
+            :func:`vep_command` regenerates from the parsed flags (non-canonical
+            quoting or whitespace).
     """
     try:
         argv = tuple(shlex.split(command))
@@ -110,9 +112,15 @@ def split_recorded(command: str, *, where: str) -> tuple[str, ...]:
             f"({VEP_COMMAND})"
         )
     try:
-        return parse_extra(argv[len(VEP_ARGV) :])
+        extra = parse_extra(argv[len(VEP_ARGV) :])
     except BlessError as exc:
         raise BlessError(f"{where}: [vep] command: {exc}") from exc
+    if command != (canonical := vep_command(extra)):
+        raise BlessError(
+            f"{where}: [vep] command is not in canonical form (quoting or "
+            f"whitespace differs); expected exactly: {canonical}"
+        )
+    return extra
 
 
 @dataclass(frozen=True, slots=True, kw_only=True)
