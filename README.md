@@ -114,7 +114,7 @@ visible in Actions only.
 `expected_output.vcf`, the real output of native VEP 116 on the directory's
 normalised `input.vcf` (made by `tools/normalize_input`, #85). It runs Ensembl's
 official image `ensemblorg/ensembl-vep:release_116.0`, with the same fixed command plus
-the flags recorded in `[vep] command`:
+the flags listed in `[vep] extra_flags`:
 
 ```
 vep --offline --cache --dir_cache <CACHE> --species homo_sapiens --cache_version 116 \
@@ -128,16 +128,18 @@ Three modes:
 |---------|-------|------|
 | `./bless CACHE FASTA <dir>` | Docker, cache, FASTA | Runs VEP, writes `expected_output.vcf`, fills `[vep]` and `[compare] body_md5` in `test.toml` |
 | `./bless --check <dir>` | only the repo | Recomputes the md5 of the body (lines not starting with `#`) of `expected_output.vcf` on disk and compares it with `[compare] body_md5`. No Docker, no cache, changes nothing |
-| `./bless --check --reproduce CACHE FASTA <dir>` | Docker, cache, FASTA | Re-runs the image recorded in `[vep] image` with the command recorded in `[vep] command` into a temp directory and compares that fresh body md5 with `[compare] body_md5`. Changes nothing |
+| `./bless --check --reproduce CACHE FASTA <dir>` | Docker, cache, FASTA | Re-runs the image recorded in `[vep] image` with the fixed command plus `[vep] extra_flags` into a temp directory and compares that fresh body md5 with `[compare] body_md5`. Changes nothing |
 
 `--check` is the cheap integrity check anyone can run when reviewing a PR: it
 catches an oracle that was hand-edited or corrupted after it was blessed.
 `--check --reproduce` is the expensive audit: it proves the file is still derivable
 from the pinned image, cache and input, not just unedited. It is opt-in.
 
-**Extra VEP flags.** `--vep-flag=FLAG` (repeatable) appends one extra VEP flag after
-the fixed command, in the order given, and the bless records the full command in
-`[vep] command`:
+**Extra VEP flags.** The extra flags of a test are data: the list `[vep] extra_flags`
+in `test.toml` (absent means none). `--vep-flag=FLAG` (repeatable) fills it at the
+first bless; each flag is appended after the fixed command in the order given, the
+bless writes the list as `[vep] extra_flags` and generates `[vep] command` from it
+(an audit record, never parsed back):
 
 ```bash
 ./bless --vep-cache-dir ~/vep-cache --vep-fasta ~/GRCh38.fa --vep-flag=--check_existing tests/data/NAME
@@ -153,10 +155,21 @@ the fixed command, in the order given, and the bless records the full command in
   so no denylist can be complete.
 - Policy: adding a flag is one line in `ALLOWED_VEP_FLAGS` plus a data-test that
   needs it. Boolean flags only; a flag with a value needs its own design.
+- A re-bless without `--vep-flag=` uses the recorded `extra_flags`; a typed list
+  equal to it is fine; a different one exits 1 (edit `extra_flags` in `test.toml`
+  to change the flags). An empty list is not written, so a test without extra
+  flags has no `extra_flags` key.
 - `--check` (with or without `--reproduce`) refuses `--vep-flag` (exit 1): a check
-  replays only what is recorded. `--check --reproduce` requires `[vep] command` to
-  start with the fixed command and passes the remaining flags through the same
-  allowlist (a flag removed from the list stops replaying, exit 1).
+  replays only what is recorded. `--check --reproduce` reads `[vep] extra_flags`
+  (an array of strings, else exit 1), passes it through the same allowlist (a flag
+  removed from `ALLOWED_VEP_FLAGS` stops replaying, exit 1) and hands it to
+  `docker run` in order. It also requires `[vep] command` to be exactly the
+  canonical command generated from the list (`vep.vep_command`): a command that
+  differs, even only in quoting or whitespace, exits 1 naming the file and both
+  strings.
+- The Rust loader (`tests/data_dirs.rs`) accepts `extra_flags` as an optional
+  array of strings and checks only its type; the allowlist is enforced by
+  `./bless`.
 
 **Cache and FASTA.** A bless and `--check --reproduce` need exactly one flag from each
 pair. There is no default path and no environment variable; neither or both flags of
@@ -193,8 +206,9 @@ then exits 0 without running anything. For a bless it shows the tag
 
 ```toml
 [vep]
+extra_flags = ["--check_existing"]            # only when non-empty; the source of truth
 image = "ensemblorg/ensembl-vep@sha256:..."   # the digest that ran, never the tag
-command = "vep --offline --cache --dir_cache /opt/vep/.vep ..."  # paths inside the container
+command = "vep --offline --cache --dir_cache /opt/vep/.vep ..."  # generated from extra_flags; paths inside the container
 date = "2026-09-23"
 cache_source = "https://ftp.ensembl.org/pub/release-116/variation/indexed_vep_cache/homo_sapiens_vep_116_GRCh38.tar.gz"
 cache_checksum = "sha256:... sum:56036 26996736"

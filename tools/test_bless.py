@@ -457,7 +457,39 @@ def test_vep_flag_recorded_in_command(
     assert recorded == shlex.join(ran)
 
 
-def test_reproduce_replays_recorded_flags(
+def _set_flags(test_dir: Path, flags: list[str], command: str | None = None) -> None:
+    """Record ``flags`` as ``[vep] extra_flags`` and a matching (or given) command."""
+    toml = test_dir / "test.toml"
+    toml.write_text(
+        testdir.set_keys(
+            toml.read_text(),
+            {
+                "vep": {
+                    "extra_flags": flags,
+                    "image": PINNED,
+                    "command": vep.vep_command(tuple(flags))
+                    if command is None
+                    else command,
+                }
+            },
+        )
+    )
+
+
+def _bless_argv(test_dir: Path, cache: Path, fasta: Path, tmp_path: Path) -> list[str]:
+    """Arguments of a real (faked-docker) bless of ``test_dir``."""
+    return [
+        "--docker-work-dir",
+        str(tmp_path / "w"),
+        "--vep-cache-dir",
+        str(cache),
+        "--vep-fasta",
+        str(fasta),
+        str(test_dir),
+    ]
+
+
+def test_bless_records_extra_flags_list(
     complete_cache: Path,
     fasta: Path,
     test_dir: Path,
@@ -465,30 +497,50 @@ def test_reproduce_replays_recorded_flags(
     capsys: pytest.CaptureFixture[str],
     monkeypatch: pytest.MonkeyPatch,
 ) -> None:
-    """--check --reproduce runs the recorded command, extra flags included."""
-    _set_vep(test_dir, vep.vep_command(("--check_existing",)))
+    """--vep-flag= writes [vep] extra_flags as a list; no flag writes no key."""
+    calls: list[list[str]] = []
+    _fake_vep_container(monkeypatch, calls)
+    argv = _bless_argv(test_dir, complete_cache, fasta, tmp_path)
+    code, _, err = run(argv, capsys)
+    assert code == 0, err
+    assert (
+        "extra_flags" not in tomllib.loads((test_dir / "test.toml").read_text())["vep"]
+    )
+    code, _, err = run(["--vep-flag=--check_existing", *argv], capsys)
+    assert code == 0, err
+    text = (test_dir / "test.toml").read_text()
+    assert 'extra_flags = ["--check_existing"]\n' in text
+    recorded = tomllib.loads(text)["vep"]
+    assert recorded["extra_flags"] == ["--check_existing"]
+    assert recorded["command"] == vep.vep_command(("--check_existing",))
+    assert _vep_part(calls[-1]) == [*vep.VEP_ARGV, "--check_existing"]
+
+
+def test_reproduce_reads_extra_flags_list(
+    complete_cache: Path,
+    fasta: Path,
+    test_dir: Path,
+    tmp_path: Path,
+    capsys: pytest.CaptureFixture[str],
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    """--check --reproduce passes [vep] extra_flags, in order, to docker."""
+    _set_flags(test_dir, ["--check_existing"])
     calls: list[list[str]] = []
     _fake_vep_container(monkeypatch, calls)
     code, _, err = run(
         [
             "--check",
             "--reproduce",
-            "--docker-work-dir",
-            str(tmp_path / "w"),
-            "--vep-cache-dir",
-            str(complete_cache),
-            "--vep-fasta",
-            str(fasta),
-            str(test_dir),
+            *_bless_argv(test_dir, complete_cache, fasta, tmp_path),
         ],
         capsys,
     )
     assert code == 0, err
-    assert calls[-1][-1] == "--check_existing"
     assert _vep_part(calls[-1]) == [*vep.VEP_ARGV, "--check_existing"]
 
 
-def test_reproduce_refuses_foreign_or_unlisted_command(
+def test_reproduce_refuses_tampered_command(
     complete_cache: Path,
     fasta: Path,
     test_dir: Path,
@@ -496,36 +548,106 @@ def test_reproduce_refuses_foreign_or_unlisted_command(
     capsys: pytest.CaptureFixture[str],
     monkeypatch: pytest.MonkeyPatch,
 ) -> None:
-    """A recorded command outside the fixed prefix + allowlist exits 1, no run."""
+    """A [vep] command not generated from [vep] extra_flags exits 1, no run.
+
+    The image is validly pinned and extra_flags is allowed, so the command is
+    the only cause; the untampered file exits 0.
+    """
     calls: list[list[str]] = []
     _fake_vep_container(monkeypatch, calls)
+    argv = [
+        "--check",
+        "--reproduce",
+        *_bless_argv(test_dir, complete_cache, fasta, tmp_path),
+    ]
     for command in (
+        vep.VEP_COMMAND,  # valid-looking, but drops the listed flag
         "vep --offline --cache --fa /x",  # not the fixed prefix
-        vep.VEP_COMMAND.replace("--offline ", ""),  # prefix altered
-        vep.vep_command(("--fa",)),  # unlisted alias after the prefix
-        vep.vep_command(("--check_existing", "--check_existing")),  # duplicate
+        vep.VEP_COMMAND.replace("--offline ", "") + " --check_existing",
         vep.VEP_COMMAND + " '--check_existing'",  # quoted: not canonical
         vep.VEP_COMMAND + "  --check_existing",  # extra whitespace
-        vep.VEP_COMMAND + " ",  # trailing whitespace
+        vep.vep_command(("--check_existing",)) + " ",  # trailing whitespace
     ):
-        _set_vep(test_dir, command)
-        code, _, err = run(
-            [
-                "--check",
-                "--reproduce",
-                "--docker-work-dir",
-                str(tmp_path / "w"),
-                "--vep-cache-dir",
-                str(complete_cache),
-                "--vep-fasta",
-                str(fasta),
-                str(test_dir),
-            ],
-            capsys,
-        )
+        _set_flags(test_dir, ["--check_existing"], command)
+        code, _, err = run(argv, capsys)
         assert code == 1, command
         assert "test.toml" in err and "[vep] command" in err, err
     assert calls == []
+    _set_flags(test_dir, ["--check_existing"])
+    code, _, err = run(argv, capsys)
+    assert code == 0, err
+
+
+def test_reproduce_refuses_unlisted_extra_flag(
+    complete_cache: Path,
+    fasta: Path,
+    test_dir: Path,
+    tmp_path: Path,
+    capsys: pytest.CaptureFixture[str],
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    """extra_flags outside the allowlist, repeated or mistyped exits 1, no run.
+
+    ``command`` is regenerated to match, so the list is the only cause.
+    """
+    calls: list[list[str]] = []
+    _fake_vep_container(monkeypatch, calls)
+    argv = [
+        "--check",
+        "--reproduce",
+        *_bless_argv(test_dir, complete_cache, fasta, tmp_path),
+    ]
+    for flags in (["--fa"], ["--check_existing", "--check_existing"]):
+        _set_flags(test_dir, flags)
+        code, _, err = run(argv, capsys)
+        assert code == 1, flags
+        assert "test.toml" in err and "[vep] extra_flags" in err, err
+    toml = test_dir / "test.toml"
+    good = toml.read_text().replace(
+        'extra_flags = ["--check_existing", "--check_existing"]',
+        'extra_flags = ["--check_existing"]',
+    )
+    for bad in ('extra_flags = "--check_existing"', "extra_flags = [1]"):
+        toml.write_text(good.replace('extra_flags = ["--check_existing"]', bad))
+        code, _, err = run(argv, capsys)
+        assert code == 1 and "must be an array of strings" in err, err
+    assert calls == []
+    _set_flags(test_dir, ["--check_existing"])
+    code, _, err = run(argv, capsys)
+    assert code == 0, err
+
+
+def test_cli_flag_and_list_must_agree(
+    complete_cache: Path,
+    fasta: Path,
+    test_dir: Path,
+    tmp_path: Path,
+    capsys: pytest.CaptureFixture[str],
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    """A re-bless uses the recorded list; a typed flag must equal it."""
+    calls: list[list[str]] = []
+    _fake_vep_container(monkeypatch, calls)
+    argv = _bless_argv(test_dir, complete_cache, fasta, tmp_path)
+    code, _, err = run(["--vep-flag=--check_existing", *argv], capsys)
+    assert code == 0, err
+    assert tomllib.loads((test_dir / "test.toml").read_text())["vep"][
+        "extra_flags"
+    ] == ["--check_existing"]
+    code, _, err = run(["--vep-flag=--check_existing", *argv], capsys)
+    assert code == 0, err
+    code, _, err = run(argv, capsys)  # no CLI flag: the list is used
+    assert code == 0, err
+    assert _vep_part(calls[-1]) == [*vep.VEP_ARGV, "--check_existing"]
+    toml = test_dir / "test.toml"
+    # A second allowed flag, so that the recorded list is valid but differs.
+    monkeypatch.setattr(vep, "ALLOWED_VEP_FLAGS", ("--check_existing", "--x"))
+    _set_flags(test_dir, ["--x"])
+    before = toml.read_bytes()
+    code, _, err = run(["--vep-flag=--check_existing", *argv], capsys)
+    assert code == 1, err
+    assert "--vep-flag=" in err and "[vep] extra_flags" in err, err
+    assert toml.read_bytes() == before
 
 
 def test_check_refuses_typed_flags(
