@@ -206,7 +206,6 @@ then exits 0 without running anything. For a bless it shows the tag
 
 ```toml
 [vep]
-extra_flags = ["--check_existing"]            # only when non-empty; the source of truth
 image = "ensemblorg/ensembl-vep@sha256:..."   # the digest that ran, never the tag
 command = "vep --offline --cache --dir_cache /opt/vep/.vep ..."  # generated from extra_flags; paths inside the container
 date = "2026-09-23"
@@ -214,6 +213,7 @@ cache_source = "https://ftp.ensembl.org/pub/release-116/variation/indexed_vep_ca
 cache_checksum = "sha256:... sum:56036 26996736"
 fasta_source = "https://ftp.ensembl.org/pub/release-116/fasta/homo_sapiens/dna/Homo_sapiens.GRCh38.dna.primary_assembly.fa.gz"
 fasta_checksum = "sha256:... sum:22450 861294"
+extra_flags = ["--check_existing"]  # only when non-empty; the source of truth; key order is not significant
 [compare]
 body_md5 = "..."
 ```
