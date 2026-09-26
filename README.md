@@ -113,7 +113,8 @@ visible in Actions only.
 `./bless` makes and checks the oracle of a data-test directory `tests/data/<name>/`:
 `expected_output.vcf`, the real output of native VEP 116 on the directory's
 normalised `input.vcf` (made by `tools/normalize_input`, #85). It runs Ensembl's
-official image `ensemblorg/ensembl-vep:release_116.0`, always with the same command:
+official image `ensemblorg/ensembl-vep:release_116.0`, with the same fixed command plus
+the flags recorded in `[vep] command`:
 
 ```
 vep --offline --cache --dir_cache <CACHE> --species homo_sapiens --cache_version 116 \
@@ -127,12 +128,35 @@ Three modes:
 |---------|-------|------|
 | `./bless CACHE FASTA <dir>` | Docker, cache, FASTA | Runs VEP, writes `expected_output.vcf`, fills `[vep]` and `[compare] body_md5` in `test.toml` |
 | `./bless --check <dir>` | only the repo | Recomputes the md5 of the body (lines not starting with `#`) of `expected_output.vcf` on disk and compares it with `[compare] body_md5`. No Docker, no cache, changes nothing |
-| `./bless --check --reproduce CACHE FASTA <dir>` | Docker, cache, FASTA | Re-runs the image recorded in `[vep] image` into a temp directory and compares that fresh body md5 with `[compare] body_md5`. Changes nothing |
+| `./bless --check --reproduce CACHE FASTA <dir>` | Docker, cache, FASTA | Re-runs the image recorded in `[vep] image` with the command recorded in `[vep] command` into a temp directory and compares that fresh body md5 with `[compare] body_md5`. Changes nothing |
 
 `--check` is the cheap integrity check anyone can run when reviewing a PR: it
 catches an oracle that was hand-edited or corrupted after it was blessed.
 `--check --reproduce` is the expensive audit: it proves the file is still derivable
 from the pinned image, cache and input, not just unedited. It is opt-in.
+
+**Extra VEP flags.** `--vep-flag=FLAG` (repeatable) appends one extra VEP flag after
+the fixed command, in the order given, and the bless records the full command in
+`[vep] command`:
+
+```bash
+./bless --vep-cache-dir ~/vep-cache --vep-fasta ~/GRCh38.fa --vep-flag=--check_existing tests/data/NAME
+```
+
+- Use the `=` form: `--vep-flag --check_existing` is read by argparse as two options
+  and exits 2.
+- Only flags in `ALLOWED_VEP_FLAGS` (`tools/bless/vep.py`) are accepted, matched
+  exactly on the whole token; today that is `--check_existing`. Aliases (`--fa`),
+  abbreviations (`--input_f`), single-dash tokens, `--name=value`, unknown flags and
+  a flag given twice exit 1 with `bless: --vep-flag: FLAG is not allowed; allowed: ...`.
+  It is an allowlist because VEP's Getopt::Long accepts aliases and abbreviations,
+  so no denylist can be complete.
+- Policy: adding a flag is one line in `ALLOWED_VEP_FLAGS` plus a data-test that
+  needs it. Boolean flags only; a flag with a value needs its own design.
+- `--check` (with or without `--reproduce`) refuses `--vep-flag` (exit 1): a check
+  replays only what is recorded. `--check --reproduce` requires `[vep] command` to
+  start with the fixed command and passes the remaining flags through the same
+  allowlist (a flag removed from the list stops replaying, exit 1).
 
 **Cache and FASTA.** A bless and `--check --reproduce` need exactly one flag from each
 pair. There is no default path and no environment variable; neither or both flags of
