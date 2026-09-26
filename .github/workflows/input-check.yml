@@ -49,10 +49,11 @@ jobs:
       - name: Record the bcftools banner
         run: |
           set -euo pipefail
+          bcftools --version | head -2 | tee banner.txt
           {
             echo '### bcftools --version'
             echo '```'
-            bcftools --version | head -2
+            cat banner.txt
             echo '```'
           } >> "$GITHUB_STEP_SUMMARY"
 
