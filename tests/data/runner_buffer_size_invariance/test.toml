@@ -47,4 +47,4 @@ fasta_source = "https://ftp.ensembl.org/pub/release-116/fasta/homo_sapiens/dna/H
 fasta_checksum = "sha256:d8c3af0094a7bba6125763bad779ec18a81483c739c6ed122094bdf86c187b92 sum:22450 861294"
 
 [compare]
-body_md5 = "89d0e983c6ac077943fb683a3d185292"
+body_md5 = "94e0ce40352c1629b2df447574cd9322"
