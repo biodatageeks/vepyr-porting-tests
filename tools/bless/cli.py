@@ -116,7 +116,9 @@ def _parser() -> argparse.ArgumentParser:
         default=[],
         metavar="FLAG",
         help="extra VEP flag, appended after the fixed command and recorded in "
-        "[vep] command; repeatable; use the = form (--vep-flag=--check_existing); "
+        "[vep] extra_flags (without it, a recorded extra_flags is used; a "
+        "different one is refused); repeatable; use the = form "
+        "(--vep-flag=--check_existing); "
         f"allowed: {', '.join(vep.ALLOWED_VEP_FLAGS)}; refused with --check",
     )
     cache = p.add_argument_group("VEP cache (exactly one, no default)")
@@ -303,11 +305,24 @@ def _bless(
     work_root: Path,
     dry_run: bool,
 ) -> None:
-    """Make the oracle and record its metadata, including ``extra`` flags.
+    """Make the oracle and record its metadata, including the extra flags.
+
+    The flags are ``extra`` (from ``--vep-flag=``) or, when none is typed, the
+    ``[vep] extra_flags`` already in ``test.toml``; typed flags that differ
+    from a recorded list are refused. A non-empty list is written back as
+    ``[vep] extra_flags``, and ``[vep] command`` is generated from it.
 
     Raises:
         BlessError: On any failure; the directory is then left unchanged.
     """
+    where = str(test.toml_path)
+    listed = vep.recorded_flags(test.table("vep"), where=where)
+    if extra and listed and extra != listed:
+        raise BlessError(
+            f"{where}: --vep-flag= gives {list(extra)!r} but [vep] extra_flags is "
+            f"{list(listed)!r}; edit extra_flags in test.toml to change the flags"
+        )
+    extra = extra or listed
     run = _run_vep(
         test,
         cache,
@@ -327,10 +342,14 @@ def _bless(
             ensembl.cache_provenance(cache.path),
             ensembl.fasta_provenance(fasta.path),
         )
+        flags: dict[str, str | list[str]] = (
+            {"extra_flags": list(extra)} if extra else {}
+        )
         updated = testdir.set_keys(
             test.toml_path.read_text(encoding="utf-8"),
             {
                 "vep": {
+                    **flags,
                     "image": pinned,
                     "command": vep.vep_command(extra),
                     "date": dt.datetime.now(dt.UTC).date().isoformat(),
@@ -361,7 +380,8 @@ def _reproduce(
     """Re-run the recorded image and command and compare the fresh body md5.
 
     ``extra`` is always empty (typed flags are refused under ``--check``); the
-    flags come from ``[vep] command``, checked against the allowlist.
+    flags come from ``[vep] extra_flags``, checked against the allowlist, and
+    ``[vep] command`` must be exactly the command generated from them.
 
     Raises:
         BlessError: On mismatch or any failure.
@@ -373,10 +393,9 @@ def _reproduce(
             f"{test.toml_path}: [vep] image is missing or not pinned by digest "
             f"({vep.IMAGE_REPO}@sha256:...); bless the directory first"
         )
-    command = test.table("vep").get("command")
-    if not isinstance(command, str):
-        raise BlessError(f"{test.toml_path}: [vep] command is missing")
-    recorded = vep.split_recorded(command, where=str(test.toml_path))
+    where = str(test.toml_path)
+    recorded = vep.recorded_flags(test.table("vep"), where=where)
+    vep.require_command(test.table("vep").get("command"), recorded, where=where)
     run = _run_vep(
         test,
         cache,
@@ -427,7 +446,7 @@ def main(argv: list[str] | None = None) -> int:
         if args.check and args.vep_flag:
             raise BlessError(
                 "--vep-flag is refused with --check: a check replays only what "
-                "[vep] command records"
+                "[vep] extra_flags records"
             )
         extra = vep.parse_extra(args.vep_flag)
         cheap_check = args.check and not args.reproduce

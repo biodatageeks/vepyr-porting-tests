@@ -3,7 +3,8 @@
 The command is the one from the #16 reference comment (5671600272). Inside the
 container every path is fixed — cache at :data:`CACHE_MOUNT`, FASTA at
 :data:`FASTA_MOUNT`, input and output in the working directory — so the
-recorded ``[vep] command`` is the same string on every host.
+recorded ``[vep] command`` is the same string on every host. Extra flags are
+recorded as data in ``[vep] extra_flags``; the command is generated from them.
 """
 
 from __future__ import annotations
@@ -12,6 +13,7 @@ import os
 import shlex
 import shutil
 import subprocess
+from collections.abc import Mapping
 from dataclasses import dataclass
 from pathlib import Path
 from typing import Final
@@ -61,8 +63,8 @@ def parse_extra(values: list[str] | tuple[str, ...]) -> tuple[str, ...]:
     """Validate extra VEP flags against :data:`ALLOWED_VEP_FLAGS`.
 
     Args:
-        values: Flags in the order given (``--vep-flag=`` values or the tail
-            of a recorded command).
+        values: Flags in the order given (``--vep-flag=`` values or
+            ``[vep] extra_flags``).
 
     Returns:
         The flags, unchanged and in order.
@@ -86,41 +88,55 @@ def vep_command(extra: tuple[str, ...] = ()) -> str:
     return shlex.join((*VEP_ARGV, *extra))
 
 
-def split_recorded(command: str, *, where: str) -> tuple[str, ...]:
-    """Split a recorded ``[vep] command`` into its validated extra flags.
+def recorded_flags(table: Mapping[str, object], *, where: str) -> tuple[str, ...]:
+    """Read and validate ``[vep] extra_flags`` (absent means no extra flags).
 
     Args:
-        command: The recorded string.
+        table: The ``[vep]`` table of ``test.toml``.
         where: File named in error messages.
 
     Returns:
-        The flags after :data:`VEP_ARGV`, checked by :func:`parse_extra`.
+        The flags in their recorded order, checked by :func:`parse_extra`.
 
     Raises:
-        BlessError: If the command does not start with :data:`VEP_ARGV`, its
-            extra flags are not allowed, or it differs from the string
-            :func:`vep_command` regenerates from the parsed flags (non-canonical
-            quoting or whitespace).
+        BlessError: If the key is not an array of strings or a flag is not
+            allowed or repeated.
     """
+    match table.get("extra_flags", []):
+        case list() as flags if all(isinstance(flag, str) for flag in flags):
+            pass
+        case other:
+            raise BlessError(
+                f"{where}: [vep] extra_flags must be an array of strings, got {other!r}"
+            )
     try:
-        argv = tuple(shlex.split(command))
-    except ValueError as exc:
-        raise BlessError(f"{where}: [vep] command cannot be parsed: {exc}") from exc
-    if argv[: len(VEP_ARGV)] != VEP_ARGV:
-        raise BlessError(
-            f"{where}: [vep] command does not start with the fixed VEP command "
-            f"({VEP_COMMAND})"
-        )
-    try:
-        extra = parse_extra(argv[len(VEP_ARGV) :])
+        return parse_extra(flags)
     except BlessError as exc:
-        raise BlessError(f"{where}: [vep] command: {exc}") from exc
+        raise BlessError(f"{where}: [vep] extra_flags: {exc}") from exc
+
+
+def require_command(command: object, extra: tuple[str, ...], *, where: str) -> None:
+    """Require the recorded ``[vep] command`` to be generated from ``extra``.
+
+    The command is an audit record, never parsed: it must equal
+    :func:`vep_command` of ``[vep] extra_flags`` exactly (canonical form).
+
+    Args:
+        command: The recorded ``[vep] command`` value.
+        extra: The validated ``[vep] extra_flags``.
+        where: File named in error messages.
+
+    Raises:
+        BlessError: If the command is missing, not a string, or differs.
+    """
+    if not isinstance(command, str):
+        raise BlessError(f"{where}: [vep] command is missing")
     if command != (canonical := vep_command(extra)):
         raise BlessError(
-            f"{where}: [vep] command is not in canonical form (quoting or "
-            f"whitespace differs); expected exactly: {canonical}"
+            f"{where}: [vep] command is not the canonical command for [vep] "
+            f"extra_flags = {list(extra)!r}; recorded: {command!r}; "
+            f"expected exactly: {canonical!r}"
         )
-    return extra
 
 
 @dataclass(frozen=True, slots=True, kw_only=True)

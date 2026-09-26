@@ -179,8 +179,8 @@ def _is_trivia(line: str) -> bool:
     return not stripped or stripped.startswith("#")
 
 
-def set_keys(text: str, updates: Mapping[str, Mapping[str, str]]) -> str:
-    """Return ``text`` with string keys set in the given top-level tables.
+def set_keys(text: str, updates: Mapping[str, Mapping[str, str | list[str]]]) -> str:
+    """Return ``text`` with string or string-list keys set in top-level tables.
 
     An existing ``key = ...`` line inside the table is replaced in place; a
     missing key is appended after the table's last key; a missing table is
@@ -188,7 +188,8 @@ def set_keys(text: str, updates: Mapping[str, Mapping[str, str]]) -> str:
 
     Args:
         text: A TOML document.
-        updates: ``{table: {key: value}}``; values are written as basic strings.
+        updates: ``{table: {key: value}}``; a value is written as a basic
+            string or a one-line array of basic strings.
 
     Returns:
         The rewritten document.
