@@ -28,4 +28,4 @@ markers = [
 select = ["E", "F", "W", "I", "ISC", "RUF", "UP", "B"]
 
 [tool.ruff.lint.isort]
-known-first-party = ["bless", "issue_check", "pins", "run_tests"]
+known-first-party = ["bless", "check_inputs", "issue_check", "pins", "run_tests"]

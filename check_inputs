@@ -1,0 +1,4 @@
+#!/usr/bin/env bash
+# ./check_inputs [DATA_DIR] — verify data-test inputs are what tools/normalize_input produces (#89).
+here="$(cd -- "$(dirname -- "${BASH_SOURCE[0]}")" && pwd)"
+exec env PYTHONPATH="$here/tools" uv run --frozen --project "$here" python -m check_inputs "$@"

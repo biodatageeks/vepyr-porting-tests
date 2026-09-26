@@ -269,6 +269,13 @@ with — refusing any other version before it touches the test directory. VEP an
 always read that same normalised `input.vcf`; a data-test directory does not
 store the raw pre-normalisation file (rationale: issue #90).
 
+`./check_inputs [DATA_DIR]` (issue #89, default `tests/data`) re-runs
+`tools/normalize_input` on every committed `input.vcf` in a temporary directory
+and compares `input.vcf` and `test.toml` byte for byte with the committed files.
+It prints `OK <dir>` or `MISMATCH <dir>` (plus a unified diff) per test and exits
+0 only if every test matches and at least one was found. It never writes under
+`DATA_DIR`, and needs the same pinned bcftools 1.23 / htslib 1.23.1.
+
 ### Caveats
 
 **Windows.** `./run_tests` is a bash script (it bootstraps `uv` and then runs
