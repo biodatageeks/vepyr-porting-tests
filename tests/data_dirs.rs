@@ -146,6 +146,9 @@ const INPUT_KEYS: &[Key] = &[
 ];
 
 /// Exactly the keys `tools/bless/cli.py` writes into `[vep]` (#32, #95).
+///
+/// `extra_flags` (#108) is optional (absent means no extra flags); only its type
+/// is checked here, the allowlist lives in `tools/bless/vep.py`.
 const VEP_KEYS: &[Key] = &[
     ("image", Kind::Str, true),
     ("command", Kind::Str, true),
@@ -154,6 +157,7 @@ const VEP_KEYS: &[Key] = &[
     ("cache_checksum", Kind::Str, true),
     ("fasta_source", Kind::Str, true),
     ("fasta_checksum", Kind::Str, true),
+    ("extra_flags", Kind::StrList, false),
 ];
 
 const VEPYR_KEYS: &[Key] = &[
@@ -765,4 +769,36 @@ fn body_md5_hashes_only_non_header_lines_with_terminators() {
         first_difference(vcf, b"a\tb\n"),
         ("c".to_owned(), "<no record>".to_owned())
     );
+}
+
+/// Load a copy of the self-test fixture with `line` added to its `[vep]` table.
+fn load_fixture_with_vep_line(line: &str) -> TestDir {
+    let fixture =
+        Path::new(env!("CARGO_MANIFEST_DIR")).join("tests/fixtures/data_dirs_selftest/case");
+    let scratch = tempfile::TempDir::new().expect("tempdir");
+    let dir = scratch.path().join("case");
+    std::fs::create_dir(&dir).expect("create case dir");
+    let text = std::fs::read_to_string(fixture.join(TOML_NAME)).expect("read fixture");
+    let edited = text.replacen("[vep]\n", &format!("[vep]\n{line}\n"), 1);
+    assert_ne!(edited, text, "fixture has no [vep] table");
+    std::fs::write(dir.join(TOML_NAME), edited).expect("write test.toml");
+    TestDir::load(&dir)
+}
+
+#[test]
+fn vep_extra_flags_accepted() {
+    let test = load_fixture_with_vep_line(r#"extra_flags = ["--check_existing"]"#);
+    assert_eq!(test.name, "case");
+    let test = load_fixture_with_vep_line("extra_flags = []");
+    assert_eq!(test.name, "case");
+}
+
+#[test]
+#[should_panic(expected = "[vep] extra_flags must be")]
+fn vep_extra_flags_wrong_type_is_rejected() {
+    let not_array = std::panic::catch_unwind(|| {
+        load_fixture_with_vep_line(r#"extra_flags = "--check_existing""#)
+    });
+    assert!(not_array.is_err(), "a string extra_flags was accepted");
+    load_fixture_with_vep_line("extra_flags = [1]");
 }
