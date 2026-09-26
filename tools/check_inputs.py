@@ -1,4 +1,4 @@
-"""Check that every data-test input is what ``tools/normalize_input`` produces.
+"""Check that every committed data-test input is already normalised.
 
 ``tools/normalize_input`` (#85) is the only allowed producer of a data-test's
 ``input.vcf`` and of the ``[input]`` table in its ``test.toml``. This check
@@ -13,12 +13,19 @@ the committed ``test.toml`` is copied into a fresh temporary directory, the
 normaliser writes ``input.vcf`` and rewrites ``[input]`` there, and both files
 are compared with the committed ones: ``input.vcf`` byte for byte,
 ``test.toml`` as a whole. One ``OK <dir>`` or ``MISMATCH <dir>`` line is
-printed per test, followed by a unified diff for each mismatch.
+printed per test, followed by a unified diff for each mismatch. CI runs this in
+the ``input-normalised-check`` workflow
+(``.github/workflows/input-normalised-check.yml``).
+
+What it verifies: each ``input.vcf`` is already normalised (a fixed point of
+``tools/normalize_input``) and ``[input]`` is what that script writes. It does
+not verify the raw source file: raw inputs are not committed (#90); raw
+provenance is tracked in #111.
 
 Nothing is ever written under ``DATA_DIR``.
 
-Known limit: re-normalising cannot detect an ``input.vcf`` built from the wrong
-raw file; that follows from #90 and is accepted.
+Known limit: re-normalising an already normalised ``input.vcf`` cannot detect
+one built from the wrong raw file; that follows from #90 and is accepted.
 
 Exit codes: ``0`` every test is ``OK`` and at least one was found; ``1`` any
 mismatch, any normaliser failure (wrong bcftools included), no test found, or

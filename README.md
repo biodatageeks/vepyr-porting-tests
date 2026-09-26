@@ -274,7 +274,11 @@ store the raw pre-normalisation file (rationale: issue #90).
 and compares `input.vcf` and `test.toml` byte for byte with the committed files.
 It prints `OK <dir>` or `MISMATCH <dir>` (plus a unified diff) per test and exits
 0 only if every test matches and at least one was found. It never writes under
-`DATA_DIR`, and needs the same pinned bcftools 1.23 / htslib 1.23.1.
+`DATA_DIR`, and needs the same pinned bcftools 1.23 / htslib 1.23.1. It checks
+that `input.vcf` is already normalised (a fixed point of `normalize_input`) and
+that `[input]` matches what the script writes; it does not verify the raw source
+file (raw inputs are not committed, #90; raw provenance: #111). CI runs it in the
+`input-normalised-check` workflow (`.github/workflows/input-normalised-check.yml`).
 
 ### Caveats
 

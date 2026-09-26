@@ -1,4 +1,4 @@
-"""Tests for ``tools/check_inputs.py`` (#89).
+"""Tests for ``tools/check_inputs.py`` (#89; CI workflow ``input-normalised-check``).
 
 Most tests inject a fake normaliser so they run anywhere. The integration
 tests run the real ``tools/normalize_input`` and are skipped unless bcftools

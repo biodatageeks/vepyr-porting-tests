@@ -1,8 +1,11 @@
-name: input-check
+name: input-normalised-check
 
 # Every data-test input.vcf and the [input] table of its test.toml must be exactly
 # what tools/normalize_input produces (#89). ./check_inputs re-normalises each
 # committed input.vcf in a temp dir and fails on any byte difference.
+# It checks that input.vcf is already normalised (a fixed point of normalize_input)
+# and that [input] matches what the script writes. It does NOT verify the raw
+# source file: raw inputs are not committed (#90); raw provenance is #111.
 # No path filter: the check always runs so it can be a required status.
 
 on:
@@ -15,7 +18,7 @@ permissions:
   contents: read
 
 concurrency:
-  group: input-check-${{ github.ref }}
+  group: input-normalised-check-${{ github.ref }}
   cancel-in-progress: true
 
 jobs:
