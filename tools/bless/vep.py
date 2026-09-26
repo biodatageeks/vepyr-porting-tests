@@ -43,7 +43,84 @@ VEP_ARGV: Final[tuple[str, ...]] = (
 )  # fmt: skip
 
 VEP_COMMAND: Final[str] = shlex.join(VEP_ARGV)
-"""What ``[vep] command`` records."""
+"""What ``[vep] command`` records when no extra flag is given."""
+
+ALLOWED_VEP_FLAGS: Final[tuple[str, ...]] = (
+    "--check_existing",  # needed by #18
+)
+"""The only flags ``--vep-flag=`` accepts, matched exactly on the whole token.
+
+VEP's Getopt::Long accepts aliases and unique-prefix abbreviations, so a
+denylist could never be complete; an exact allowlist cannot be bypassed.
+Adding a flag is one line here plus a data-test that needs it. Boolean flags
+only: a flag with a value needs its own design.
+"""
+
+
+def parse_extra(values: list[str] | tuple[str, ...]) -> tuple[str, ...]:
+    """Validate extra VEP flags against :data:`ALLOWED_VEP_FLAGS`.
+
+    Args:
+        values: Flags in the order given (``--vep-flag=`` values or the tail
+            of a recorded command).
+
+    Returns:
+        The flags, unchanged and in order.
+
+    Raises:
+        BlessError: On a flag not in the allowlist (exact match) or a duplicate.
+    """
+    allowed = ", ".join(ALLOWED_VEP_FLAGS)
+    seen: set[str] = set()
+    for flag in values:
+        if flag not in ALLOWED_VEP_FLAGS:
+            raise BlessError(f"--vep-flag: {flag} is not allowed; allowed: {allowed}")
+        if flag in seen:
+            raise BlessError(f"--vep-flag: {flag} is given twice")
+        seen.add(flag)
+    return tuple(values)
+
+
+def vep_command(extra: tuple[str, ...] = ()) -> str:
+    """Return the ``[vep] command`` string for the fixed argv plus ``extra``."""
+    return shlex.join((*VEP_ARGV, *extra))
+
+
+def split_recorded(command: str, *, where: str) -> tuple[str, ...]:
+    """Split a recorded ``[vep] command`` into its validated extra flags.
+
+    Args:
+        command: The recorded string.
+        where: File named in error messages.
+
+    Returns:
+        The flags after :data:`VEP_ARGV`, checked by :func:`parse_extra`.
+
+    Raises:
+        BlessError: If the command does not start with :data:`VEP_ARGV`, its
+            extra flags are not allowed, or it differs from the string
+            :func:`vep_command` regenerates from the parsed flags (non-canonical
+            quoting or whitespace).
+    """
+    try:
+        argv = tuple(shlex.split(command))
+    except ValueError as exc:
+        raise BlessError(f"{where}: [vep] command cannot be parsed: {exc}") from exc
+    if argv[: len(VEP_ARGV)] != VEP_ARGV:
+        raise BlessError(
+            f"{where}: [vep] command does not start with the fixed VEP command "
+            f"({VEP_COMMAND})"
+        )
+    try:
+        extra = parse_extra(argv[len(VEP_ARGV) :])
+    except BlessError as exc:
+        raise BlessError(f"{where}: [vep] command: {exc}") from exc
+    if command != (canonical := vep_command(extra)):
+        raise BlessError(
+            f"{where}: [vep] command is not in canonical form (quoting or "
+            f"whitespace differs); expected exactly: {canonical}"
+        )
+    return extra
 
 
 @dataclass(frozen=True, slots=True, kw_only=True)
@@ -61,12 +138,13 @@ class Mounts:
     work_dir: Path
 
 
-def docker_argv(image: str, mounts: Mounts) -> list[str]:
+def docker_argv(image: str, mounts: Mounts, extra: tuple[str, ...] = ()) -> list[str]:
     """Build the full ``docker run`` argv.
 
     Args:
         image: Image reference (tag for a dry run, digest for a real one).
         mounts: Host paths.
+        extra: Validated extra VEP flags, appended after :data:`VEP_ARGV`.
 
     Returns:
         The argv, ready for :func:`subprocess.run` or :func:`shlex.join`.
@@ -82,6 +160,7 @@ def docker_argv(image: str, mounts: Mounts) -> list[str]:
         "-w", WORK_MOUNT,
         image,
         *VEP_ARGV,
+        *extra,
     ]  # fmt: skip
 
 
@@ -196,13 +275,13 @@ def require_mountable(docker: str, image: str, paths: list[Path]) -> None:
             )
 
 
-def run(docker: str, image: str, mounts: Mounts) -> None:
-    """Run VEP; its own output streams to the terminal.
+def run(docker: str, image: str, mounts: Mounts, extra: tuple[str, ...] = ()) -> None:
+    """Run VEP with ``extra`` flags; its own output streams to the terminal.
 
     Raises:
         BlessError: If the container exits non-zero or writes no output.
     """
-    argv = docker_argv(image, mounts)
+    argv = docker_argv(image, mounts, extra)
     argv[0] = docker
     done = subprocess.run(argv)
     if done.returncode != 0:

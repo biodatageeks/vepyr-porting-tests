@@ -4,6 +4,7 @@ from __future__ import annotations
 
 import hashlib
 import re
+import shlex
 import subprocess
 import tomllib
 from pathlib import Path
@@ -381,3 +382,200 @@ def test_unshared_docker_work_dir_gets_the_mount_error(
     assert err.startswith(f"bless: docker cannot mount {unshared}/bless-")
     assert "is not shared from the host" in err
     assert "Settings > Resources > File sharing" in err
+
+
+PINNED: Final[str] = f"{vep.IMAGE_REPO}@sha256:{'a' * 64}"
+
+
+def _fake_vep_container(
+    monkeypatch: pytest.MonkeyPatch, calls: list[list[str]]
+) -> None:
+    """Fake docker end to end: record each ``docker run`` argv, write an oracle.
+
+    The fake container writes ``expected_output.vcf`` with :data:`BODY` into the
+    bind-mounted work directory, so a bless or reproduce completes without docker.
+    """
+    _fake_docker(monkeypatch)
+    monkeypatch.setattr(vep, "require_mountable", lambda _d, _i, _p: None)
+
+    def fake_run(argv: list[str], **_kw: object) -> subprocess.CompletedProcess[str]:
+        calls.append(list(argv))
+        work = next(
+            Path(v.removesuffix(f":{vep.WORK_MOUNT}"))
+            for v in argv
+            if v.endswith(f":{vep.WORK_MOUNT}")
+        )
+        (work / testdir.ORACLE_NAME).write_text("##VEP=v116\n#CHROM\n" + BODY)
+        return subprocess.CompletedProcess(argv, 0, "", "")
+
+    monkeypatch.setattr(vep.subprocess, "run", fake_run)
+
+
+def _vep_part(argv: list[str]) -> list[str]:
+    """The VEP argv inside a ``docker run`` argv (everything after the image)."""
+    return argv[argv.index(PINNED) + 1 :]
+
+
+def _set_vep(test_dir: Path, command: str) -> None:
+    """Give ``test_dir`` a pinned image and the recorded ``command``."""
+    toml = test_dir / "test.toml"
+    toml.write_text(
+        testdir.set_keys(
+            toml.read_text(), {"vep": {"image": PINNED, "command": command}}
+        )
+    )
+
+
+def test_vep_flag_recorded_in_command(
+    complete_cache: Path,
+    fasta: Path,
+    test_dir: Path,
+    tmp_path: Path,
+    capsys: pytest.CaptureFixture[str],
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    """A bless with --vep-flag records exactly the argv VEP ran with."""
+    calls: list[list[str]] = []
+    _fake_vep_container(monkeypatch, calls)
+    code, _, err = run(
+        [
+            "--docker-work-dir",
+            str(tmp_path / "w"),
+            "--vep-cache-dir",
+            str(complete_cache),
+            "--vep-fasta",
+            str(fasta),
+            "--vep-flag=--check_existing",
+            str(test_dir),
+        ],
+        capsys,
+    )
+    assert code == 0, err
+    ran = _vep_part(calls[-1])
+    assert ran == [*vep.VEP_ARGV, "--check_existing"]
+    recorded = tomllib.loads((test_dir / "test.toml").read_text())["vep"]["command"]
+    assert recorded == shlex.join(ran)
+
+
+def test_reproduce_replays_recorded_flags(
+    complete_cache: Path,
+    fasta: Path,
+    test_dir: Path,
+    tmp_path: Path,
+    capsys: pytest.CaptureFixture[str],
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    """--check --reproduce runs the recorded command, extra flags included."""
+    _set_vep(test_dir, vep.vep_command(("--check_existing",)))
+    calls: list[list[str]] = []
+    _fake_vep_container(monkeypatch, calls)
+    code, _, err = run(
+        [
+            "--check",
+            "--reproduce",
+            "--docker-work-dir",
+            str(tmp_path / "w"),
+            "--vep-cache-dir",
+            str(complete_cache),
+            "--vep-fasta",
+            str(fasta),
+            str(test_dir),
+        ],
+        capsys,
+    )
+    assert code == 0, err
+    assert calls[-1][-1] == "--check_existing"
+    assert _vep_part(calls[-1]) == [*vep.VEP_ARGV, "--check_existing"]
+
+
+def test_reproduce_refuses_foreign_or_unlisted_command(
+    complete_cache: Path,
+    fasta: Path,
+    test_dir: Path,
+    tmp_path: Path,
+    capsys: pytest.CaptureFixture[str],
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    """A recorded command outside the fixed prefix + allowlist exits 1, no run."""
+    calls: list[list[str]] = []
+    _fake_vep_container(monkeypatch, calls)
+    for command in (
+        "vep --offline --cache --fa /x",  # not the fixed prefix
+        vep.VEP_COMMAND.replace("--offline ", ""),  # prefix altered
+        vep.vep_command(("--fa",)),  # unlisted alias after the prefix
+        vep.vep_command(("--check_existing", "--check_existing")),  # duplicate
+        vep.VEP_COMMAND + " '--check_existing'",  # quoted: not canonical
+        vep.VEP_COMMAND + "  --check_existing",  # extra whitespace
+        vep.VEP_COMMAND + " ",  # trailing whitespace
+    ):
+        _set_vep(test_dir, command)
+        code, _, err = run(
+            [
+                "--check",
+                "--reproduce",
+                "--docker-work-dir",
+                str(tmp_path / "w"),
+                "--vep-cache-dir",
+                str(complete_cache),
+                "--vep-fasta",
+                str(fasta),
+                str(test_dir),
+            ],
+            capsys,
+        )
+        assert code == 1, command
+        assert "test.toml" in err and "[vep] command" in err, err
+    assert calls == []
+
+
+def test_check_refuses_typed_flags(
+    test_dir: Path, capsys: pytest.CaptureFixture[str]
+) -> None:
+    """--vep-flag with --check (plain or --reproduce) exits 1, naming the option.
+
+    The image is validly pinned and the command is the fixed one, so the typed
+    flag is the only reason for the refusal.
+    """
+    _set_vep(test_dir, vep.VEP_COMMAND)
+    base = ["--vep-flag=--check_existing", str(test_dir)]
+    for mode in (["--check"], ["--check", "--reproduce", "--vep-cache-dir", "/c"]):
+        code, _, err = run([*mode, "--vep-fasta", "/x.fa", *base], capsys)
+        assert code == 1 and err.startswith("bless: --vep-flag is refused with --check")
+    code, _, err = run(["--check", str(test_dir)], capsys)
+    assert code == 0, err
+
+
+def test_vep_flag_rejections(capsys: pytest.CaptureFixture[str]) -> None:
+    """parse_extra accepts only exact allowlist tokens, each once.
+
+    Also: every allowlist entry is a boolean ``--name`` flag, and the bare
+    ``--vep-flag <flag>`` form is refused with a message naming the ``=`` form.
+    """
+    for allowed in vep.ALLOWED_VEP_FLAGS:
+        assert allowed.startswith("--"), allowed
+        assert "=" not in allowed and not any(c.isspace() for c in allowed), allowed
+    with pytest.raises(SystemExit) as stop:
+        cli.main(["--dry-run", "--vep-flag", "--check_existing", "x"])
+    assert stop.value.code == 2
+    assert "--vep-flag needs the = form" in capsys.readouterr().err
+    assert vep.parse_extra(["--check_existing"]) == ("--check_existing",)
+    assert vep.parse_extra([]) == ()
+    for flag in (
+        "--fa",
+        "--input_f",
+        "-i",
+        "--input_file",
+        "--output_file",
+        "--fasta",
+        "--force",
+        "--vcf",
+        "--not_a_vep_flag",
+        "--check_existing=1",
+    ):
+        with pytest.raises(BlessError) as exc:
+            vep.parse_extra([flag])
+        assert str(exc.value) == (
+            f"--vep-flag: {flag} is not allowed; allowed: --check_existing"
+        )
+    with pytest.raises(BlessError, match="given twice"):
+        vep.parse_extra(["--check_existing", "--check_existing"])

@@ -110,6 +110,15 @@ def _parser() -> argparse.ArgumentParser:
         "directory, bind-mounted into the VEP container; must be shared with "
         f"Docker (default: <repo-root>/.bless/, here {DEFAULT_DOCKER_WORK_DIR})",
     )
+    p.add_argument(
+        "--vep-flag",
+        action="append",
+        default=[],
+        metavar="FLAG",
+        help="extra VEP flag, appended after the fixed command and recorded in "
+        "[vep] command; repeatable; use the = form (--vep-flag=--check_existing); "
+        f"allowed: {', '.join(vep.ALLOWED_VEP_FLAGS)}; refused with --check",
+    )
     cache = p.add_argument_group("VEP cache (exactly one, no default)")
     cache.add_argument(
         "--vep-cache-dir",
@@ -207,6 +216,7 @@ def _run_vep(
     fasta: Source,
     *,
     image: str | None,
+    extra: tuple[str, ...],
     work_root: Path,
     dry_run: bool,
 ) -> VepRun | None:
@@ -217,6 +227,7 @@ def _run_vep(
         cache: Cache choice.
         fasta: FASTA choice.
         image: Pinned image to run, or ``None`` to resolve :data:`vep.IMAGE_TAG`.
+        extra: Validated extra VEP flags.
         work_root: Parent of the per-run work directory (created if missing).
         dry_run: Print the command instead of running it.
 
@@ -236,7 +247,7 @@ def _run_vep(
         work = work_root / "bless-XXXXXX"
         print(f"# cp {test.input_vcf} {work}/{testdir.INPUT_NAME}")
         mounts = vep.Mounts(cache_dir=cache.path, fasta=fasta.path, work_dir=work)
-        print(shlex.join(vep.docker_argv(image or vep.IMAGE_TAG, mounts)))
+        print(shlex.join(vep.docker_argv(image or vep.IMAGE_TAG, mounts, extra)))
         return None
     if not cache.download:
         ensembl.require_complete_cache(cache.path, flag=cache.flag)
@@ -275,6 +286,7 @@ def _run_vep(
             docker,
             pinned,
             vep.Mounts(cache_dir=cache.path, fasta=fasta.path, work_dir=work),
+            extra,
         )
     except BaseException:
         shutil.rmtree(work, ignore_errors=True)
@@ -287,15 +299,24 @@ def _bless(
     cache: Source,
     fasta: Source,
     *,
+    extra: tuple[str, ...],
     work_root: Path,
     dry_run: bool,
 ) -> None:
-    """Make the oracle and record its metadata.
+    """Make the oracle and record its metadata, including ``extra`` flags.
 
     Raises:
         BlessError: On any failure; the directory is then left unchanged.
     """
-    run = _run_vep(test, cache, fasta, image=None, work_root=work_root, dry_run=dry_run)
+    run = _run_vep(
+        test,
+        cache,
+        fasta,
+        image=None,
+        extra=extra,
+        work_root=work_root,
+        dry_run=dry_run,
+    )
     if run is None:
         return
     work, pinned = run.work, run.image
@@ -311,7 +332,7 @@ def _bless(
             {
                 "vep": {
                     "image": pinned,
-                    "command": vep.VEP_COMMAND,
+                    "command": vep.vep_command(extra),
                     "date": dt.datetime.now(dt.UTC).date().isoformat(),
                     "cache_source": cprov.source,
                     "cache_checksum": cprov.checksum,
@@ -333,10 +354,14 @@ def _reproduce(
     cache: Source,
     fasta: Source,
     *,
+    extra: tuple[str, ...],
     work_root: Path,
     dry_run: bool,
 ) -> None:
-    """Re-run the recorded image and compare the fresh body md5.
+    """Re-run the recorded image and command and compare the fresh body md5.
+
+    ``extra`` is always empty (typed flags are refused under ``--check``); the
+    flags come from ``[vep] command``, checked against the allowlist.
 
     Raises:
         BlessError: On mismatch or any failure.
@@ -348,8 +373,18 @@ def _reproduce(
             f"{test.toml_path}: [vep] image is missing or not pinned by digest "
             f"({vep.IMAGE_REPO}@sha256:...); bless the directory first"
         )
+    command = test.table("vep").get("command")
+    if not isinstance(command, str):
+        raise BlessError(f"{test.toml_path}: [vep] command is missing")
+    recorded = vep.split_recorded(command, where=str(test.toml_path))
     run = _run_vep(
-        test, cache, fasta, image=image, work_root=work_root, dry_run=dry_run
+        test,
+        cache,
+        fasta,
+        image=image,
+        extra=recorded,
+        work_root=work_root,
+        dry_run=dry_run,
     )
     if run is None:
         return
@@ -375,13 +410,26 @@ def main(argv: list[str] | None = None) -> int:
     Returns:
         Exit code.
     """
-    args = _parser().parse_args(argv)
+    parser = _parser()
+    raw = sys.argv[1:] if argv is None else argv
+    if "--vep-flag" in raw[: raw.index("--") if "--" in raw else len(raw)]:
+        parser.error(
+            "--vep-flag needs the = form, because a VEP flag starts with '-': "
+            "write --vep-flag=<flag> (e.g. --vep-flag=--check_existing)"
+        )
+    args = parser.parse_args(argv)
     try:
         if args.reproduce and not args.check:
             raise BlessError(
                 "--reproduce only works together with --check "
                 "(./bless --check --reproduce ...)"
             )
+        if args.check and args.vep_flag:
+            raise BlessError(
+                "--vep-flag is refused with --check: a check replays only what "
+                "[vep] command records"
+            )
+        extra = vep.parse_extra(args.vep_flag)
         cheap_check = args.check and not args.reproduce
         if cheap_check:
             test = testdir.load(args.test_dir)
@@ -415,7 +463,7 @@ def main(argv: list[str] | None = None) -> int:
             else args.docker_work_dir.expanduser().absolute()
         )
         run = _reproduce if args.reproduce else _bless
-        run(test, cache, fasta, work_root=work_root, dry_run=args.dry_run)
+        run(test, cache, fasta, extra=extra, work_root=work_root, dry_run=args.dry_run)
     except BlessError as exc:
         print(f"bless: {exc}", file=sys.stderr)
         return 1
