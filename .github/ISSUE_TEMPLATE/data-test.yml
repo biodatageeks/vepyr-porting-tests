@@ -8,8 +8,9 @@ body:
       value: |
         Use this form to **port or track a data-test** in this repository.
 
-        This is **not** a product bug report for vepyr. For wrong annotation output
-        in the library itself, open an issue on
+        This is **not** a product bug report for vepyr. An engine defect that a data-test
+        here exposes goes in the **Engine bug** (`[vepyr-bug]`) form; wrong annotation output
+        with no data-test here goes upstream to
         [biodatageeks/vepyr](https://github.com/biodatageeks/vepyr).
 
         A data-test is one directory `tests/data/<slug>/` holding `input.vcf`,
