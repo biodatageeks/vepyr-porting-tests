@@ -1,7 +1,8 @@
 blank_issues_enabled: true
 contact_links:
-  - name: vepyr product bug or data problem
+  - name: vepyr product bug not tied to a data-test here
     url: https://github.com/biodatageeks/vepyr/issues/new/choose
     about: >-
-      Wrong, missing, or unexpected annotation output from the vepyr library itself —
-      not a curated data-test port in this repository.
+      Wrong, missing, or unexpected annotation output from the vepyr library itself that no
+      data-test in this repository exposes. An engine defect that blocks a data-test here
+      uses the Engine bug ([vepyr-bug]) form instead.

@@ -10,7 +10,8 @@ body:
         and the repo plumbing around them.
 
         Not for a data-test port (use the **Data-test** form), and not for a bug in the vepyr
-        engine itself — file that in
+        engine itself — an engine defect exposed by a data-test here uses the **Engine bug**
+        (`[vepyr-bug]`) form; one with no data-test here goes upstream to
         [biodatageeks/vepyr](https://github.com/biodatageeks/vepyr/issues/new/choose).
 
         The fields below are the header block that the existing `[harness]` issues already
@@ -208,5 +209,8 @@ body:
       options:
         - label: This is about the harness, not a ledger row port (those use the *Data-test* form).
           required: true
-        - label: This is not a bug in the vepyr engine itself (that belongs in `biodatageeks/vepyr`).
+        - label: >-
+            This is not a bug in the vepyr engine itself (an engine defect exposed by a data-test
+            here uses the *Engine bug* `[vepyr-bug]` form; otherwise it goes upstream to
+            `biodatageeks/vepyr`).
           required: true

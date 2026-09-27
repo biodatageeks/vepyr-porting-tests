@@ -1,0 +1,197 @@
+name: Engine bug (vepyr / datafusion-bio-functions)
+description: An engine defect exposed by a data-test here and tracked here because it blocks a hard data-test
+title: "[vepyr-bug] "
+labels: ["vepyr-bug"]
+body:
+  - type: markdown
+    attributes:
+      value: |
+        Use this form for a **defect in the engine** (`biodatageeks/vepyr` or
+        `biodatageeks/datafusion-bio-functions`) that a data-test in this repository exposes,
+        and that is tracked **here** because it blocks a `hard` data-test.
+
+        Not a data-test port (use the *Data-test* form), and not repo tooling (use the
+        *Tooling* or *Harness* form). A defect with no data-test here goes upstream instead:
+        [biodatageeks/vepyr](https://github.com/biodatageeks/vepyr/issues/new/choose).
+        If the fix is made upstream, this issue stays open here as the tracking issue; the owner
+        files the upstream issue and adds its link in the `upstream` field (agents never file
+        upstream).
+
+        The oracle is native VEP 116 (`expected_output.vcf`). `known_divergence` is never used
+        to hide an engine defect (it was removed by #128); the data-test stays red until the
+        engine is fixed.
+
+        A form cannot set a milestone: set it by hand, normally
+        `Data-test ports III: hard data-tests` (milestone 7), and say why in *Milestone rationale*.
+
+        Write `n/a — <reason>` wherever a field genuinely does not apply. A blank is not an answer.
+
+  - type: textarea
+    id: observed-vs-expected
+    attributes:
+      label: Observed (vepyr) vs expected (VEP 116 oracle)
+      description: >-
+        The differing records as a table or diff: vepyr output versus the VEP 116
+        `expected_output.vcf` of the data-test. State the counts (records differing / total).
+      placeholder: |
+        3 / 1375 records differ (CSQ field).
+        -21  10420001  .  A  G  ...  CSQ=G|missense_variant|...
+        +21  10420001  .  A  G  ...  CSQ=G|missense_variant|...,G|regulatory_region_variant|...
+    validations:
+      required: true
+
+  - type: textarea
+    id: repro
+    attributes:
+      label: Minimal reproduction (command and output)
+      description: >-
+        The smallest command that reproduces the defect today, with its actual output.
+      render: shell
+    validations:
+      required: true
+
+  - type: input
+    id: blocks
+    attributes:
+      label: Blocked data-test
+      description: >-
+        `blocks #N`: the `hard` data-test issue this defect blocks. Required: an engine defect
+        that blocks no data-test here belongs upstream, not in this form.
+      placeholder: "blocks #118"
+    validations:
+      required: true
+
+  - type: textarea
+    id: cause
+    attributes:
+      label: Cause (PROVEN or UNPROVEN)
+      description: >-
+        Start with **PROVEN** or **UNPROVEN**. PROVEN: name the experiment that flips the output.
+        UNPROVEN: say what experiment would settle it.
+    validations:
+      required: true
+
+  - type: dropdown
+    id: fix-location
+    attributes:
+      label: Fix location
+      description: Which repository the fix is expected in.
+      options:
+        - biodatageeks/datafusion-bio-functions
+        - biodatageeks/vepyr
+        - both
+        - unknown
+    validations:
+      required: true
+
+  - type: input
+    id: upstream
+    attributes:
+      label: Upstream issue and push access
+      description: >-
+        Link to the upstream issue, added by the owner after he files it upstream, and who has
+        push access to the fix repository (this repo does not). Agents must not file, comment on
+        or push to upstream repositories; only the owner files upstream.
+      placeholder: "https://github.com/biodatageeks/datafusion-bio-functions/issues/NN — push: owner only"
+    validations:
+      required: false
+
+  - type: input
+    id: pin
+    attributes:
+      label: Pin (datafusion-bio-functions commit)
+      description: >-
+        The 40-hex `datafusion-bio-functions` commit the defect was observed at, plus a
+        SHA-pinned permalink to the suspect code where one exists.
+    validations:
+      required: true
+
+  - type: textarea
+    id: proposed-change
+    attributes:
+      label: Proposed change
+      description: >-
+        The observable requirement the fix must meet. Design choices left to the owner go to
+        *Open questions*.
+    validations:
+      required: true
+
+  - type: textarea
+    id: milestone-rationale
+    attributes:
+      label: Milestone rationale
+      description: >-
+        Which milestone and why (normally `Data-test ports III: hard data-tests`, milestone 7,
+        because the blocked data-test is `hard`). A form cannot set it; set it by hand.
+    validations:
+      required: true
+
+  - type: textarea
+    id: relations
+    attributes:
+      label: Relation to other issues
+      description: >-
+        The blocked data-test, the upstream issue, and any other open issue this overlaps,
+        depends on or must land with. Write `n/a — standalone` if there are none.
+    validations:
+      required: true
+
+  - type: textarea
+    id: acceptance
+    attributes:
+      label: Acceptance criteria
+      description: >-
+        A **numbered** list. Each criterion names the exact command in backticks with its
+        expected exit status, and has a negative control. Required criteria: (a) a command that
+        reproduces the defect before the fix; (b) the blocked data-test passing after the fix;
+        (c) the other data-tests still passing; (d) `git grep -n known_divergence` printing
+        nothing (exit 1).
+    validations:
+      required: true
+
+  - type: textarea
+    id: negative-control
+    attributes:
+      label: Negative control — how would the criteria FAIL?
+      description: >-
+        Name at least one concrete edit or state (for example, the unfixed engine pin) that
+        flips a criterion above from pass to fail, and say which criterion.
+    validations:
+      required: true
+
+  - type: textarea
+    id: out-of-scope
+    attributes:
+      label: Out of scope / explicit follow-up
+      description: >-
+        What this issue deliberately does not do, and for each carve-out the follow-up issue to
+        file (name its title) or why none is needed.
+    validations:
+      required: true
+
+  - type: textarea
+    id: open-questions
+    attributes:
+      label: Open questions
+      description: >-
+        Decisions still open, each with the alternatives and what would settle it. Leave blank if
+        none.
+    validations:
+      required: false
+
+  - type: checkboxes
+    id: scope-check
+    attributes:
+      label: Scope check
+      options:
+        - label: >-
+            This is an engine defect exposed by a data-test in this repo, tracked here on the
+            owner's decision (not a data-test port, not repo tooling).
+          required: true
+        - label: >-
+            `known_divergence` is not used to hide this defect.
+          required: true
+        - label: >-
+            The acceptance criteria above name runnable commands, and the negative control names
+            an edit or state that would flip one of them to a failure.
+          required: true
