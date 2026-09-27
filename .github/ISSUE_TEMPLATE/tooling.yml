@@ -10,9 +10,13 @@ body:
         docs infrastructure — work about *how we work*.
 
         This is **not** a data-test port (use the *Data-test* form), and **not** a bug in the
-        vepyr engine itself: an engine defect exposed by a data-test here uses the *Engine bug*
-        (`[vepyr-bug]`) form; one with no data-test here goes upstream to
+        vepyr engine itself: an engine defect exposed by a data-test here uses the *Data problem
+        report* (`[data]`) form; one with no data-test here goes upstream to
         [biodatageeks/vepyr](https://github.com/biodatageeks/vepyr/issues/new/choose).
+
+        Put the tracking block (`### Acceptance criteria` with backticked commands,
+        `blocks #N`, cause and pin lines) inside that form's *Description*; only the owner files
+        upstream, agents never do.
 
         ## What this form is for
 
@@ -193,7 +197,7 @@ body:
           required: true
         - label: >-
             This is not a bug in the vepyr engine itself (an engine defect exposed by a data-test
-            here uses the *Engine bug* `[vepyr-bug]` form; otherwise it goes upstream to
+            here uses the *Data problem report* `[data]` form; otherwise it goes upstream to
             `biodatageeks/vepyr`).
           required: true
         - label: >-
