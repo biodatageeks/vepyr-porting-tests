@@ -5,4 +5,5 @@ contact_links:
     about: >-
       Wrong, missing, or unexpected annotation output from the vepyr library itself that no
       data-test in this repository exposes. An engine defect that blocks a data-test here
-      uses the Engine bug ([vepyr-bug]) form instead.
+      uses the Data problem report ([data]) form instead, with a `### Acceptance criteria`
+      block in its Description. Only the owner files issues upstream; agents never do.

@@ -9,9 +9,13 @@ body:
         Use this form to **port or track a data-test** in this repository.
 
         This is **not** a product bug report for vepyr. An engine defect that a data-test
-        here exposes goes in the **Engine bug** (`[vepyr-bug]`) form; wrong annotation output
+        here exposes goes in the **Data problem report** (`[data]`) form; wrong annotation output
         with no data-test here goes upstream to
         [biodatageeks/vepyr](https://github.com/biodatageeks/vepyr).
+
+        Put the tracking block (`### Acceptance criteria` with backticked commands,
+        `blocks #N`, cause and pin lines) inside that form's *Description*; only the owner files
+        upstream, agents never do.
 
         A data-test is one directory `tests/data/<slug>/` holding `input.vcf`,
         `expected_output.vcf` (native VEP 116 output) and `test.toml`. Each field
