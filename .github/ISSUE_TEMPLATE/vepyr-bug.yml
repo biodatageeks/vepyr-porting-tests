@@ -13,8 +13,9 @@ body:
         Not a data-test port (use the *Data-test* form), and not repo tooling (use the
         *Tooling* or *Harness* form). A defect with no data-test here goes upstream instead:
         [biodatageeks/vepyr](https://github.com/biodatageeks/vepyr/issues/new/choose).
-        If the fix is made upstream, this issue stays open here as the tracking issue and
-        links the upstream issue in the `upstream` field.
+        If the fix is made upstream, this issue stays open here as the tracking issue; the owner
+        files the upstream issue and adds its link in the `upstream` field (agents never file
+        upstream).
 
         The oracle is native VEP 116 (`expected_output.vcf`). `known_divergence` is never used
         to hide an engine defect (it was removed by #128); the data-test stays red until the
@@ -88,8 +89,9 @@ body:
     attributes:
       label: Upstream issue and push access
       description: >-
-        Link to the upstream issue once one exists, and who has push access to the fix
-        repository (this repo does not).
+        Link to the upstream issue, added by the owner after he files it upstream, and who has
+        push access to the fix repository (this repo does not). Agents must not file, comment on
+        or push to upstream repositories; only the owner files upstream.
       placeholder: "https://github.com/biodatageeks/datafusion-bio-functions/issues/NN — push: owner only"
     validations:
       required: false
