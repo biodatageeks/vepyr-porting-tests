@@ -1,0 +1,44 @@
+# Negative fixture for tests/data_dirs.rs (issue #128): the selftest case with one
+# body character of expected_output.vcf changed (MODIFIER -> MODIFIEX on chr1:100)
+# and body_md5 recomputed, so the runner fails with `body md5 mismatch`.
+# Copied from tests/fixtures/data_dirs_selftest/case/test.toml (issue #80):
+# input.vcf was written by `tools/normalize_input` from a 3-record synthetic VCF on
+# chr1 (one multiallelic record split into two). expected_output.vcf is a
+# hand-written VEP-shaped file, not a VEP run: the `selftest` target annotates
+# against a synthetic one-shard cache with no transcripts, where every variant is
+# `intergenic_variant`. [origin] and [vep] carry placeholder values of the right
+# shape so the loader's full schema is exercised. Keep [compare] the last table:
+# the issue #80 acceptance criteria append keys to it.
+name = "case"
+description = "Synthetic fixture exercising the data_dirs loader and body-md5 compare."
+
+[origin]
+vep_test = "https://github.com/Ensembl/ensembl-vep/blob/release/116.0/t/Runner.t#L244-L292"
+vep_test_pinned = "https://github.com/Ensembl/ensembl-vep/blob/57ea5c52340acc1f156267f810ad162e26597082/t/Runner.t#L244-L292"
+vep_subject = "https://github.com/Ensembl/ensembl-vep/blob/57ea5c52340acc1f156267f810ad162e26597082/modules/Bio/EnsEMBL/VEP/Runner.pm#L396"
+issue = 80
+
+[input]
+command = "bcftools norm -m -both -o <out.vcf> <in.vcf.gz>"
+bcftools_version = "bcftools 1.23"
+
+[vep]
+image = "synthetic:not-a-vep-run"
+command = "synthetic: expected_output.vcf is hand-written for the self-test"
+date = "2026-09-24"
+cache_source = "synthetic"
+cache_checksum = "unverified"
+fasta_source = "synthetic"
+fasta_checksum = "unverified"
+
+[vepyr]
+flavour = "ensembl"
+entities = ["variation"]
+required_contigs = ["chr1"]
+everything = false
+fields = ["Allele", "Consequence", "IMPACT", "SYMBOL", "Gene", "Feature_type", "Feature", "BIOTYPE", "EXON", "INTRON", "HGVSc", "HGVSp", "cDNA_position", "CDS_position", "Protein_position", "Amino_acids", "Codons", "Existing_variation", "DISTANCE", "STRAND", "FLAGS", "SYMBOL_SOURCE", "HGNC_ID"]
+preserve_record_layout = true
+reference_fasta = false
+
+[compare]
+body_md5 = "fed12693b2f725025dbae15a9d0644be"

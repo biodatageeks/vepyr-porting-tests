@@ -24,7 +24,7 @@
 //! | `[input]` | `command` (the #85 command), `bcftools_version` |
 //! | `[vep]` | `image`, `command`, `date`, `cache_source`, `cache_checksum`, `fasta_source`, `fasta_checksum` — exactly what `./bless` writes |
 //! | `[vepyr]` | `flavour`, `entities`, `required_contigs`, `everything`, `fields`, `preserve_record_layout`, `reference_fasta`, `buffer_size?` |
-//! | `[compare]` | `body_md5`, `known_divergence?` |
+//! | `[compare]` | `body_md5` |
 //! | `[[vepyr_run]]?` | any `[vepyr]` key, overriding it for that run |
 //!
 //! `[vepyr]` is mapped by hand onto `AnnotateVcfConfig` (it has no serde):
@@ -41,8 +41,6 @@
 //! - `[<name>] unknown key: <key>` — panic while loading `test.toml`;
 //! - `[<name>] body md5 mismatch`, then `expected <md5>, got <md5>`, then the first
 //!   differing record on a line starting `VEP:` and one starting `vepyr:`;
-//! - `[<name>] known_divergence obsolete` — the bodies match although
-//!   `[compare] known_divergence` says they should not;
 //! - with `[[vepyr_run]]`, each run first prints `run <n>/<N>: <overrides>`.
 //!
 //! # Roots
@@ -171,10 +169,7 @@ const VEPYR_KEYS: &[Key] = &[
     ("buffer_size", Kind::Int, false),
 ];
 
-const COMPARE_KEYS: &[Key] = &[
-    ("body_md5", Kind::Str, true),
-    ("known_divergence", Kind::Int, false),
-];
+const COMPARE_KEYS: &[Key] = &[("body_md5", Kind::Str, true)];
 
 /// Check `table` against `keys`: unknown keys, missing required keys, wrong types.
 ///
@@ -308,7 +303,6 @@ struct TestDir {
     dir: PathBuf,
     runs: Vec<Run>,
     body_md5: String,
-    known_divergence: Option<i64>,
 }
 
 impl TestDir {
@@ -374,9 +368,6 @@ impl TestDir {
         }
         let compare = sub_table(&doc, "compare");
         let body_md5 = compare["body_md5"].as_str().expect("checked").to_owned();
-        let known_divergence = compare
-            .get("known_divergence")
-            .map(|value| value.as_integer().expect("checked"));
 
         let base = sub_table(&doc, "vepyr");
         let runs = if entries.is_empty() {
@@ -415,7 +406,6 @@ impl TestDir {
             dir: dir.to_path_buf(),
             runs,
             body_md5,
-            known_divergence,
         }
     }
 }
@@ -546,31 +536,14 @@ async fn check_dir(test: &TestDir, cache_root: CacheRoot<'_>) -> bool {
             continue;
         }
         let got = body_md5(output.as_bytes());
-        let matches = got == test.body_md5;
-        match (matches, test.known_divergence) {
-            (true, None) => {}
-            (false, None) => {
-                let (vep, vepyr) = first_difference(&oracle, output.as_bytes());
-                let mut block = format!("[{name}] body md5 mismatch\n");
-                let _ = writeln!(block, "expected {}, got {got}", test.body_md5);
-                let _ = writeln!(block, "VEP: {vep}");
-                let _ = write!(block, "vepyr: {vepyr}");
-                println!("{block}");
-                passed = false;
-            }
-            (true, Some(issue)) => {
-                println!(
-                    "[{name}] known_divergence obsolete: vepyr now matches VEP (body md5 {got}); \
-                     remove known_divergence = {issue} from [compare] and close #{issue} if it is fixed"
-                );
-                passed = false;
-            }
-            (false, Some(issue)) => {
-                println!(
-                    "[{name}] known divergence #{issue} persists: expected {}, got {got}",
-                    test.body_md5
-                );
-            }
+        if got != test.body_md5 {
+            let (vep, vepyr) = first_difference(&oracle, output.as_bytes());
+            let mut block = format!("[{name}] body md5 mismatch\n");
+            let _ = writeln!(block, "expected {}, got {got}", test.body_md5);
+            let _ = writeln!(block, "VEP: {vep}");
+            let _ = write!(block, "vepyr: {vepyr}");
+            println!("{block}");
+            passed = false;
         }
     }
     passed
