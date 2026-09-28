@@ -82,14 +82,15 @@ body:
     attributes:
       label: Milestone rationale
       description: >-
-        Say which milestone and why — including, and especially, why *none*. The repo has only
-        `1 — Skeleton` and `2 — First data-test pilot`; if neither fits, say so and say what
-        would. "Pending an owner decision, do not self-assign" is a different answer from
-        "neither milestone fits", and the difference must be legible.
+        Say which milestone and why — including, and especially, why *none*. Look at the
+        repo's current milestones first
+        (`gh api "repos/biodatageeks/vepyr-porting-tests/milestones?state=all"`); if none fits,
+        say so and say what would. "Pending an owner decision, do not self-assign" is a
+        different answer from "no milestone fits", and the difference must be legible.
       value: >-
-        No milestone: the repo has only `1 — Skeleton` and `2 — First data-test pilot`, and this
-        work belongs to neither. If a `tooling`/`infra` milestone is created later, move this
-        issue there together with the other open `[tooling]` issues.
+        No milestone: none of the repo's current milestones fits this work. If a
+        `tooling`/`infra` milestone is created later, move this issue there together with the
+        other open `[tooling]` issues.
     validations:
       required: true
 
