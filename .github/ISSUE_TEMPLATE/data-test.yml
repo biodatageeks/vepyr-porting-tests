@@ -19,8 +19,10 @@ body:
 
         A data-test is one directory `tests/data/<slug>/` holding `input.vcf`,
         `expected_output.vcf` (native VEP 116 output) and `test.toml`. Each field
-        below feeds one part of that directory; filling the form writes most of
-        `test.toml`. All fields are required.
+        below records the answer for one part of that directory or of the issue;
+        the implementer transcribes it (the form writes nothing), and `test.toml`
+        holds only the keys the loader accepts (`tests/data_dirs.rs`, README
+        *Porting method*). All fields are required.
 
   - type: input
     id: dir-name
@@ -59,14 +61,15 @@ body:
     attributes:
       label: How vepyr is called
       description: >-
-        `fields`, `everything`, `preserve_record_layout`, `reference_fasta`, flavour.
-        Feeds `[vepyr]`.
+        `fields`, `entities`, `everything`, `preserve_record_layout`, `reference_fasta`,
+        flavour. Feeds `[vepyr]`; write it as TOML, with the types the loader expects.
       placeholder: |
-        fields = "Consequence,IMPACT,SYMBOL"
+        fields = ["Consequence", "IMPACT", "SYMBOL"]
+        entities = ["transcript", "exon", "translation_core"]
         everything = false
         preserve_record_layout = true
-        reference_fasta = none
-        flavour = merged
+        reference_fasta = false
+        flavour = "merged"
     validations:
       required: true
 
@@ -79,7 +82,7 @@ body:
         ranges) this test specifically exercises. Required: if this test is a
         general/broad check not tied to particular code, state that explicitly
         (e.g. "general/broad check — no specific code target") instead of leaving
-        it blank. Feeds `[vepyr] code_refs`.
+        it blank. Recorded in the issue only: `test.toml` has no key for it.
       placeholder: |
         https://github.com/biodatageeks/vepyr/blob/<commit>/src/<file>.rs#L100-L180
         or: general/broad check — no specific code target
@@ -117,8 +120,8 @@ body:
       label: Test locus
       description: >-
         Links to the files (or cited fixtures), and which chromosome(s)/loci the
-        tested data fragment covers — what data this test is about. Feeds
-        `[input] locus`.
+        tested data fragment covers — what data this test is about. Recorded in
+        the issue only: `test.toml` has no key for it.
       placeholder: |
         chr21:25000000-26000000 (records 1-12 of the linked fixture)
     validations:
@@ -144,8 +147,9 @@ body:
       description: >-
         How compliance with `expected_output.vcf` is checked: the default (#80's
         md5-of-body comparison), or a description/link to additional checks this
-        test needs beyond the default (e.g. structural field assertions). Feeds
-        `[compare]`.
+        test needs beyond the default (e.g. structural field assertions).
+        Recorded in the issue only: `[compare]` holds just `body_md5`, written
+        by `./bless`.
       placeholder: |
         default: md5 of body (#80)
     validations:
@@ -159,7 +163,7 @@ body:
         Numbered items, each with a backticked command. This heading is required
         by the issue gate.
       placeholder: |
-        1. `cmp <(tools/normalize_input raw.vcf.gz) tests/data/<slug>/input.vcf` exits 0.
-        2. `cargo test --test data_tests -- <slug>` passes.
+        1. `./check_normalised_input` exits 0.
+        2. `DATA_DIRS_ROOT=<scratch dir holding only tests/data/<slug>/> VEPYR_CACHE_ROOT=<cache> cargo test --test data_dirs data_dirs -- --nocapture` exits 0 (there is no per-directory filter; the runner walks every directory under `DATA_DIRS_ROOT`).
     validations:
       required: true
