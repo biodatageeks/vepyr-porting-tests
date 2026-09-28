@@ -109,13 +109,13 @@ body:
       label: README exit code implicated
       description: >-
         Which documented `./run_tests` exit does the user actually see? A code that is not in
-        the README table (cargo's own `101`) or a symbolic constant with no mapped exit
-        (`MISSING_VEPYR`) is itself worth saying out loud — pick *other* and explain under
+        the README table (cargo's own `101`) or a symbolic constant with no mapped exit is
+        itself worth saying out loud — pick *other* and explain under
         *Current behaviour*.
       options:
         - "0 — ok"
         - "1 — data-tests failed"
-        - "2 — usage (missing cache or --vepyr)"
+        - "2 — usage (missing cache root or invalid flags)"
         - "3 — revision clash vs PINS.toml"
         - "4 — incomplete selection or missing cache pieces"
         - "5 — verification failure"
@@ -144,12 +144,10 @@ body:
     attributes:
       label: Target branch
       description: >-
-        Which branch the fix branches from. Not always the default branch (`master`): a batch
-        of harness issues once all targeted `harness/issue-14-15-run-tests` while PR #20 was
-        still open, and branching them from `master` would have produced a fix against code
-        that did not exist there. Say so explicitly when that is the case — replace this field
-        with the unmerged base branch (as `harness/issue-14-15-run-tests` was while PR #20 was
-        open) rather than `master`.
+        Which branch the fix branches from. Not always the default branch (`master`): when the
+        code under discussion exists only on an unmerged branch, branching from `master` would
+        produce a fix against code that is not there. Say so explicitly when that is the case
+        — replace this field with that unmerged base branch rather than `master`.
       value: "master"
     validations:
       required: true
