@@ -6,6 +6,9 @@ Modes::
     ./bless --check <test-dir>                               # cheap integrity check
     ./bless --check --reproduce CACHE-FLAG FASTA-FLAG <test-dir>   # reproduction audit
 
+The reproduction audit runs the cheap drift check first, before any docker call,
+so a tampered ``expected_output.vcf`` fails it as it fails plain ``--check``.
+
 ``CACHE-FLAG`` is exactly one of ``--vep-cache-dir``/``--download-vep-cache-to-dir``
 and ``FASTA-FLAG`` exactly one of ``--vep-fasta``/``--download-vep-fasta-to``.
 There is no default and no environment fallback for either.
@@ -92,8 +95,8 @@ def _parser() -> argparse.ArgumentParser:
     p.add_argument(
         "--reproduce",
         action="store_true",
-        help="with --check: re-run the recorded VEP image into a temp dir and "
-        "compare that "
+        help="with --check: run the drift check first, then re-run the recorded "
+        "VEP image into a temp dir and compare that "
         "fresh body md5 with the stored one (needs docker, cache and FASTA)",
     )
     p.add_argument(
@@ -175,6 +178,14 @@ def _pick(
         case None, Path() as path:
             return Source(path=path.expanduser().absolute(), download=True, flag=fetch)
     raise AssertionError("unreachable")
+
+
+def _print_check_plan(test: testdir.TestDir) -> None:
+    """Print what :func:`_check` would compare (the ``--dry-run`` form)."""
+    print(
+        f"# md5 of non-# lines of {test.oracle} vs [compare] body_md5 "
+        f"in {test.toml_path}"
+    )
 
 
 def _check(test: testdir.TestDir) -> None:
@@ -379,6 +390,11 @@ def _reproduce(
 ) -> None:
     """Re-run the recorded image and command and compare the fresh body md5.
 
+    The drift check (:func:`_check`) runs first, before the image validation and
+    any docker call, so the on-disk oracle must match ``[compare] body_md5``; the
+    fresh-vs-stored comparison then also proves fresh output == file on disk.
+    On ``dry_run`` the drift check is skipped and only described.
+
     ``extra`` is always empty (typed flags are refused under ``--check``); the
     flags come from ``[vep] extra_flags``, checked against the allowlist, and
     ``[vep] command`` must be exactly the command generated from them.
@@ -386,6 +402,10 @@ def _reproduce(
     Raises:
         BlessError: On mismatch or any failure.
     """
+    if dry_run:
+        _print_check_plan(test)
+    else:
+        _check(test)
     stored = test.stored_md5()
     image = test.table("vep").get("image")
     if not isinstance(image, str) or not image.startswith(f"{vep.IMAGE_REPO}@sha256:"):
@@ -453,10 +473,7 @@ def main(argv: list[str] | None = None) -> int:
         if cheap_check:
             test = testdir.load(args.test_dir)
             if args.dry_run:
-                print(
-                    f"# md5 of non-# lines of {test.oracle} vs [compare] body_md5 "
-                    f"in {test.toml_path}"
-                )
+                _print_check_plan(test)
                 return 0
             _check(test)
             return 0
