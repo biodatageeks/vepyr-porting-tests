@@ -898,7 +898,7 @@ fn reference_fasta_false_is_rejected() {
 
 #[test]
 #[should_panic(expected = "unsupported mode: [vepyr] everything = false")]
-fn vepyr_run_everything_false_is_rejected() {
+fn vepyr_run_override_to_old_mode_is_rejected() {
     load_fixture_edited("[vep]\n", "[[vepyr_run]]\neverything = false\n\n[vep]\n");
 }
 

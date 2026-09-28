@@ -3,10 +3,11 @@
 # chr1 (one multiallelic record split into two). expected_output.vcf is a
 # hand-written VEP-shaped file, not a VEP run: the `selftest` target annotates
 # against a synthetic one-shard cache with no transcripts, where every variant is
-# `intergenic_variant`; its CSQ layout is VEP 116's 80-field --everything one, and
-# the synthetic cache carries a synthetic reference FASTA (#143). [origin] and [vep]
-# carry placeholder values of the right shape so the loader's full schema is exercised. Keep [compare] the last table:
-# the issue #80 acceptance criteria append keys to it.
+# `intergenic_variant`; its CSQ layout is the 80-field one of VEP 116 in the
+# one data-test mode, and the synthetic cache carries a synthetic reference FASTA
+# (#143). [origin] and [vep] carry placeholder values of the right shape so the
+# loader's full schema is exercised. Keep [compare] the last table: the issue #80
+# acceptance criteria append keys to it.
 name = "case"
 description = "Synthetic fixture exercising the data_dirs loader and body-md5 compare."
 
