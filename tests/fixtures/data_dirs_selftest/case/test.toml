@@ -3,9 +3,11 @@
 # chr1 (one multiallelic record split into two). expected_output.vcf is a
 # hand-written VEP-shaped file, not a VEP run: the `selftest` target annotates
 # against a synthetic one-shard cache with no transcripts, where every variant is
-# `intergenic_variant`. [origin] and [vep] carry placeholder values of the right
-# shape so the loader's full schema is exercised. Keep [compare] the last table:
-# the issue #80 acceptance criteria append keys to it.
+# `intergenic_variant`; its CSQ layout is the 80-field one of VEP 116 in the
+# one data-test mode, and the synthetic cache carries a synthetic reference FASTA
+# (#143). [origin] and [vep] carry placeholder values of the right shape so the
+# loader's full schema is exercised. Keep [compare] the last table: the issue #80
+# acceptance criteria append keys to it.
 name = "case"
 description = "Synthetic fixture exercising the data_dirs loader and body-md5 compare."
 
@@ -21,7 +23,7 @@ bcftools_version = "bcftools 1.23"
 
 [vep]
 image = "synthetic:not-a-vep-run"
-command = "synthetic: expected_output.vcf is hand-written for the self-test"
+command = "synthetic: expected_output.vcf is hand-written for the self-test --everything --fasta --vcf"
 date = "2026-09-24"
 cache_source = "synthetic"
 cache_checksum = "unverified"
@@ -32,10 +34,9 @@ fasta_checksum = "unverified"
 flavour = "ensembl"
 entities = ["variation"]
 required_contigs = ["chr1"]
-everything = false
-fields = ["Allele", "Consequence", "IMPACT", "SYMBOL", "Gene", "Feature_type", "Feature", "BIOTYPE", "EXON", "INTRON", "HGVSc", "HGVSp", "cDNA_position", "CDS_position", "Protein_position", "Amino_acids", "Codons", "Existing_variation", "DISTANCE", "STRAND", "FLAGS", "SYMBOL_SOURCE", "HGNC_ID"]
+everything = true
 preserve_record_layout = true
-reference_fasta = false
+reference_fasta = true
 
 [compare]
-body_md5 = "3d928314a046f94afd6d46b00318c1fb"
+body_md5 = "4808b70c64d5f76a2411ae1b193da419"

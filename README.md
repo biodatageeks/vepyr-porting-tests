@@ -118,9 +118,13 @@ the flags listed in `[vep] extra_flags`:
 
 ```
 vep --offline --cache --dir_cache <CACHE> --species homo_sapiens --cache_version 116 \
-    --assembly GRCh38 --fasta <FASTA> --vcf --input_file input.vcf \
+    --assembly GRCh38 --fasta <FASTA> --everything --vcf --input_file input.vcf \
     --output_file expected_output.vcf --force_overwrite
 ```
+
+That is the one data-test mode, `--everything`; see
+[One mode: --everything](#one-mode---everything). A bless and `--check --reproduce`
+exit 1 with `unsupported mode` when `[vepyr]` does not match it.
 
 Three modes:
 
@@ -259,6 +263,41 @@ Exit codes: `0` success (for `--check`, the hash matches), `1` any failure, alwa
 with one `bless: ...` line on stderr naming the problem, `2` usage (unknown flag,
 no `<test-dir>`).
 
+## One mode: --everything
+
+Every data-test runs in exactly one mode: VEP with `--everything` and a reference
+FASTA on one side, vepyr with the matching `[vepyr]` values on the other. That is
+the configuration the [vepyr CLI docs](https://biodatageeks.org/vepyr/cli/)
+describe as validated against Ensembl VEP. A run without `--everything` is
+unsupported and disabled: `./bless` refuses it, and the Rust loader panics with
+`[<name>] unsupported mode` on a `[vepyr]` (or `[[vepyr_run]]`) value that differs
+from the table below, or on a `[vep] command` that lacks one of its VEP flags (an
+oracle made by the old command).
+
+The mapping has one source of truth, `tools/vep_flags.toml`, read by `./bless`
+(`tools/bless/vep.py`) and by `tests/data_dirs.rs`.
+`uv run --frozen pytest tools/test_bless.py -k everything_mode` fails when that
+file, `VEP_ARGV` and this table disagree.
+
+| VEP flag | `[vepyr]` in `test.toml` | Why |
+|---|---|---|
+| `--everything` | `everything = true` | all annotation features, the full `--everything` CSQ layout |
+| `--fasta` | `reference_fasta = true` | reference FASTA, required by `--everything`; vepyr reads `$VEPYR_CACHE_ROOT`'s GRCh38 FASTA |
+| `--vcf` | `preserve_record_layout = true` | VCF output: VEP copies each input line and only appends CSQ to INFO |
+
+`[vepyr]` has no `fields` key: vepyr emits its full `--everything` CSQ layout (80
+fields in VEP 116, regulatory and motif fields included), as VEP does, and the
+loader rejects `fields` as an unknown key. The other VEP flags of the fixed command
+(`--offline`, `--cache`, `--dir_cache`, `--species`, `--cache_version`,
+`--assembly`, input/output names) select the cache and files, not annotation, and
+have no `[vepyr]` counterpart; `flavour`, `entities` and `required_contigs` pick
+vepyr's cache.
+
+Extra flags stay as described under [./bless](#bless): the allowlist
+`ALLOWED_VEP_FLAGS` keeps `--check_existing` (#18), and `[vep] extra_flags` (#108)
+remains the mechanism that records them. Neither is part of the vepyr CLI docs;
+they are appended to the `--everything` command, never replace it.
+
 ## tests/common (cache + assertion helpers)
 
 Fetch a cache, then point `$VEPYR_CACHE_ROOT` at the same directory (or pass
@@ -368,10 +407,9 @@ cache_source = "..."  cache_checksum = "..."  fasta_source = "..."  fasta_checks
 flavour                = "ensembl"             # picks the cache directory, never a config flag
 entities               = ["transcript", "exon", "translation_core"]
 required_contigs       = ["chr21"]
-everything             = false
-fields                 = ["Allele", "..."]     # VEP's 23 default CSQ fields
+everything             = true              # the one mode: see "One mode: --everything"
 preserve_record_layout = true
-reference_fasta        = false                 # true: $VEPYR_CACHE_ROOT's GRCh38 FASTA
+reference_fasta        = true              # $VEPYR_CACHE_ROOT's GRCh38 FASTA
 buffer_size            = 5000                  # ?
 [compare]
 body_md5 = "..."                               # written by ./bless
@@ -395,13 +433,14 @@ buffer_size = 1
 4. A mismatch always fails the test; an engine bug that causes it is tracked by
    an issue in `biodatageeks/vepyr`, and the test stays red until it is fixed.
 
-`preserve_record_layout = true` and an explicit 23-field `fields` list are needed
-for byte parity: the engine's defaults are `false` and a 74-field CSQ layout.
+`everything`, `preserve_record_layout` and `reference_fasta` must hold the values
+of [One mode: --everything](#one-mode---everything); there is no `fields` key, so
+vepyr emits its full `--everything` CSQ layout, the 80 fields VEP writes.
 
 `DATA_DIRS_ROOT` overrides the walked directory. `cargo test --test data_dirs
 selftest` runs the same loader and compare on the synthetic fixture
-`tests/fixtures/data_dirs_selftest/` against a synthetic one-shard cache, with no
-downloaded data.
+`tests/fixtures/data_dirs_selftest/` against a synthetic one-shard cache with a
+synthetic one-contig reference FASTA, with no downloaded data.
 
 Corpus dataset pins (`PINS.toml`) are documented in
 [docs/dataset-pins.md](docs/dataset-pins.md).

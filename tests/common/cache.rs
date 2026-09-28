@@ -135,7 +135,7 @@ impl FullCache {
 
 const ENV: &str = "VEPYR_CACHE_ROOT";
 const PROVENANCE: &str = "PROVENANCE.json";
-const FASTA: &str = "fasta/Homo_sapiens.GRCh38.dna.primary_assembly.fa";
+pub const FASTA: &str = "fasta/Homo_sapiens.GRCh38.dna.primary_assembly.fa";
 
 /// `$VEPYR_CACHE_ROOT`, or panic 1.
 #[track_caller]
