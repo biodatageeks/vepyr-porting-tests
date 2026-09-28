@@ -806,3 +806,39 @@ def test_explicit_vepyr_ref_is_not_marked_default(
     assert "vepyr            : 0.7.0" in result.summary
     assert f"vepyr sha        : {pinned}" in result.summary
     assert summary_mod.DEFAULT_MARK not in result.summary
+
+
+class _UnresolvableGh(_FakeGh):
+    """A GhApi on which no vepyr ref resolves: every call raises GhError."""
+
+    def get(self, path: str) -> object:
+        raise engine.GhError(path, "No commit found for SHA: no-such-ref")
+
+
+def test_unresolvable_vepyr_ref_exits_6(
+    harness: Harness, monkeypatch: pytest.MonkeyPatch, tmp_path: Path
+) -> None:
+    """F34: an unresolvable ``--vepyr REF`` exits 6 with the engine error line."""
+    assert harness.run(
+        "--cache-dir",
+        str(harness.root),
+        "--add-contigs",
+        "chr21",
+        "--flavours",
+        "ensembl",
+    ).code == int(Exit.OK)
+    _add_data_dir(harness.repo, "pilot")
+    _stub_engine(tmp_path / "src", monkeypatch)
+
+    result = harness.run(
+        "--cache-dir",
+        str(harness.root),
+        "--flavours",
+        "ensembl",
+        "--vepyr",
+        "no-such-ref",
+        gh_api=_UnresolvableGh(_tiny_ladder_toml()),
+    )
+    assert result.code == int(Exit.ENGINE), result.stderr
+    assert "run_tests: error (engine, exit 6):" in result.stderr
+    assert "--vepyr no-such-ref: cannot resolve on" in result.stderr

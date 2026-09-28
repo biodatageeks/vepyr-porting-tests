@@ -569,6 +569,103 @@ def test_reproduce_catches_drift(
     assert calls == []
 
 
+def _override_vep_run(
+    monkeypatch: pytest.MonkeyPatch, returncode: int, body: str | None
+) -> None:
+    """Replace the fake container's run: exit ``returncode``, write ``body`` if given.
+
+    Call after :func:`_fake_vep_container`, whose docker and mount fakes stay.
+    """
+
+    def fake_run(argv: list[str], **_kw: object) -> subprocess.CompletedProcess[str]:
+        if body is not None:
+            work = next(
+                Path(v.removesuffix(f":{vep.WORK_MOUNT}"))
+                for v in argv
+                if v.endswith(f":{vep.WORK_MOUNT}")
+            )
+            (work / testdir.ORACLE_NAME).write_text("##VEP=v116\n#CHROM\n" + body)
+        return subprocess.CompletedProcess(argv, returncode, "", "")
+
+    monkeypatch.setattr(vep.subprocess, "run", fake_run)
+
+
+def _reproduce_failure(
+    returncode: int,
+    body: str | None,
+    complete_cache: Path,
+    fasta: Path,
+    test_dir: Path,
+    tmp_path: Path,
+    capsys: pytest.CaptureFixture[str],
+    monkeypatch: pytest.MonkeyPatch,
+) -> str:
+    """Run ``--check --reproduce`` against a faulty fake container; return stderr.
+
+    The committed oracle is untouched, so the drift check passes first and the
+    failure comes from the reproduce step itself. Asserts exit code 1.
+    """
+    _set_vep(test_dir, vep.vep_command(()))
+    calls: list[list[str]] = []
+    _fake_vep_container(monkeypatch, calls)
+    _override_vep_run(monkeypatch, returncode, body)
+    code, _, err = run(
+        [
+            "--check",
+            "--reproduce",
+            *_bless_argv(test_dir, complete_cache, fasta, tmp_path),
+        ],
+        capsys,
+    )
+    assert code == 1, err
+    return err
+
+
+def test_reproduce_fails_on_md5_mismatch(
+    complete_cache: Path,
+    fasta: Path,
+    test_dir: Path,
+    tmp_path: Path,
+    capsys: pytest.CaptureFixture[str],
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    """A fresh body whose md5 differs from [compare] body_md5 exits 1."""
+    err = _reproduce_failure(
+        0, BODY + "x", complete_cache, fasta, test_dir, tmp_path, capsys, monkeypatch
+    )
+    assert "reproduction failed" in err
+
+
+def test_reproduce_fails_on_vep_nonzero_exit(
+    complete_cache: Path,
+    fasta: Path,
+    test_dir: Path,
+    tmp_path: Path,
+    capsys: pytest.CaptureFixture[str],
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    """A VEP container exiting non-zero fails the reproduce with its exit code."""
+    err = _reproduce_failure(
+        3, BODY, complete_cache, fasta, test_dir, tmp_path, capsys, monkeypatch
+    )
+    assert "exited with 3" in err
+
+
+def test_reproduce_fails_on_missing_output(
+    complete_cache: Path,
+    fasta: Path,
+    test_dir: Path,
+    tmp_path: Path,
+    capsys: pytest.CaptureFixture[str],
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    """A VEP container exiting 0 without writing the oracle fails the reproduce."""
+    err = _reproduce_failure(
+        0, None, complete_cache, fasta, test_dir, tmp_path, capsys, monkeypatch
+    )
+    assert "wrote no expected_output.vcf" in err
+
+
 def test_reproduce_refuses_tampered_command(
     complete_cache: Path,
     fasta: Path,
