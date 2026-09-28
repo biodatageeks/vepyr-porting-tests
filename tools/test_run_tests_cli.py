@@ -819,17 +819,14 @@ def test_unresolvable_vepyr_ref_exits_6(
     harness: Harness, monkeypatch: pytest.MonkeyPatch, tmp_path: Path
 ) -> None:
     """F34: an unresolvable ``--vepyr REF`` exits 6 with the engine error line."""
-    assert (
-        harness.run(
-            "--cache-dir",
-            str(harness.root),
-            "--add-contigs",
-            "chr21",
-            "--flavours",
-            "ensembl",
-        ).code
-        == int(Exit.OK)
-    )
+    assert harness.run(
+        "--cache-dir",
+        str(harness.root),
+        "--add-contigs",
+        "chr21",
+        "--flavours",
+        "ensembl",
+    ).code == int(Exit.OK)
     _add_data_dir(harness.repo, "pilot")
     _stub_engine(tmp_path / "src", monkeypatch)
 
