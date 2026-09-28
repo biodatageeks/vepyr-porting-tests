@@ -327,6 +327,7 @@ def _bless(
         BlessError: On any failure; the directory is then left unchanged.
     """
     where = str(test.toml_path)
+    vep.require_vepyr_mode(test.config, where=where)
     listed = vep.recorded_flags(test.table("vep"), where=where)
     if extra and listed and extra != listed:
         raise BlessError(
@@ -414,6 +415,7 @@ def _reproduce(
             f"({vep.IMAGE_REPO}@sha256:...); bless the directory first"
         )
     where = str(test.toml_path)
+    vep.require_vepyr_mode(test.config, where=where)
     recorded = vep.recorded_flags(test.table("vep"), where=where)
     vep.require_command(test.table("vep").get("command"), recorded, where=where)
     run = _run_vep(

@@ -5,6 +5,11 @@ container every path is fixed — cache at :data:`CACHE_MOUNT`, FASTA at
 :data:`FASTA_MOUNT`, input and output in the working directory — so the
 recorded ``[vep] command`` is the same string on every host. Extra flags are
 recorded as data in ``[vep] extra_flags``; the command is generated from them.
+
+There is one data-test mode, VEP ``--everything`` (#143): :data:`MAPPING_FILE`
+pairs each flag of the fixed command with the ``[vepyr]`` value of
+``test.toml`` that reproduces it in vepyr, and :func:`require_vepyr_mode`
+refuses a ``test.toml`` that disagrees.
 """
 
 from __future__ import annotations
@@ -13,6 +18,7 @@ import os
 import shlex
 import shutil
 import subprocess
+import tomllib
 from collections.abc import Mapping
 from dataclasses import dataclass
 from pathlib import Path
@@ -38,6 +44,7 @@ VEP_ARGV: Final[tuple[str, ...]] = (
     "--cache_version", "116",
     "--assembly", "GRCh38",
     "--fasta", FASTA_MOUNT,
+    "--everything",
     "--vcf",
     "--input_file", INPUT_NAME,
     "--output_file", ORACLE_NAME,
@@ -46,6 +53,98 @@ VEP_ARGV: Final[tuple[str, ...]] = (
 
 VEP_COMMAND: Final[str] = shlex.join(VEP_ARGV)
 """What ``[vep] command`` records when no extra flag is given."""
+
+MAPPING_FILE: Final[Path] = Path(__file__).resolve().parents[1] / "vep_flags.toml"
+"""``tools/vep_flags.toml``: the VEP flag -> ``[vepyr]`` mapping (#143), also
+read by ``tests/data_dirs.rs``."""
+
+
+@dataclass(frozen=True, slots=True, kw_only=True)
+class ModeRow:
+    """One ``[[mapping]]`` row of :data:`MAPPING_FILE`.
+
+    Attributes:
+        vep_flag: A flag of :data:`VEP_ARGV`.
+        vepyr_key: The ``[vepyr]`` key of ``test.toml`` it maps onto.
+        vepyr_value: The value that key must hold.
+        note: Why the two correspond (shown in the README table).
+    """
+
+    vep_flag: str
+    vepyr_key: str
+    vepyr_value: bool
+    note: str
+
+
+def mode_mapping(path: Path = MAPPING_FILE) -> tuple[ModeRow, ...]:
+    """Read the VEP flag -> ``[vepyr]`` mapping.
+
+    Args:
+        path: The mapping file (default :data:`MAPPING_FILE`).
+
+    Returns:
+        The rows in file order.
+
+    Raises:
+        BlessError: If the file is unreadable, empty or a row is malformed.
+    """
+    try:
+        rows = tomllib.loads(path.read_text(encoding="utf-8")).get("mapping")
+    except (OSError, tomllib.TOMLDecodeError) as exc:
+        raise BlessError(f"cannot read the mode mapping {path}: {exc}") from exc
+    if not isinstance(rows, list) or not rows:
+        raise BlessError(f"{path}: [[mapping]] must list at least one row")
+    parsed: list[ModeRow] = []
+    for row in rows:
+        match row:
+            case {
+                "vep_flag": str(flag),
+                "vepyr_key": str(key),
+                "vepyr_value": bool(value),
+                "note": str(note),
+            } if len(row) == 4:
+                parsed.append(
+                    ModeRow(vep_flag=flag, vepyr_key=key, vepyr_value=value, note=note)
+                )
+            case _:
+                raise BlessError(f"{path}: malformed [[mapping]] row {row!r}")
+    return tuple(parsed)
+
+
+def require_vepyr_mode(config: Mapping[str, object], *, where: str) -> None:
+    """Require ``test.toml`` to be in the one data-test mode (``--everything``).
+
+    Every ``[vepyr]`` value named by :func:`mode_mapping` must hold, in
+    ``[vepyr]`` and in each ``[[vepyr_run]]`` that overrides it.
+
+    Args:
+        config: The parsed ``test.toml``.
+        where: File named in error messages.
+
+    Raises:
+        BlessError: On a missing ``[vepyr]`` table or a value that differs.
+    """
+    match config.get("vepyr"):
+        case dict() as base:
+            pass
+        case _:
+            raise BlessError(f"{where}: [vepyr] is missing")
+    match config.get("vepyr_run", []):
+        case list() as runs:
+            overrides = [run for run in runs if isinstance(run, dict)]
+        case _:
+            overrides = []
+    for row in mode_mapping():
+        for table in (base, *overrides):
+            found = table.get(row.vepyr_key, base.get(row.vepyr_key))
+            if found is not row.vepyr_value:
+                raise BlessError(
+                    f"{where}: unsupported mode: [vepyr] {row.vepyr_key} = "
+                    f"{found!r}; the only data-test mode is VEP --everything, where "
+                    f"VEP {row.vep_flag} maps to {row.vepyr_key} = "
+                    f"{str(row.vepyr_value).lower()} ({MAPPING_FILE.name})"
+                )
+
 
 ALLOWED_VEP_FLAGS: Final[tuple[str, ...]] = (
     "--check_existing",  # needed by #18

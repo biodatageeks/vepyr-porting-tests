@@ -20,6 +20,10 @@ INPUT_TABLE: Final[str] = (
     '[input]\ncommand = "bcftools norm -m -both -o <out.vcf> <in.vcf.gz>"\n'
     'bcftools_version = "bcftools 1.23"\n'
 )
+VEPYR_TABLE: Final[str] = (
+    "[vepyr]\neverything = true\nreference_fasta = true\n"
+    "preserve_record_layout = true\n"
+)
 BODY: Final[str] = "21\t100\t.\tC\tT\t.\t.\tCSQ=T|x\n"
 
 
@@ -34,7 +38,7 @@ def test_dir(tmp_path: Path) -> Path:
     (d / "expected_output.vcf").write_text("##VEP=v116\n#CHROM\n" + BODY)
     md5 = hashlib.md5(BODY.encode()).hexdigest()
     (d / "test.toml").write_text(
-        f'name = "case"\n\n{INPUT_TABLE}\n[vep]\n# kept\n\n'
+        f'name = "case"\n\n{INPUT_TABLE}\n{VEPYR_TABLE}\n[vep]\n# kept\n\n'
         f'[compare]\nbody_md5 = "{md5}"\n'
     )
     return d
@@ -730,3 +734,115 @@ def test_vep_flag_rejections(capsys: pytest.CaptureFixture[str]) -> None:
         )
     with pytest.raises(BlessError, match="given twice"):
         vep.parse_extra(["--check_existing", "--check_existing"])
+
+
+# --- One mode: --everything (#143) ----------------------------------------------
+
+README_SECTION: Final[str] = "## One mode: --everything"
+README_ROW: Final[re.Pattern[str]] = re.compile(
+    r"^\| `(?P<flag>--[a-z_]+)` \| `(?P<key>[a-z_]+) = (?P<value>true|false)` \|"
+)
+
+
+def _readme_mapping_rows() -> set[tuple[str, str, bool]]:
+    """The ``(VEP flag, [vepyr] key, value)`` rows of the README mapping table."""
+    text = (REPO / "README.md").read_text(encoding="utf-8")
+    assert text.count(f"\n{README_SECTION}\n") == 1, "README lacks the section"
+    section = text.split(f"\n{README_SECTION}\n", 1)[1].split("\n## ", 1)[0]
+    return {
+        (m["flag"], m["key"], m["value"] == "true")
+        for line in section.splitlines()
+        if (m := README_ROW.match(line))
+    }
+
+
+def test_everything_mode_mapping_agrees_with_argv_and_readme() -> None:
+    """tools/vep_flags.toml, VEP_ARGV and the README table state the same mapping."""
+    rows = vep.mode_mapping()
+    flags = [row.vep_flag for row in rows]
+    assert "--everything" in flags and "--fasta" in flags
+    assert len(set(flags)) == len(flags), "a VEP flag is mapped twice"
+    for row in rows:
+        assert row.vep_flag in vep.VEP_ARGV, f"{row.vep_flag} is not in VEP_ARGV"
+        assert row.vep_flag in shlex.split(vep.VEP_COMMAND)
+    assert _readme_mapping_rows() == {
+        (row.vep_flag, row.vepyr_key, row.vepyr_value) for row in rows
+    }
+
+
+def test_everything_mode_mapping_keys_are_loader_keys() -> None:
+    """Every mapped [vepyr] key is a boolean key of the Rust loader's schema."""
+    source = (REPO / "tests" / "data_dirs.rs").read_text(encoding="utf-8")
+    for row in vep.mode_mapping():
+        assert f'("{row.vepyr_key}", Kind::Bool, true)' in source, row.vepyr_key
+    assert '("fields",' not in source, "[vepyr] fields must not be a loader key"
+
+
+def test_everything_mode_malformed_mapping_is_refused(tmp_path: Path) -> None:
+    """An empty mapping or a row missing a key is a BlessError, not a silent pass."""
+    empty = tmp_path / "empty.toml"
+    empty.write_text("")
+    with pytest.raises(BlessError, match="at least one row"):
+        vep.mode_mapping(empty)
+    partial = tmp_path / "partial.toml"
+    partial.write_text('[[mapping]]\nvep_flag = "--everything"\n')
+    with pytest.raises(BlessError, match="malformed"):
+        vep.mode_mapping(partial)
+
+
+@pytest.mark.parametrize(
+    ("edit", "named"),
+    [
+        (("everything = true", "everything = false"), "everything = False"),
+        (("reference_fasta = true", "reference_fasta = false"), "reference_fasta"),
+        (("[vep]\n", "[[vepyr_run]]\neverything = false\n\n[vep]\n"), "everything"),
+        ((VEPYR_TABLE, ""), "[vepyr] is missing"),
+    ],
+)
+def test_everything_mode_bless_refuses_other_modes(
+    edit: tuple[str, str],
+    named: str,
+    complete_cache: Path,
+    fasta: Path,
+    test_dir: Path,
+    tmp_path: Path,
+    capsys: pytest.CaptureFixture[str],
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    """A bless of a test.toml outside the one mode exits 1 before running VEP."""
+    calls: list[list[str]] = []
+    _fake_vep_container(monkeypatch, calls)
+    toml = test_dir / "test.toml"
+    before = toml.read_text()
+    assert edit[0] in before
+    toml.write_text(before.replace(edit[0], edit[1], 1))
+    code, _, err = run(_bless_argv(test_dir, complete_cache, fasta, tmp_path), capsys)
+    assert code == 1
+    assert named in err
+    assert calls == [], "VEP ran for an unsupported mode"
+
+
+def test_everything_mode_reproduce_refuses_old_command(
+    complete_cache: Path,
+    fasta: Path,
+    test_dir: Path,
+    tmp_path: Path,
+    capsys: pytest.CaptureFixture[str],
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    """--check --reproduce refuses a [vep] command made without --everything."""
+    calls: list[list[str]] = []
+    _fake_vep_container(monkeypatch, calls)
+    old = shlex.join(arg for arg in vep.VEP_ARGV if arg != "--everything")
+    _set_vep(test_dir, old)
+    code, _, err = run(
+        [
+            "--check",
+            "--reproduce",
+            *_bless_argv(test_dir, complete_cache, fasta, tmp_path),
+        ],
+        capsys,
+    )
+    assert code == 1
+    assert "not the canonical command" in err
+    assert calls == []
