@@ -793,7 +793,7 @@ def test_everything_mode_malformed_mapping_is_refused(tmp_path: Path) -> None:
 @pytest.mark.parametrize(
     ("edit", "named"),
     [
-        (("everything = true", "everything = false"), "everything = False"),
+        (("everything = true", "everything = false"), "everything = false"),
         (("reference_fasta = true", "reference_fasta = false"), "reference_fasta"),
         (("[vep]\n", "[[vepyr_run]]\neverything = false\n\n[vep]\n"), "everything"),
         ((VEPYR_TABLE, ""), "[vepyr] is missing"),

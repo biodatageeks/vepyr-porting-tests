@@ -138,9 +138,10 @@ def require_vepyr_mode(config: Mapping[str, object], *, where: str) -> None:
         for table in (base, *overrides):
             found = table.get(row.vepyr_key, base.get(row.vepyr_key))
             if found is not row.vepyr_value:
+                shown = str(found).lower() if isinstance(found, bool) else repr(found)
                 raise BlessError(
                     f"{where}: unsupported mode: [vepyr] {row.vepyr_key} = "
-                    f"{found!r}; the only data-test mode is VEP --everything, where "
+                    f"{shown}; the only data-test mode is VEP --everything, where "
                     f"VEP {row.vep_flag} maps to {row.vepyr_key} = "
                     f"{str(row.vepyr_value).lower()} ({MAPPING_FILE.name})"
                 )
