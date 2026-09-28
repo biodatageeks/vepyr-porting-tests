@@ -68,7 +68,7 @@ body:
         everything = true
         preserve_record_layout = true
         reference_fasta = true
-        flavour = "merged"
+        flavour = "ensembl"
     validations:
       required: true
 
@@ -133,7 +133,7 @@ body:
       description: >-
         How VEP is run to produce the oracle: the procedure, or a link to where it
         is documented (e.g. "default `./bless` procedure, see #32"; state any
-        non-default flags such as `--check_existing`). Feeds `[vep]`.
+        extra flags, limited to `ALLOWED_VEP_FLAGS` in `tools/bless/vep.py`). Feeds `[vep]`.
       placeholder: |
         default ./bless procedure, see #32; extra flags: none
     validations:
