@@ -2,7 +2,7 @@
 
 Cache fetch uses :attr:`Exit.REVISION`, :attr:`Exit.INCOMPLETE` and
 :attr:`Exit.VERIFY`; data-test runs use :attr:`Exit.TESTS_FAILED`; engine
-resolve/checkout uses :attr:`Exit.ENGINE`. :attr:`Exit.TOOLCHAIN` stays reserved.
+resolve/checkout uses :attr:`Exit.ENGINE`.
 """
 
 from __future__ import annotations
@@ -22,7 +22,6 @@ class Exit(IntEnum):
     INCOMPLETE = 4
     VERIFY = 5
     ENGINE = 6
-    TOOLCHAIN = 7
 
 
 class RunTestsError(Exception):
