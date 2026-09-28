@@ -145,7 +145,6 @@ COLUMNS: Final[tuple[tuple[str, Extractor], ...]] = (
     ("required_contigs", _contigs),
     ("vepyr_runs", _runs),
     ("body_md5", _str("compare", "body_md5")),
-    ("known_divergence", _int("compare", "known_divergence")),
 )
 """Column name and extractor, in output order (issue #92)."""
 

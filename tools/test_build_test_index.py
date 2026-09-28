@@ -24,7 +24,7 @@ FIXTURES: Final[Path] = TOOLS / "fixtures" / "build_test_index"
 REPO: Final[Path] = TOOLS.parent
 HEADER: Final[str] = (
     "name,description,vep_test_pinned,vep_subject,ledger,issue,"
-    "required_contigs,vepyr_runs,body_md5,known_divergence\n"
+    "required_contigs,vepyr_runs,body_md5\n"
 )
 
 
@@ -65,18 +65,13 @@ def test_fixture_rows_and_format(root: Path, tmp_path: Path) -> None:
     assert [r["name"] for r in rows] == ["alpha_full", "beta_minimal"]
     alpha, beta = rows
     assert alpha["description"] == 'Synthetic test, with a comma and a "quoted" word.'
-    assert (alpha["issue"], alpha["known_divergence"], alpha["vepyr_runs"]) == (
-        "1001",
-        "1002",
-        "2",
-    )
+    assert (alpha["issue"], alpha["vepyr_runs"]) == ("1001", "2")
     assert alpha["required_contigs"] == "chr21;chr22"
     assert (
         beta["ledger"],
         beta["issue"],
-        beta["known_divergence"],
         beta["vepyr_runs"],
-    ) == ("", "", "", "0")
+    ) == ("", "", "0")
 
 
 def test_rows_sorted_by_directory_name(root: Path, tmp_path: Path) -> None:

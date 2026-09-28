@@ -14,7 +14,6 @@ required_contigs = ["chr21", "chr22"]
 
 [compare]
 body_md5 = "0123456789abcdef0123456789abcdef"
-known_divergence = 1002
 
 [[vepyr_run]]
 buffer_size = 1
