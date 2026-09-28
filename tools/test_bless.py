@@ -540,6 +540,35 @@ def test_reproduce_reads_extra_flags_list(
     assert _vep_part(calls[-1]) == [*vep.VEP_ARGV, "--check_existing"]
 
 
+def test_reproduce_catches_drift(
+    complete_cache: Path,
+    fasta: Path,
+    test_dir: Path,
+    tmp_path: Path,
+    capsys: pytest.CaptureFixture[str],
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    """--check --reproduce runs the drift check first, before any docker call."""
+    _set_vep(test_dir, vep.vep_command(()))
+    calls: list[list[str]] = []
+    _fake_vep_container(monkeypatch, calls)
+    argv = [
+        "--check",
+        "--reproduce",
+        *_bless_argv(test_dir, complete_cache, fasta, tmp_path),
+    ]
+    code, _, err = run(argv, capsys)
+    assert code == 0, err
+    assert len(calls) == 1
+    calls.clear()
+    with (test_dir / testdir.ORACLE_NAME).open("a") as oracle:
+        oracle.write("x")
+    code, _, err = run(argv, capsys)
+    assert code == 1
+    assert "drifted" in err
+    assert calls == []
+
+
 def test_reproduce_refuses_tampered_command(
     complete_cache: Path,
     fasta: Path,

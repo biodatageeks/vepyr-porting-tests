@@ -128,12 +128,13 @@ Three modes:
 |---------|-------|------|
 | `./bless CACHE FASTA <dir>` | Docker, cache, FASTA | Runs VEP, writes `expected_output.vcf`, fills `[vep]` and `[compare] body_md5` in `test.toml` |
 | `./bless --check <dir>` | only the repo | Recomputes the md5 of the body (lines not starting with `#`) of `expected_output.vcf` on disk and compares it with `[compare] body_md5`. No Docker, no cache, changes nothing |
-| `./bless --check --reproduce CACHE FASTA <dir>` | Docker, cache, FASTA | Re-runs the image recorded in `[vep] image` with the fixed command plus `[vep] extra_flags` into a temp directory and compares that fresh body md5 with `[compare] body_md5`. Changes nothing |
+| `./bless --check --reproduce CACHE FASTA <dir>` | Docker, cache, FASTA | First runs the drift check of `--check` (stops with exit 1 before any Docker call if the file drifted), then re-runs the image recorded in `[vep] image` with the fixed command plus `[vep] extra_flags` into a temp directory and compares that fresh body md5 with `[compare] body_md5`. Changes nothing |
 
 `--check` is the cheap integrity check anyone can run when reviewing a PR: it
 catches an oracle that was hand-edited or corrupted after it was blessed.
-`--check --reproduce` is the expensive audit: it proves the file is still derivable
-from the pinned image, cache and input, not just unedited. It is opt-in.
+`--check --reproduce` is the expensive audit: it runs the same drift check first,
+before any Docker call, and then proves the file is still derivable from the
+pinned image, cache and input, not just unedited. It is opt-in.
 
 **Extra VEP flags.** The extra flags of a test are data: the list `[vep] extra_flags`
 in `test.toml` (absent means none). `--vep-flag=FLAG` (repeatable) fills it at the
