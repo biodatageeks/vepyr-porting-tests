@@ -23,16 +23,23 @@
 //! | `[origin]` | `vep_test`, `vep_test_pinned`, `vep_subject`, `ledger?`, `issue?` |
 //! | `[input]` | `command` (the #85 command), `bcftools_version` |
 //! | `[vep]` | `image`, `command`, `date`, `cache_source`, `cache_checksum`, `fasta_source`, `fasta_checksum` — exactly what `./bless` writes |
-//! | `[vepyr]` | `flavour`, `entities`, `required_contigs`, `everything`, `fields`, `preserve_record_layout`, `reference_fasta`, `buffer_size?` |
+//! | `[vepyr]` | `flavour`, `entities`, `required_contigs`, `everything`, `preserve_record_layout`, `reference_fasta`, `buffer_size?` |
 //! | `[compare]` | `body_md5` |
 //! | `[[vepyr_run]]?` | any `[vepyr]` key, overriding it for that run |
 //!
 //! `[vepyr]` is mapped by hand onto `AnnotateVcfConfig` (it has no serde):
-//! `everything`, `fields`, `preserve_record_layout` and `buffer_size` are config
-//! fields; `reference_fasta = true` sets `reference_fasta_path` to
-//! `cache::reference_fasta()`. `flavour` picks the cache directory
-//! (`116_GRCh38_<flavour>`), never a config flag; `entities` and `required_contigs`
-//! go to `cache::requires_shards`.
+//! `everything`, `preserve_record_layout` and `buffer_size` are config fields;
+//! `fields` stays `None` (the full `--everything` CSQ layout); `reference_fasta = true`
+//! sets `reference_fasta_path` to `cache::reference_fasta()`. `flavour` picks the
+//! cache directory (`116_GRCh38_<flavour>`), never a config flag; `entities` and
+//! `required_contigs` go to `cache::requires_shards`.
+//!
+//! # One mode: `--everything` (#143)
+//!
+//! `tools/vep_flags.toml` maps each flag of the fixed VEP command onto the `[vepyr]`
+//! value that reproduces it. The loader panics with `[<name>] unsupported mode` when
+//! a run's `[vepyr]` value differs from it (e.g. `everything = false`) or when
+//! `[vep] command` lacks one of its VEP flags (an oracle made by the old command).
 //!
 //! # Failure messages (a fixed contract — other issues' ACs grep them)
 //!
@@ -75,6 +82,9 @@ const NORMALIZE_COMMAND: &str = "bcftools norm -m -both -o <out.vcf> <in.vcf.gz>
 const INPUT_NAME: &str = "input.vcf";
 const ORACLE_NAME: &str = "expected_output.vcf";
 const TOML_NAME: &str = "test.toml";
+/// The VEP flag -> `[vepyr]` mapping of the one data-test mode (#143), shared with
+/// `tools/bless`.
+const MODE_MAPPING: &str = include_str!("../tools/vep_flags.toml");
 
 // ---------------------------------------------------------------------------------
 // Schema
@@ -163,7 +173,6 @@ const VEPYR_KEYS: &[Key] = &[
     ("entities", Kind::StrList, true),
     ("required_contigs", Kind::StrList, true),
     ("everything", Kind::Bool, true),
-    ("fields", Kind::StrList, true),
     ("preserve_record_layout", Kind::Bool, true),
     ("reference_fasta", Kind::Bool, true),
     ("buffer_size", Kind::Int, false),
@@ -197,6 +206,78 @@ fn check_table(name: &str, label: &str, table: &Table, keys: &[Key], all_optiona
     }
 }
 
+/// One `[[mapping]]` row of `tools/vep_flags.toml`.
+#[derive(Clone, Debug, PartialEq, Eq)]
+struct ModeRow {
+    vep_flag: String,
+    vepyr_key: String,
+    vepyr_value: bool,
+}
+
+/// Parse [`MODE_MAPPING`]; panics if the file does not have the expected shape.
+fn mode_mapping() -> Vec<ModeRow> {
+    let doc: Table = MODE_MAPPING
+        .parse()
+        .unwrap_or_else(|error| panic!("tools/vep_flags.toml does not parse: {error}"));
+    let rows = doc
+        .get("mapping")
+        .and_then(Value::as_array)
+        .filter(|rows| !rows.is_empty())
+        .expect("tools/vep_flags.toml: [[mapping]] must list at least one row");
+    rows.iter()
+        .map(|row| {
+            let field = |key: &str| {
+                row.get(key)
+                    .unwrap_or_else(|| panic!("tools/vep_flags.toml: a row lacks {key}"))
+            };
+            ModeRow {
+                vep_flag: field("vep_flag")
+                    .as_str()
+                    .expect("vep_flag string")
+                    .to_owned(),
+                vepyr_key: field("vepyr_key")
+                    .as_str()
+                    .expect("vepyr_key string")
+                    .to_owned(),
+                vepyr_value: field("vepyr_value").as_bool().expect("vepyr_value bool"),
+            }
+        })
+        .collect()
+}
+
+/// Panic unless `table` (a resolved `[vepyr]`) holds every mapped value.
+#[track_caller]
+fn require_mode(name: &str, table: &Table) {
+    for row in mode_mapping() {
+        let found = table[row.vepyr_key.as_str()].as_bool().expect("checked");
+        if found != row.vepyr_value {
+            panic!(
+                "[{name}] unsupported mode: [vepyr] {} = {found}; the only data-test mode is \
+                 VEP --everything, where VEP {} maps to {} = {} (tools/vep_flags.toml, \
+                 README \"One mode: --everything\")",
+                row.vepyr_key, row.vep_flag, row.vepyr_key, row.vepyr_value
+            );
+        }
+    }
+}
+
+/// Panic unless the recorded `[vep] command` carries every mapped VEP flag.
+#[track_caller]
+fn require_mode_command(name: &str, command: &str) {
+    for row in mode_mapping() {
+        if !command
+            .split_whitespace()
+            .any(|token| token == row.vep_flag)
+        {
+            panic!(
+                "[{name}] unsupported mode: [vep] command lacks {}; re-bless with ./bless \
+                 (tools/vep_flags.toml, README \"One mode: --everything\")",
+                row.vep_flag
+            );
+        }
+    }
+}
+
 fn sub_table<'a>(doc: &'a Table, key: &str) -> &'a Table {
     doc[key].as_table().expect("checked by check_table")
 }
@@ -221,7 +302,6 @@ struct VepyrSettings {
     entities: Vec<Entity>,
     required_contigs: Vec<String>,
     everything: bool,
-    fields: Vec<String>,
     preserve_record_layout: bool,
     reference_fasta: bool,
     buffer_size: Option<usize>,
@@ -247,10 +327,7 @@ impl VepyrSettings {
         if entities.is_empty() || required_contigs.is_empty() {
             panic!("[{name}] [vepyr] entities and required_contigs must not be empty");
         }
-        let fields = str_list(&table["fields"]);
-        if fields.is_empty() {
-            panic!("[{name}] [vepyr] fields must list the CSQ fields to emit");
-        }
+        require_mode(name, table);
         let buffer_size = table.get("buffer_size").map(|value| {
             let size = value.as_integer().expect("checked");
             usize::try_from(size)
@@ -266,7 +343,6 @@ impl VepyrSettings {
             entities,
             required_contigs,
             everything: flag("everything"),
-            fields,
             preserve_record_layout: flag("preserve_record_layout"),
             reference_fasta: flag("reference_fasta"),
             buffer_size,
@@ -278,7 +354,7 @@ impl VepyrSettings {
     fn config(&self, fasta: Option<&Path>) -> AnnotateVcfConfig {
         let mut config = annotate_config! {
             everything: self.everything,
-            fields: Some(self.fields.clone()),
+            fields: None,
             preserve_record_layout: self.preserve_record_layout,
             reference_fasta_path: fasta.map(|path| path.to_str().expect("utf-8 path").to_owned()),
         };
@@ -366,6 +442,8 @@ impl TestDir {
                  (re-create input.vcf with tools/normalize_input)"
             );
         }
+        let vep_command = sub_table(&doc, "vep")["command"].as_str().expect("checked");
+        require_mode_command(&name, vep_command);
         let compare = sub_table(&doc, "compare");
         let body_md5 = compare["body_md5"].as_str().expect("checked").to_owned();
 
@@ -631,10 +709,44 @@ const VARIATION_COLUMNS: &[&str] = &[
     "tier",
 ];
 
+/// Length of the synthetic reference contig (the fixture's `##contig` length).
+const SYNTHETIC_LENGTH: usize = 1000;
+
+/// The synthetic reference base at 1-based `pos`: `A` everywhere except the `REF`
+/// bases of the self-test fixture's other loci (`C` at 200, `G` at 300).
+fn synthetic_base(pos: usize) -> u8 {
+    match pos {
+        200 => b'C',
+        300 => b'G',
+        _ => b'A',
+    }
+}
+
+/// Write the synthetic reference FASTA (one line) and its `.fai` where
+/// `cache::reference_fasta_at(root)` looks for them, so the self-test runs under
+/// `reference_fasta = true` (#143) with no downloaded data.
+fn write_synthetic_fasta(root: &Path) {
+    let fasta = root.join(cache::FASTA);
+    std::fs::create_dir_all(fasta.parent().expect("FASTA has a parent")).expect("fasta dir");
+    let header = format!(">{SYNTHETIC_CONTIG}\n");
+    let bases: Vec<u8> = (1..=SYNTHETIC_LENGTH).map(synthetic_base).collect();
+    let mut text = header.clone().into_bytes();
+    text.extend_from_slice(&bases);
+    text.push(b'\n');
+    std::fs::write(&fasta, text).expect("write synthetic FASTA");
+    let fai = format!(
+        "{SYNTHETIC_CONTIG}\t{SYNTHETIC_LENGTH}\t{}\t{SYNTHETIC_LENGTH}\t{}\n",
+        header.len(),
+        SYNTHETIC_LENGTH + 1
+    );
+    std::fs::write(fasta.with_extension("fa.fai"), fai).expect("write synthetic .fai");
+}
+
 /// Write a synthetic `$VEPYR_CACHE_ROOT` under `root`: `PROVENANCE.json` at the
-/// `PINS.toml` ensembl revision and one `variation/chr1.parquet` shard holding a
-/// single known variant at chr1:900, far from the fixture's loci. No transcripts, so
-/// every fixture variant is annotated `intergenic_variant`.
+/// `PINS.toml` ensembl revision, one `variation/chr1.parquet` shard holding a
+/// single known variant at chr1:900, far from the fixture's loci, and a synthetic
+/// reference FASTA ([`write_synthetic_fasta`]). No transcripts, so every fixture
+/// variant is annotated `intergenic_variant`.
 fn write_synthetic_cache(root: &Path) {
     use arrow_array::{ArrayRef, RecordBatch, StringArray, UInt32Array, new_null_array};
     use arrow_schema::{DataType, Field, Schema};
@@ -698,6 +810,7 @@ fn write_synthetic_cache(root: &Path) {
         format!("[{{\"chrom\": \"{SYNTHETIC_CONTIG}\", \"dataset\": \"{shard}\", \"rows\": 1}}]\n"),
     )
     .expect("write chrom_manifest.json");
+    write_synthetic_fasta(root);
 }
 
 // ---------------------------------------------------------------------------------
@@ -744,18 +857,61 @@ fn body_md5_hashes_only_non_header_lines_with_terminators() {
     );
 }
 
-/// Load a copy of the self-test fixture with `line` added to its `[vep]` table.
-fn load_fixture_with_vep_line(line: &str) -> TestDir {
+/// Load a copy of the self-test fixture's `test.toml` with `from` replaced by `to`
+/// (once; `from` must occur).
+fn load_fixture_edited(from: &str, to: &str) -> TestDir {
     let fixture =
         Path::new(env!("CARGO_MANIFEST_DIR")).join("tests/fixtures/data_dirs_selftest/case");
     let scratch = tempfile::TempDir::new().expect("tempdir");
     let dir = scratch.path().join("case");
     std::fs::create_dir(&dir).expect("create case dir");
     let text = std::fs::read_to_string(fixture.join(TOML_NAME)).expect("read fixture");
-    let edited = text.replacen("[vep]\n", &format!("[vep]\n{line}\n"), 1);
-    assert_ne!(edited, text, "fixture has no [vep] table");
+    let edited = text.replacen(from, to, 1);
+    assert_ne!(edited, text, "fixture has no {from:?}");
     std::fs::write(dir.join(TOML_NAME), edited).expect("write test.toml");
     TestDir::load(&dir)
+}
+
+/// Load a copy of the self-test fixture with `line` added to its `[vep]` table.
+fn load_fixture_with_vep_line(line: &str) -> TestDir {
+    load_fixture_edited("[vep]\n", &format!("[vep]\n{line}\n"))
+}
+
+#[test]
+fn mode_mapping_names_everything_and_fasta() {
+    let flags: Vec<String> = mode_mapping().into_iter().map(|row| row.vep_flag).collect();
+    assert!(flags.contains(&"--everything".to_owned()), "{flags:?}");
+    assert!(flags.contains(&"--fasta".to_owned()), "{flags:?}");
+}
+
+#[test]
+#[should_panic(expected = "unsupported mode: [vepyr] everything = false")]
+fn everything_false_is_rejected() {
+    load_fixture_edited("everything = true", "everything = false");
+}
+
+#[test]
+#[should_panic(expected = "unsupported mode: [vepyr] reference_fasta = false")]
+fn reference_fasta_false_is_rejected() {
+    load_fixture_edited("reference_fasta = true", "reference_fasta = false");
+}
+
+#[test]
+#[should_panic(expected = "unsupported mode: [vepyr] everything = false")]
+fn vepyr_run_everything_false_is_rejected() {
+    load_fixture_edited("[vep]\n", "[[vepyr_run]]\neverything = false\n\n[vep]\n");
+}
+
+#[test]
+#[should_panic(expected = "unsupported mode: [vep] command lacks --everything")]
+fn old_vep_command_is_rejected() {
+    load_fixture_edited(" --everything", "");
+}
+
+#[test]
+#[should_panic(expected = "unknown key: fields")]
+fn fields_key_is_rejected() {
+    load_fixture_edited("[vepyr]\n", "[vepyr]\nfields = [\"Allele\"]\n");
 }
 
 #[test]
