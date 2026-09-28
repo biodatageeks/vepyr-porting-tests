@@ -22,4 +22,3 @@ uv run --frozen pytest tools/test_pins.py
 ```
 
 A malformed or truncated SHA is rejected by `tools/pins.py` (exit 1).
-Fetch into a local cache directory is not implemented in this repository yet.
