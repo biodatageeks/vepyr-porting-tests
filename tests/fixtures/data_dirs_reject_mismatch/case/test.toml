@@ -35,7 +35,6 @@ fasta_checksum = "unverified"
 
 [vepyr]
 flavour = "ensembl"
-entities = ["variation"]
 required_contigs = ["chr1"]
 everything = true
 preserve_record_layout = true

@@ -61,10 +61,8 @@ body:
     attributes:
       label: How vepyr is called
       description: >-
-        `entities`, `everything`, `preserve_record_layout`, `reference_fasta`,
-        flavour. Feeds `[vepyr]`; write it as TOML, with the types the loader expects.
+        `everything`, `preserve_record_layout`, `reference_fasta`, flavour. Feeds `[vepyr]`; write it as TOML, with the types the loader expects.
       placeholder: |
-        entities = ["transcript", "exon", "translation_core"]
         everything = true
         preserve_record_layout = true
         reference_fasta = true

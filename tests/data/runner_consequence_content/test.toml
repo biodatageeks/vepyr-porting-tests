@@ -14,7 +14,6 @@ bcftools_version = "bcftools 1.23"
 
 [vepyr]
 flavour = "ensembl"
-entities = ["transcript", "exon", "translation_core"]
 # Names the cache shard (chr21.parquet), not the input spelling; the input uses "21".
 required_contigs = ["chr21"]
 everything = true

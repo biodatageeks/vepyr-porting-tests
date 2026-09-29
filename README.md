@@ -290,8 +290,10 @@ fields in VEP 116, regulatory and motif fields included), as VEP does, and the
 loader rejects `fields` as an unknown key. The other VEP flags of the fixed command
 (`--offline`, `--cache`, `--dir_cache`, `--species`, `--cache_version`,
 `--assembly`, input/output names) select the cache and files, not annotation, and
-have no `[vepyr]` counterpart; `flavour`, `entities` and `required_contigs` pick
-vepyr's cache.
+have no `[vepyr]` counterpart; `flavour` and `required_contigs` pick vepyr's cache.
+Before each run the runner checks that every cache entity vepyr reads in
+`--everything` mode (all seven; `motif` and `regulatory` excepted on `chrMT`) has a
+shard for each `required_contigs` entry.
 
 Extra flags stay as described under [./bless](#bless): the allowlist
 `ALLOWED_VEP_FLAGS` keeps `--check_existing` (#18), and `[vep] extra_flags` (#108)
@@ -405,7 +407,6 @@ image = "..."  command = "..."  date = "..."
 cache_source = "..."  cache_checksum = "..."  fasta_source = "..."  fasta_checksum = "..."
 [vepyr]
 flavour                = "ensembl"             # picks the cache directory, never a config flag
-entities               = ["transcript", "exon", "translation_core"]
 required_contigs       = ["chr21"]
 everything             = true              # the one mode: see "One mode: --everything"
 preserve_record_layout = true
