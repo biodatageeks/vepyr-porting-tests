@@ -25,7 +25,7 @@ GitHub Actions workflows in `biodatageeks/vepyr-porting-tests` are **disabled** 
 
 1. **We run all checks ourselves, locally** (among others `./issue_check --body-file`, `./check_normalised_input`, `tools/build_test_index --check`, tests and the issue's AC) — commands with exit codes, together with negative controls.
 2. **The result is always recorded in a comment on the issue or the PR**: which command, which exit code, the key output — **whether the result was positive or negative**. Do not write "passed" without evidence, do not skip a check that failed. State the evidence level explicitly (scaffold vs full: real VEP/Docker/cargo).
-3. **The `merge_ready` label on a PR = frozen branch.** While a PR has this label, **we do not push** to its branch. If something must be fixed after the label: first remove the label (or ask the owner), only then push, and record the check results again in a comment.
+3. **A PR in `state:awaiting-merge` = frozen branch.** While a PR carries this label, **we do not push** to its branch. If something must be fixed after it: first `./set_state pr N fixing` (with the owner's consent, since the owner approved the PR in `awaiting-merge`), only then push, and record the check results again in a comment (the sticky status comment, see "Issue and pull request lifecycle").
 4. We do not start workflows (e.g. `gh workflow enable`) without the owner's consent; if an issue needs evidence from a real CI run, we ask for consent to enable it temporarily.
 
 ### Triage: severity label on every issue (since 2026-09-29)
@@ -40,6 +40,49 @@ Severity = the harm if the problem stays unfixed (not the effort and not the ord
 - `severity:low`: convenience, wording, cosmetics, "nice to have" proposals.
 
 Rules: the label is assigned from the issue's content, not its title; be careful with `critical` and `high`; when torn between two levels, pick the lower one, and add a comment with the justification only if the owner asks for it. Changing the severity after the issue's content changed is part of reviewing it. Labels are created once (`gh label list` shows whether they exist).
+
+### Issue and pull request lifecycle (since 2026-09-29, #158)
+
+Where an issue or a PR is, and whether a PR is ready, is visible without reading the comment log: a state label, one sticky status comment, one verdict comment per reviewer, and two tools that enforce the rules.
+
+**State labels.** Every open issue and PR in work carries **exactly one state label** (`state:*`; the prefix mirrors `severity:`). Issues: `state:implementing-issue` (the issue text is being written), `state:auto-reviewing-issue`, `state:fixing-issue`, `state:manual-reviewing-issue`. PRs: `state:implementing`, `state:auto-reviewing`, `state:fixing`, `state:auto-superreviewing`, `state:manual-reviewing`, `state:awaiting-merge`. Only `./set_state` changes them (`./set_state (pr|issue) N STATE [--dry-run]`, `./set_state issue N --clear`); it refuses any move not in this table (`./set_state --print-transitions` prints the same lines) and refuses `state:awaiting-merge` unless `./pr_status N` is READY:
+
+```text
+issue (none) -> state:implementing-issue
+issue state:implementing-issue -> state:auto-reviewing-issue
+issue state:auto-reviewing-issue -> state:fixing-issue
+issue state:auto-reviewing-issue -> state:manual-reviewing-issue
+issue state:fixing-issue -> state:auto-reviewing-issue
+issue state:manual-reviewing-issue -> state:fixing-issue
+pr (none) -> state:implementing
+pr state:implementing -> state:auto-reviewing
+pr state:auto-reviewing -> state:fixing
+pr state:auto-reviewing -> state:auto-superreviewing
+pr state:auto-reviewing -> state:manual-reviewing
+pr state:fixing -> state:auto-reviewing
+pr state:auto-superreviewing -> state:fixing
+pr state:auto-superreviewing -> state:manual-reviewing
+pr state:manual-reviewing -> state:fixing
+pr state:manual-reviewing -> state:awaiting-merge
+pr state:awaiting-merge -> state:fixing
+issue state:manual-reviewing-issue -> (none)
+```
+
+Meaning: `auto-reviewing -> fixing` on a `CHANGES_REQUESTED` verdict; `auto-reviewing -> auto-superreviewing` when the PR is in the super-review tier, otherwise straight to `manual-reviewing`; `manual-reviewing` = the owner reviews the PR; `manual-reviewing -> fixing` when the owner asks for changes; `manual-reviewing -> awaiting-merge` when the owner approves; the owner merges (never an agent). An issue the owner approved by hand drops its label (`./set_state issue N --clear`); the work continues on the PR's labels. **Pushes to a PR branch only in `state:implementing` or `state:fixing`**; from any other state first `./set_state pr N fixing` (`awaiting-merge` is the frozen branch: ask the owner first). Merged or closed items keep their last label; queues use `--state open`. Issue side: the writer sets `state:implementing-issue` when filing, `state:auto-reviewing-issue` once `./issue_check --body-file` exits 0 and the fresh issue review starts, `state:fixing-issue` for findings, and `state:manual-reviewing-issue` when the review is clean (the owner's hand check; implementation waits for the owner's word).
+
+**Owner queues.** To review: `gh pr list --repo biodatageeks/vepyr-porting-tests --label state:manual-reviewing --state open`. Approved, waiting for the merge: `gh pr list --repo biodatageeks/vepyr-porting-tests --label state:awaiting-merge --state open`. Issues to hand-check: `gh issue list --repo biodatageeks/vepyr-porting-tests --label state:manual-reviewing-issue --state open`.
+
+**Acceptance criteria are the spec, and they must fail on master.** They stay visible to the implementer and the reviewer. Each AC quotes what it returns on the current master; an AC that already passes on master gates nothing, unless it is labelled a regression guard.
+
+**Sticky status comment.** Each PR has exactly one issue comment (not a review body: only issue comments can be edited in place) whose first non-empty line is `### pr-status:v1`: a human table of every AC (command, exit, expected, head sha, evidence level) and, below it, one fenced `json` block with the same data (`{"v":1,"head":...,"stale":...,"ac":[{"id","cmd","exit","expected","sha","evidence","manual"}]}`; a manual row has `exit`/`expected` `null` and a `reviewer`). The implementer edits it in place (`gh api -X PATCH repos/OWNER/REPO/issues/comments/<id> -F body=@file`), never posts a second one. Before any push: move the PR to `state:fixing`, set `"stale": true`, push, re-run the AC, then rewrite the rows with the new sha. The state label, not this comment, holds the state.
+
+**Fresh review with independent probes.** The first reviewer is a fresh `opus-low` with no implementation context. It (a) runs every AC as written; (b) runs 2-3 **independent probes** of its own that are not in the AC list, quoting each command and exit code; (c) must **mutate** what each AC protects (delete the line, flip the value, edit the fixture; in a scratch copy) and confirm the AC then fails. An AC that does not fail on its mutation is a finding against the AC, not a pass. A `"manual": true` row is exempt from (c) and names its human reviewer. It posts one verdict (an issue comment or a COMMENT review) whose first non-empty line is `### pr-review:v1`, its text, then a fenced `json` block `{"v":1,"role":"review","model":"opus-low","verdict":"APPROVE"|"CHANGES_REQUESTED","sha":"<head>","probes":N,"mutations":[{"ac":id,"exit":code}]}`. Agents post through the owner's account, so a native APPROVE review is impossible (GitHub forbids approving your own PR); the verdict lives in this block.
+
+**Super-review by a different model (risk tier only).** After the first reviewer's APPROVE with all AC green, a risky PR gets exactly one more fresh reviewer on a different model (`model: sonnet` on the Agent tool; the first is `opus-low`), `"role":"superreview"`, with the issue, the diff and the evidence table but not the first verdict, and an adversarial brief (what do the AC not cover, does the diff realise the issue's intent, what could break the oracle or a result silently). One pass, no rounds. Its finding blocks only if the comment quotes a command that reproduces it (`CHANGES_REQUESTED`); anything else is a note for the owner. Fixes after it go back to the first reviewer on the new head; the super-review is repeated only if its own blocking finding was fixed and the owner asks. `./pr_status` computes the tier itself from the PR's files, README diff and closing issues:
+
+Super-review tier: a changed path under `tests/data/`, or `tests/data_dirs.rs`, `./bless` (the root wrapper), under `tools/bless/`, `tools/vep_flags.toml`, `tools/normalize_input`, under `tools/run_tests/`; or a changed line of `README.md` inside the sections `## ./bless` or `## One mode: --everything`; or a closing issue labelled `severity:high` or `severity:critical`.
+
+**Hand-over.** The agent moves a PR to `state:manual-reviewing` only after `./pr_status N` exits 0 (READY). `./pr_status` is read-only: it prints one `FAIL <check>: <reason>` line per failed check (sticky comment, sha, AC exits, verdict, probes, mutations, super-review, state label) or `READY`. On the owner's approval the agent runs `./set_state pr N awaiting-merge`, which runs the gate again and so catches any push since the hand-over.
 
 ---
 

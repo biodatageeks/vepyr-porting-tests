@@ -123,6 +123,7 @@ body:
         than **meaning** is weak, so prefer a command that would fail if the content were wrong.
         Where something genuinely needs a human, say so plainly (a semi-manual criterion is
         fine), and name who reviews it and what record they leave.
+        State what the command returns on the current master; a criterion that already passes on master gates nothing, unless it is labelled a regression guard.
       placeholder: >-
         1. The file exists and parses: `test -f .github/workflows/ci.yml && python3 -c "import
         yaml; yaml.safe_load(open('.github/workflows/ci.yml'))"` → exit 0.

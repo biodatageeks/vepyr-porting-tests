@@ -72,6 +72,32 @@ No findings → single clean-review comment:
 gh pr comment N --repo OWNER/REPO --body "Fresh review of the current diff at <sha>: verified <list> are present in the code, not just asserted. No new findings. — Claude-reviewer-1"
 ```
 
+## State labels, sticky status comment, verdict
+
+```bash
+./set_state pr N auto-reviewing            # only legal moves; --dry-run prints the edit
+./set_state --print-transitions            # the 18 legal moves (same table as AGENTS.md)
+./pr_status N                              # read-only gate: FAIL <check>: ... lines or READY; exit 0/1/2
+```
+
+Sticky status comment: exactly one issue comment per PR whose first line is `### pr-status:v1` (human AC table, then a fenced `json` block `{"v":1,"head":"<40 hex>","stale":false,"ac":[{"id":1,"cmd":"...","exit":0,"expected":0,"sha":"<40 hex>","evidence":"full","manual":false}]}`; the fence lines are not indented). Create it once with `gh pr comment N --body-file sticky.md`; afterwards edit it in place, never post a second one:
+
+```bash
+id=$(gh api repos/OWNER/REPO/issues/N/comments --paginate \
+  --jq '.[] | select(.body|startswith("### pr-status:v1")) | .id')
+gh api -X PATCH repos/OWNER/REPO/issues/comments/$id -F body=@sticky.md
+```
+
+Verdict (one per reviewer per head; issue comment or COMMENT review body): first line `### pr-review:v1`, then the text, then:
+
+````text
+```json
+{"v": 1, "role": "review", "model": "opus-low", "verdict": "APPROVE", "sha": "<40 hex>", "probes": 3, "mutations": [{"ac": 1, "exit": 1}]}
+```
+````
+
+`role` is `review` or `superreview`; `mutations[].exit` is the AC's exit code after the mutation and must differ from the row's `expected`.
+
 ## Duplicate check before filing an issue
 
 ```bash

@@ -159,6 +159,7 @@ body:
       description: >-
         Numbered items, each with a backticked command. This heading is required
         by the issue gate.
+        State what the command returns on the current master; a criterion that already passes on master gates nothing, unless it is labelled a regression guard.
       placeholder: |
         1. `./check_normalised_input` exits 0.
         2. `DATA_DIRS_ROOT=<scratch dir holding only tests/data/<slug>/> VEPYR_CACHE_ROOT=<cache> cargo test --test data_dirs data_dirs -- --nocapture` exits 0 (there is no per-directory filter; the runner walks every directory under `DATA_DIRS_ROOT`).
