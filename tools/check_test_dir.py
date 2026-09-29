@@ -174,7 +174,7 @@ def _check_oracle_meta(test_dir: Path) -> str | None:
             problems.append(
                 f"[vep] image = {image!r}, want ensemblorg/ensembl-vep@sha256:<64 hex>"
             )
-    except (OSError, tomllib.TOMLDecodeError) as e:
+    except (OSError, UnicodeDecodeError, tomllib.TOMLDecodeError) as e:
         problems.append(f"cannot read {TEST_TOML}: {e}")
     return "; ".join(problems) or None
 

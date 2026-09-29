@@ -317,3 +317,16 @@ def test_default_dir_is_tests_data(
     code, out = run_main(capsys)
     assert code == 0
     assert out[0].startswith("OK tests/data/")
+
+
+def test_non_utf8_toml(tmp_path: Path, capsys: pytest.CaptureFixture[str]) -> None:
+    """A non-UTF-8 test.toml fails ``oracle-meta``; sibling dirs are still checked."""
+    d = make_test(tmp_path, "a_bad")
+    with (d / "test.toml").open("ab") as fh:
+        fh.write(b"\xff\xfe\n")
+    make_test(tmp_path, "b_good")
+    code, out = run_main(capsys, str(tmp_path))
+    assert code == 1
+    assert len(out) == 2
+    assert out[0].startswith(f"FAIL {d} oracle-meta: cannot read test.toml: ")
+    assert out[1] == f"OK {tmp_path / 'b_good'}"
