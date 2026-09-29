@@ -7,6 +7,8 @@ runs the tool on the committed ``tests/data`` tree.
 from __future__ import annotations
 
 import hashlib
+import os
+from collections.abc import Callable, Iterator
 from pathlib import Path
 from typing import Final
 
@@ -329,4 +331,54 @@ def test_non_utf8_toml(tmp_path: Path, capsys: pytest.CaptureFixture[str]) -> No
     assert code == 1
     assert len(out) == 2
     assert out[0].startswith(f"FAIL {d} oracle-meta: cannot read test.toml: ")
+    assert out[1] == f"OK {tmp_path / 'b_good'}"
+
+
+@pytest.fixture
+def chmod_restore() -> Iterator[Callable[[Path, int], None]]:
+    """``chmod`` paths for a test; restore mode 0o755 afterwards, even on failure."""
+    if os.geteuid() == 0:
+        pytest.skip("root ignores directory permissions")
+    changed: list[Path] = []
+
+    def do(path: Path, mode: int) -> None:
+        changed.append(path)
+        path.chmod(mode)
+
+    yield do
+    for path in reversed(changed):
+        path.chmod(0o755)
+
+
+@pytest.mark.parametrize("mode", [0o000, 0o311], ids=["mode000", "mode311"])
+def test_unreadable_single_dir(
+    tmp_path: Path,
+    capsys: pytest.CaptureFixture[str],
+    chmod_restore: Callable[[Path, int], None],
+    mode: int,
+) -> None:
+    """An unlistable test dir is ``FAIL <dir> files: cannot read directory``."""
+    d = make_test(tmp_path, "t")
+    chmod_restore(d, mode)
+    code, out = run_main(capsys, str(d))
+    assert code == 1
+    assert len(out) == 1
+    assert out[0].startswith(f"FAIL {d} files: cannot read directory: ")
+
+
+@pytest.mark.parametrize("mode", [0o000, 0o311], ids=["mode000", "mode311"])
+def test_unreadable_subdir_in_data_root(
+    tmp_path: Path,
+    capsys: pytest.CaptureFixture[str],
+    chmod_restore: Callable[[Path, int], None],
+    mode: int,
+) -> None:
+    """An unreadable subdirectory of a data root is a FAIL, not silently skipped."""
+    bad = make_test(tmp_path, "a_bad")
+    make_test(tmp_path, "b_good")
+    chmod_restore(bad, mode)
+    code, out = run_main(capsys, str(tmp_path))
+    assert code == 1
+    assert len(out) == 2
+    assert out[0].startswith(f"FAIL {bad} files: cannot read directory: ")
     assert out[1] == f"OK {tmp_path / 'b_good'}"

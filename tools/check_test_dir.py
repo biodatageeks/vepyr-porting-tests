@@ -29,7 +29,8 @@ tool does::
 
 One ``OK <dir>`` line is printed per passing directory, or one
 ``FAIL <dir> <check>: <detail>`` line per failing check (all of them, never
-only the first). A file that cannot be read fails every check that needs it.
+only the first). A file that cannot be read fails every check that needs it; a
+directory that cannot be listed or inspected is a ``files`` FAIL, never skipped.
 Records are read by :mod:`vcf_records`, the repo's one VCF record reader.
 
 Not checked here: the ``test.toml`` schema (the loader, #155), the mode
@@ -45,6 +46,7 @@ from __future__ import annotations
 
 import argparse
 import re
+import stat
 import sys
 import tomllib
 from collections.abc import Callable, Iterator, Sequence
@@ -204,6 +206,10 @@ def check_dir(test_dir: Path) -> list[Failure]:
         One :class:`Failure` per failing check, in :class:`CheckId` order;
         empty when the directory passes.
     """
+    try:
+        next(iter(test_dir.iterdir()), None)
+    except OSError as e:
+        return [Failure(check=CheckId.FILES, detail=f"cannot read directory: {e}")]
     records = _records(test_dir / INPUT_VCF)
     oracle = _records(test_dir / EXPECTED_VCF)
     checks: dict[CheckId, Callable[[], str | None]] = {
@@ -220,19 +226,53 @@ def check_dir(test_dir: Path) -> list[Failure]:
     ]
 
 
+def _may_be_test_dir(d: Path) -> bool:
+    """Whether ``d`` holds a ``test.toml`` or cannot be inspected.
+
+    A directory whose ``test.toml`` cannot be stat'ed (e.g. no permission) counts
+    as a data-test so that :func:`check_dir` reports it as FAIL instead of it
+    being skipped silently.
+    """
+    try:
+        return stat.S_ISREG((d / TEST_TOML).stat().st_mode)
+    except (FileNotFoundError, NotADirectoryError):
+        return False
+    except OSError:
+        return True
+
+
+def _is_dir_or_uninspectable(p: Path) -> bool:
+    """Whether ``p`` is a directory (symlinks followed) or cannot be stat'ed."""
+    try:
+        return stat.S_ISDIR(p.stat().st_mode)
+    except FileNotFoundError:
+        return False
+    except OSError:
+        return True
+
+
 def discover(root: Path) -> list[Path]:
     """Resolve ``DIR`` into the data-test directories to check.
+
+    Walks ``root`` explicitly (no glob, which swallows errors): anything that
+    cannot be listed or inspected is returned, so it is reported as FAIL and
+    never skipped.
 
     Args:
         root: A data-test directory, or a data root holding them.
 
     Returns:
-        ``[root]`` if ``root`` holds a ``test.toml``, else every immediate
-        subdirectory of ``root`` holding one, sorted by name.
+        ``[root]`` if ``root`` holds a ``test.toml`` or cannot be listed, else
+        every immediate subdirectory of ``root`` that holds one or cannot be
+        inspected, sorted by name.
     """
-    if (root / TEST_TOML).is_file():
+    if _may_be_test_dir(root):
         return [root]
-    return sorted(p.parent for p in root.glob(f"*/{TEST_TOML}") if p.is_file())
+    try:
+        entries = sorted(root.iterdir())
+    except OSError:
+        return [root]
+    return [p for p in entries if _is_dir_or_uninspectable(p) and _may_be_test_dir(p)]
 
 
 def _report(dirs: Sequence[Path]) -> Iterator[tuple[str, bool]]:
