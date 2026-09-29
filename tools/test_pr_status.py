@@ -223,3 +223,51 @@ def test_real_mode_gh_failure_exits_2(tmp_path: Path) -> None:
         "GH_STUB_STATE": str(tmp_path / "missing"),
     }
     assert run_cli("7", env=env).returncode == gate.TOOL_ERROR
+
+
+def _set_verdict(body: str, value: str | None) -> str:
+    """Replace (or drop, for ``None``) the ``verdict`` key inside a verdict body."""
+    old = '"verdict": "APPROVE",'
+    assert old in body
+    return body.replace(old, "" if value is None else f'"verdict": "{value}",', 1)
+
+
+@pytest.mark.parametrize("value", ["REQUEST_CHANGES", None, "approve"])
+def test_review_verdict_other_than_approve_blocks(value: str | None) -> None:
+    doc = fixture("ready")
+    doc["comments"][1]["body"] = _set_verdict(doc["comments"][1]["body"], value)
+    assert ids(doc) == ["verdict-changes"]
+    assert ids(fixture("ready")) == []  # control: the unmodified fixture is READY
+
+
+@pytest.mark.parametrize("value", ["NOPE", None])
+def test_superreview_verdict_other_than_approve_blocks(value: str | None) -> None:
+    doc = fixture("ready-superreviewed")
+    doc["reviews"][0]["body"] = _set_verdict(doc["reviews"][0]["body"], value)
+    assert ids(doc) == ["superreview-blocking"]
+    assert ids(fixture("ready-superreviewed")) == []
+
+
+def _write(tmp_path: Path, doc: object) -> str:
+    path = tmp_path / "x"
+    path.write_text(json.dumps(doc), encoding="utf-8")
+    return str(path)
+
+
+def test_malformed_ac_list_is_a_tool_error(tmp_path: Path) -> None:
+    doc = fixture("ready")
+    doc["comments"][0]["body"] = doc["comments"][0]["body"].replace(
+        '"ac": [', '"ac": 5, "x": [', 1
+    )
+    done = run_cli("--from-json", _write(tmp_path, doc))
+    assert done.returncode == gate.TOOL_ERROR
+    assert "Traceback" not in done.stderr and "malformed input" in done.stderr
+
+
+def test_null_comment_is_a_tool_error(tmp_path: Path) -> None:
+    doc = fixture("ready")
+    doc["comments"].append(None)
+    done = run_cli("--from-json", _write(tmp_path, doc))
+    assert done.returncode == gate.TOOL_ERROR
+    assert "Traceback" not in done.stderr
+    assert run_cli("--from-json", _write(tmp_path, fixture("ready"))).returncode == 0

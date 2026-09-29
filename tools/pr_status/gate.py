@@ -34,6 +34,7 @@ VERDICT_MARKER: Final = "### pr-review:v1"
 PR_VIEW_FIELDS: Final = (
     "headRefOid,labels,comments,reviews,files,closingIssuesReferences"
 )
+APPROVE: Final = "APPROVE"
 GATE_STATES: Final = frozenset({"state:manual-reviewing", "state:awaiting-merge"})
 
 #: Paths that need a super-review: exact files and directory prefixes.
@@ -139,7 +140,7 @@ def collect_verdicts(doc: Mapping[str, Any]) -> list[Verdict]:
             Verdict(
                 role=str(data.get("role")),
                 model=data.get("model"),
-                verdict=str(data.get("verdict")),
+                verdict=str(data.get("verdict", "<missing>")),
                 sha=str(data.get("sha")),
                 probes=data.get("probes"),
                 mutations=tuple(
@@ -312,11 +313,11 @@ def evaluate(doc: Mapping[str, Any]) -> list[Failure]:
     if review is None:
         failures.append(Failure(Check.VERDICT_MISSING, f"no review verdict for {head}"))
     else:
-        if review.verdict == "CHANGES_REQUESTED":
+        if review.verdict != APPROVE:  # fail closed: anything but APPROVE blocks
             failures.append(
                 Failure(
                     Check.VERDICT_CHANGES,
-                    "the latest review verdict is CHANGES_REQUESTED",
+                    f"the latest review verdict is {review.verdict!r}, not APPROVE",
                 )
             )
         if not isinstance(review.probes, int) or review.probes < 2:
@@ -345,11 +346,11 @@ def evaluate(doc: Mapping[str, Any]) -> list[Failure]:
                     f"super-review model {superreview.model} = review model",
                 )
             )
-        if superreview.verdict == "CHANGES_REQUESTED":
+        if superreview.verdict != APPROVE:  # fail closed
             failures.append(
                 Failure(
                     Check.SUPERREVIEW_BLOCKING,
-                    "the latest super-review is CHANGES_REQUESTED",
+                    f"super-review verdict is {superreview.verdict!r}, not APPROVE",
                 )
             )
 
@@ -491,7 +492,11 @@ def main(argv: Sequence[str] | None = None) -> int:
                 file=sys.stderr,
             )
             return TOOL_ERROR
-        return report(evaluate(doc))
+        try:
+            failures = evaluate(doc)
+        except (TypeError, AttributeError, ValueError, KeyError) as exc:
+            raise GateError(f"malformed input: {type(exc).__name__}: {exc}") from exc
+        return report(failures)
     except GateError as exc:
         print(f"pr_status: {exc}", file=sys.stderr)
         return TOOL_ERROR
