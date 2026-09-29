@@ -458,16 +458,21 @@ If you start sessions in a workspace directory that contains the checkout,
 link the files once per machine (`WS` = that directory, `CO` = the checkout):
 
 ```bash
-WS=/path/to/workspace; CO=$WS/vepyr-porting-tests
+WS=/path/to/workspace; CO=$WS/biodatageeks-vepyr-porting-tests
 # move any old real copies out of the way first (e.g. mv "$WS/AGENTS.md" "$WS/AGENTS.md.old")
 ln -s "$CO/AGENTS.md" "$WS/AGENTS.md"
 ln -s "$CO/CLAUDE.md" "$WS/CLAUDE.md"
 mkdir -p ~/.claude/skills
 ln -s "$CO/.claude/skills/resolve-pr"           ~/.claude/skills/resolve-pr
 ln -s "$CO/.claude/skills/impl-vepyr-data-test" ~/.claude/skills/impl-vepyr-data-test
-# verify
-test -L "$WS/AGENTS.md" && test -L "$WS/CLAUDE.md" \
-  && test -L ~/.claude/skills/resolve-pr && test -L ~/.claude/skills/impl-vepyr-data-test \
+# verify: each link exists, is not dangling, and points into $CO
+co=$(cd "$CO" && pwd -P) \
+  && test -L "$WS/AGENTS.md" && test -e "$WS/AGENTS.md" && cmp -s "$WS/AGENTS.md" "$CO/AGENTS.md" \
+  && test -L "$WS/CLAUDE.md" && test -e "$WS/CLAUDE.md" && cmp -s "$WS/CLAUDE.md" "$CO/CLAUDE.md" \
+  && test -L ~/.claude/skills/resolve-pr && test -d ~/.claude/skills/resolve-pr/ \
+  && test "$(readlink -f ~/.claude/skills/resolve-pr)" = "$co/.claude/skills/resolve-pr" \
+  && test -L ~/.claude/skills/impl-vepyr-data-test && test -d ~/.claude/skills/impl-vepyr-data-test/ \
+  && test "$(readlink -f ~/.claude/skills/impl-vepyr-data-test)" = "$co/.claude/skills/impl-vepyr-data-test" \
   && echo linked
 ```
 
@@ -476,12 +481,16 @@ starts. Nothing about the links is tracked; after a `git pull` in `$CO` every
 linked copy is current.
 
 **`dt` machine config.** `.claude/skills/impl-vepyr-data-test/scripts/dt` reads
-its machine-specific paths from the first file that exists of:
+its machine-specific paths from one file, looked up in this order:
 
-1. `$DT_CONFIG`
+1. `$DT_CONFIG`: when this variable is set, the file it names must exist; if it
+   does not, `dt` stops with exit code 2 and does not fall through to the next
+   locations
 2. `${XDG_CONFIG_HOME:-~/.config}/dt/local.toml` (recommended: one file for
    every clone and worktree)
 3. `.claude/skills/impl-vepyr-data-test/local.toml` (next to the skill; git-ignored)
+
+Without `$DT_CONFIG`, the first of 2 and 3 that exists is used.
 
 Any single key can be overridden with `DT_<KEY>`. Create the config from the
 tracked example and replace every `/path/to/...` placeholder:
