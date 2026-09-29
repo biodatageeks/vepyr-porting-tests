@@ -1,0 +1,1211 @@
+#!/usr/bin/env -S uv run --script
+# /// script
+# requires-python = ">=3.12"
+# dependencies = []
+# ///
+"""dt -- mechanical helper for one vepyr data-test (``tests/data/<slug>/``).
+
+Every subcommand prints each command it runs (``$ ...``, shell-quoted), one
+``PASS``/``FAIL`` line per check (paste-ready for a PR comment) and a summary.
+
+Exit codes:
+  0  all checks passed
+  1  a check failed
+  2  usage, configuration or input error (bad path, unparsable VCF, refused write)
+  3  unexpected or external-tool error (network, a tool that cannot start, a bug)
+
+Configuration (machine paths) is read lazily, only for the keys a subcommand needs,
+from the first file that exists in this order:
+  1. $DT_CONFIG (must exist when set)
+  2. $XDG_CONFIG_HOME/dt/local.toml (default ~/.config/dt/local.toml)
+  3. local.toml next to the skill (<skill>/local.toml)
+Each key can be overridden by DT_<KEY> (e.g. DT_VEP_FASTA). See local.toml.example.
+
+The repository is DT_REPO, else the checkout containing the cwd, else the checkout
+containing the test directory given; there is no configured fallback. Writes
+(raw2input, bless) go only into tests/data/ of the checkout the cwd is in, and never
+into the protected main checkout (required config key `main_checkout`, compared by
+inode, so case or symlink variants are caught) unless DT_ALLOW_MAIN=1.
+
+Lint: ``uvx ruff check --no-cache --select E,F,B,UP --line-length 120 scripts/dt``.
+"""
+
+from __future__ import annotations
+
+import argparse
+import difflib
+import gzip
+import hashlib
+import os
+import re
+import shlex
+import shutil
+import subprocess
+import sys
+import tempfile
+import tomllib
+import urllib.request
+from collections.abc import Callable, Iterator, Sequence
+from contextlib import contextmanager
+from dataclasses import dataclass, field
+from enum import IntEnum
+from itertools import pairwise
+from pathlib import Path
+from typing import Final
+
+SKILL_DIR: Final[Path] = Path(__file__).resolve().parents[1]
+FILES: Final[tuple[str, ...]] = ("input.vcf", "expected_output.vcf", "test.toml")
+IMAGE_RE: Final[re.Pattern[str]] = re.compile(r"^ensemblorg/ensembl-vep@sha256:[0-9a-f]{64}$")
+RUNNER: Final[tuple[str, ...]] = ("cargo", "test", "--test", "data_dirs", "data_dirs", "--", "--nocapture")
+ENGINE_CRATE: Final[str] = "datafusion-bio-function-vep"
+FLAVOUR: Final[str] = "ensembl"
+VEPYR_FASTA: Final[str] = "fasta/Homo_sapiens.GRCh38.dna.primary_assembly.fa"
+VEPYR_CACHE_DIR: Final[str] = "116_GRCh38_ensembl"
+
+KEYS: Final[dict[str, str]] = {
+    "vep_cache_dir": "complete native VEP release-116 cache",
+    "vep_fasta": "GRCh38 primary assembly FASTA (+ .fai), native contig names",
+    "docker_shared_root": "directory Docker can bind-mount (.bless-work-* go here)",
+    "vepyr_cache_root": "vepyr cache root (VEPYR_CACHE_ROOT for cargo)",
+    "cargo_target_root": "parent of per-checkout CARGO_TARGET_DIRs",
+    "scratch_root": "optional; scratch copies (empty = system temp)",
+    "main_checkout": "the owner's main checkout, never written to (legacy key `repo`)",
+}
+OPTIONAL: Final[frozenset[str]] = frozenset({"scratch_root"})
+
+
+class Exit(IntEnum):
+    """Process exit codes (see the module docstring)."""
+
+    OK = 0
+    FAIL = 1
+    USAGE = 2
+    ERROR = 3
+
+
+class DtError(Exception):
+    """A usage, configuration or input problem (exit 2)."""
+
+
+class ToolError(Exception):
+    """An external tool or network problem (exit 3)."""
+
+
+# ---------------------------------------------------------------- configuration
+
+
+def config_candidates() -> list[tuple[str, Path]]:
+    """The config lookup order as (label, path) pairs."""
+    xdg = Path(os.environ.get("XDG_CONFIG_HOME") or Path.home() / ".config")
+    out: list[tuple[str, Path]] = []
+    if env := os.environ.get("DT_CONFIG"):
+        out.append(("$DT_CONFIG", Path(env).expanduser()))
+    out += [("XDG", xdg / "dt" / "local.toml"), ("skill dir", SKILL_DIR / "local.toml")]
+    return out
+
+
+def lookup_text() -> str:
+    """Human-readable config lookup order, for error messages."""
+    return "; ".join(f"{i}. {label} {p}" for i, (label, p) in enumerate(config_candidates(), 1))
+
+
+@dataclass(slots=True)
+class Config:
+    """Lazily loaded machine paths: first existing config file, then ``DT_<KEY>`` env overrides."""
+
+    _raw: dict[str, object] | None = None
+    source: str = "<no config file>"
+    _cache: dict[str, Path | None] = field(default_factory=dict)
+
+    def _load(self) -> dict[str, object]:
+        """Parse the first config file in lookup order (``$DT_CONFIG`` must exist when set).
+
+        Nothing is cached on failure, so every later key reports the same error instead
+        of silently reading an empty config.
+        """
+        if self._raw is None:
+            raw: dict[str, object] = {}
+            for label, path in config_candidates():
+                if path.is_file():
+                    raw = load_toml(path)
+                    self.source = f"{path} ({label})"
+                    break
+                if label == "$DT_CONFIG":
+                    what = "is not a regular file" if path.exists() else "does not exist"
+                    raise DtError(f"DT_CONFIG={path} {what}")
+            self._raw = raw
+        return self._raw
+
+    def origin(self, key: str) -> str:
+        """Where ``key``'s value comes from."""
+        if f"DT_{key.upper()}" in os.environ:
+            return f"env DT_{key.upper()}"
+        raw = self._load()
+        if key == "main_checkout" and key not in raw and "repo" in raw:
+            return f"{self.source}, legacy key 'repo'"
+        return self.source if key in raw else "unset"
+
+    def get(self, key: str) -> Path | None:
+        """Value of ``key`` as a path; ``None`` only for optional keys that are unset."""
+        if key in self._cache:
+            return self._cache[key]
+        raw = self._load()
+        # Legacy local.toml files carry `repo` = the main checkout. It is only ever a
+        # write-protected path now, never a fallback repository.
+        value = raw.get(key, raw.get("repo", "") if key == "main_checkout" else "")
+        text = os.environ.get(f"DT_{key.upper()}", str(value))
+        if not text and key not in OPTIONAL:
+            raise DtError(f"config key {key!r} unset ({KEYS[key]}). Set DT_{key.upper()} or add it to the "
+                          f"first existing config file of: {lookup_text()}")
+        self._cache[key] = absolute_path(text, f"config key {key!r} ({self.origin(key)})") if text else None
+        return self._cache[key]
+
+    def need(self, key: str) -> Path:
+        """Value of a key that must be set."""
+        value = self.get(key)
+        if value is None:
+            raise DtError(f"config key {key!r} unset ({KEYS[key]}); lookup: {lookup_text()}")
+        return value
+
+
+@dataclass(frozen=True, slots=True)
+class Check:
+    """Outcome of one mechanical check."""
+
+    name: str
+    ok: bool
+    detail: str = ""
+
+    def line(self) -> str:
+        """Render the paste-ready ``PASS``/``FAIL`` line."""
+        return f"{'PASS' if self.ok else 'FAIL'} {self.name}{': ' + self.detail if self.detail else ''}"
+
+
+def negative(name: str, positive: Check, run_it: Callable[[], Check]) -> Check:
+    """A negative control that only counts when its positive check passed (no vacuous pass)."""
+    if not positive.ok:
+        return Check(name, False, f"not run: positive check {positive.name!r} failed")
+    return run_it()
+
+
+@dataclass(frozen=True, slots=True)
+class Record:
+    """The first five columns of a VCF record."""
+
+    chrom: str
+    pos: int
+    id: str
+    ref: str
+    alt: str
+
+    @property
+    def key(self) -> tuple[str, int, str, str, str]:
+        """CHROM, POS, ID, REF, ALT as a comparable tuple."""
+        return (self.chrom, self.pos, self.id, self.ref, self.alt)
+
+
+# ---------------------------------------------------------------- helpers
+
+
+def absolute_path(text: str, what: str) -> Path:
+    """``text`` as a resolved path; a relative value (after ``~`` expansion) is a :class:`DtError`.
+
+    Relative config values are rejected rather than resolved against the cwd, which
+    would silently move a protected or scratch location around with the caller.
+    """
+    path = Path(text).expanduser()
+    if not path.is_absolute():
+        raise DtError(f"{what} = {text!r} is not an absolute path; use an absolute path or ~/...")
+    return path.resolve()
+
+
+def load_toml(path: Path) -> dict[str, object]:
+    """Parse the TOML file ``path``; a syntax or read error is a :class:`DtError` naming the file."""
+    try:
+        return tomllib.loads(path.read_text())
+    except tomllib.TOMLDecodeError as e:
+        raise DtError(f"{path}: invalid TOML: {e}") from e
+    except (OSError, UnicodeDecodeError) as e:
+        raise DtError(f"{path}: cannot read: {e.strerror if isinstance(e, OSError) else e}") from e
+
+
+def run(argv: Sequence[str | Path], *, cwd: Path | None = None, env: dict[str, str] | None = None,
+        quiet: bool = False, timeout: float | None = None) -> subprocess.CompletedProcess[str]:
+    """Run ``argv`` (no shell), echoing it shell-quoted; return the process with output captured.
+
+    The echo is prefixed with every variable ``env`` sets or changes relative to this
+    process, so the ``$`` line can be rerun as shown. Unless ``quiet``, the tails of
+    stdout (``|``) and stderr (``!``) are shown separately -- 25 lines each on
+    failure, 5 on success -- so tool chatter on one stream cannot hide the other.
+    """
+    args = [str(a) for a in argv]
+    changed = {k: v for k, v in (env or {}).items() if os.environ.get(k) != v}
+    prefix = "".join(f"{k}={shlex.quote(v)} " for k, v in sorted(changed.items()))
+    print("$", prefix + shlex.join(args), flush=True)
+    try:
+        proc = subprocess.run(args, cwd=cwd, env=env, text=True, capture_output=True, timeout=timeout)
+    except subprocess.TimeoutExpired as e:
+        raise ToolError(f"{args[0]}: timed out after {e.timeout}s") from e
+    except OSError as e:
+        raise ToolError(f"cannot run {args[0]}: {e}") from e
+    if not quiet:
+        n = 5 if proc.returncode == 0 else 25
+        sys.stdout.write(tail(proc.stdout, n) + tail(proc.stderr, n, "!"))
+    return proc
+
+
+def tail(text: str, n: int, mark: str = "|") -> str:
+    """Return the last ``n`` lines of ``text`` indented for display, each prefixed by ``mark``."""
+    return "".join(f"    {mark} {line}\n" for line in text.splitlines()[-n:])
+
+
+def read_vcf_text(path: Path) -> str:
+    """Text of a plain or gzip/bgzip-compressed VCF (detected by magic bytes, not the name)."""
+    try:
+        with path.open("rb") as fh:
+            gz = fh.read(2) == b"\x1f\x8b"
+        if gz:
+            with gzip.open(path, "rt", encoding="utf-8") as fh:
+                return fh.read()
+        return path.read_text(encoding="utf-8")
+    except (UnicodeDecodeError, gzip.BadGzipFile, EOFError) as e:
+        raise DtError(f"{path}: not a plain or gzip-compressed text VCF ({e})") from e
+
+
+def body_lines(path: Path) -> list[bytes]:
+    """Raw lines of a VCF not starting with ``#``, terminators kept, no newline translation."""
+    with path.open("rb") as fh:
+        return [ln for ln in fh if not ln.startswith(b"#")]
+
+
+def body_md5(path: Path) -> str:
+    """md5 of the body bytes of a VCF, byte for byte ``tools/bless/testdir.py``'s ``body_md5``."""
+    digest = hashlib.md5(usedforsecurity=False)
+    for ln in body_lines(path):
+        digest.update(ln)
+    return digest.hexdigest()
+
+
+def parse_records(text: str, where: str = "<vcf>") -> list[Record]:
+    """Parse the records of VCF text (headers skipped); a malformed line is a :class:`DtError`."""
+    out: list[Record] = []
+    for lineno, ln in enumerate(text.splitlines(), 1):
+        if not ln or ln.startswith("#"):
+            continue
+        c = ln.split("\t")
+        if len(c) < 5 or not c[1].isdigit():
+            raise DtError(f"{where}:{lineno}: not a tab-separated VCF record (CHROM POS ID REF ALT): {ln[:60]!r}")
+        out.append(Record(c[0], int(c[1]), c[2], c[3], c[4]))
+    return out
+
+
+@dataclass(frozen=True, slots=True)
+class GitResult:
+    """Exit code and stripped output streams of one ``git`` call (code 127: git not runnable)."""
+
+    code: int
+    out: str
+    err: str
+
+
+def git(cwd: Path, *args: str) -> GitResult:
+    """Run ``git -C cwd <args>`` quietly and keep stderr for diagnostics."""
+    try:
+        proc = subprocess.run(["git", "-C", str(cwd), *args], text=True, capture_output=True)
+    except OSError as e:
+        return GitResult(127, "", f"cannot run git: {e}")
+    return GitResult(proc.returncode, proc.stdout.strip(), proc.stderr.strip())
+
+
+def git_out(cwd: Path, *args: str) -> str | None:
+    """Stdout of ``git -C cwd <args>``, or ``None`` when git fails (probe use; see :func:`git`)."""
+    r = git(cwd, *args)
+    return r.out if r.code == 0 else None
+
+
+def is_repo_root(d: Path) -> bool:
+    """``d`` looks like a vepyr-porting-tests checkout root."""
+    return all((d / p).is_file() for p in ("bless", "tools/normalize_input", "tests/data_dirs.rs"))
+
+
+def checkout_of(path: Path) -> Path | None:
+    """The vepyr-porting-tests checkout containing ``path`` (git toplevel), else ``None``."""
+    start = path
+    while not start.is_dir() and start != start.parent:
+        start = start.parent
+    top = git_out(start, "rev-parse", "--show-toplevel")
+    if top is None:
+        return None
+    root = Path(top).resolve()
+    return root if is_repo_root(root) else None
+
+
+def resolve_repo(target: Path | None = None) -> tuple[Path, str]:
+    """The repository to use and why: ``DT_REPO``, else the cwd checkout, else ``target``'s checkout."""
+    if env := os.environ.get("DT_REPO"):
+        repo = absolute_path(env, "DT_REPO")
+        if not is_repo_root(repo):
+            raise DtError(f"DT_REPO={repo} is not a vepyr-porting-tests checkout")
+        return repo, "env DT_REPO"
+    if (here := checkout_of(Path.cwd())) is not None:
+        return here, "cwd checkout"
+    if target is not None and (there := checkout_of(target)) is not None:
+        return there, "checkout of the test dir"
+    raise DtError("no vepyr-porting-tests checkout: cd into your worktree/clone or set DT_REPO "
+                  "(there is no configured fallback)")
+
+
+def same_path(a: Path, b: Path) -> bool:
+    """``a`` and ``b`` name the same file: by inode when both exist, else case-insensitively.
+
+    ``Path.resolve`` keeps the caller's spelling on case-insensitive APFS, so a plain
+    ``==`` misses ``/users/x`` vs ``/Users/x``; the fallback errs towards "same".
+    """
+    try:
+        return os.path.samefile(a, b)
+    except OSError:
+        def norm(p: Path) -> str:
+            return os.path.normcase(os.path.realpath(p)).casefold()
+        return norm(a) == norm(b)
+
+
+def main_checkout(cfg: Config) -> Path:
+    """The protected main checkout; unset, relative or non-existent is a :class:`DtError` (refuse)."""
+    main = cfg.need("main_checkout")
+    if not main.is_dir():
+        raise DtError(f"config key 'main_checkout' = {main} ({cfg.origin('main_checkout')}) is not an existing "
+                      "directory; refusing every write until it names the owner's main checkout")
+    return main
+
+
+def is_main_checkout(cfg: Config, repo: Path) -> bool:
+    """``repo`` is the protected main checkout (config ``main_checkout``, required: unset refuses)."""
+    return same_path(main_checkout(cfg), repo)
+
+
+def git_toplevel(path: Path) -> Path | None:
+    """Toplevel of ANY git checkout/worktree containing ``path`` (nearest existing ancestor), else ``None``."""
+    start = path
+    while not start.is_dir() and start != start.parent:
+        start = start.parent
+    top = git_out(start, "rev-parse", "--show-toplevel")
+    return Path(top).resolve() if top else None
+
+
+def scratch_root(cfg: Config) -> Path | None:
+    """Validated ``scratch_root`` (``None`` = system temp): absolute and outside every git checkout."""
+    root = cfg.get("scratch_root")
+    if root is None:
+        return None
+    if (top := git_toplevel(root)) is not None:
+        raise DtError(f"config key 'scratch_root' = {root} ({cfg.origin('scratch_root')}) is inside the git "
+                      f"checkout {top}; scratch must live outside every checkout")
+    if (main := cfg.get("main_checkout")) is not None and root.is_relative_to(main):
+        raise DtError(f"config key 'scratch_root' = {root} is inside the main checkout {main}")
+    return root
+
+
+def guard_write(cfg: Config, target: Path) -> Path:
+    """Return the checkout that will receive a write to ``target``, or refuse (exit 2).
+
+    ``target`` (absolute) must be a direct child of ``<repo>/tests/data/``; ``repo`` must
+    be the checkout the cwd is in (and equal ``DT_REPO`` if set) and must not be the
+    protected main checkout unless ``DT_ALLOW_MAIN=1``.
+    """
+    repo = checkout_of(target)
+    if repo is None:
+        raise DtError(f"refusing to write: {target} is not inside a vepyr-porting-tests checkout")
+    if target.parent != repo / "tests" / "data":
+        raise DtError(f"refusing to write: {target} is not a direct child of {repo / 'tests' / 'data'}")
+    here = checkout_of(Path.cwd())
+    if here != repo:
+        raise DtError(f"refusing to write: target is in {repo} but the cwd checkout is {here or '<none>'}; "
+                      "cd into the checkout you are writing to")
+    if (env := os.environ.get("DT_REPO")) and not same_path(Path(env).expanduser(), repo):
+        raise DtError(f"refusing to write: DT_REPO={env} differs from the target checkout {repo}")
+    if is_main_checkout(cfg, repo) and os.environ.get("DT_ALLOW_MAIN") != "1":
+        raise DtError(f"refusing to write into the main checkout {repo}; work in your own worktree/clone "
+                      "(DT_ALLOW_MAIN=1 overrides)")
+    return repo
+
+
+def rmtree_reported(d: Path) -> None:
+    """Delete ``d`` and report anything that could not be removed (e.g. root-owned files)."""
+    shutil.rmtree(d, ignore_errors=True)
+    if d.exists():
+        left = sorted(str(p.relative_to(d)) for p in d.rglob("*"))
+        print(f"# WARNING could not remove {d}: {len(left)} leftover path(s), e.g. {left[:5]}")
+
+
+@contextmanager
+def scratch(cfg: Config, prefix: str) -> Iterator[Path]:
+    """A temporary directory outside the repo, removed afterwards."""
+    root = scratch_root(cfg)
+    if root is not None:
+        try:
+            root.mkdir(parents=True, exist_ok=True)
+        except OSError as e:
+            raise DtError(f"cannot create scratch_root {root}: {e}") from e
+    d = Path(tempfile.mkdtemp(prefix=f"dt-{prefix}-", dir=root))
+    try:
+        yield d
+    finally:
+        rmtree_reported(d)
+
+
+@contextmanager
+def docker_work(cfg: Config, slug: str) -> Iterator[Path]:
+    """A fresh Docker-shared ``.bless-work-<slug>-*`` dir, deleted afterwards."""
+    d = Path(tempfile.mkdtemp(prefix=f".bless-work-{slug}-", dir=cfg.need("docker_shared_root")))
+    print(f"# docker work dir {d}")
+    try:
+        yield d
+    finally:
+        rmtree_reported(d)
+        print(f"# removed {d}")
+
+
+def copy_test(src: Path, root: Path) -> Path:
+    """Copy the three data-test files of ``src`` into ``root/<slug>/``."""
+    dst = root / src.name
+    dst.mkdir(parents=True)
+    for name in FILES:
+        shutil.copy2(src / name, dst / name)
+    return dst
+
+
+def report(checks: Sequence[Check], *, echo: bool = True) -> Exit:
+    """Print the check lines (unless already printed) and a summary; map them to an exit code."""
+    if echo:
+        for c in checks:
+            print(c.line())
+    failed = [c.name for c in checks if not c.ok]
+    if not checks:
+        failed = ["<no checks ran>"]
+    print(f"{'FAIL' if failed else 'PASS'} summary: {len(checks) - len(failed)}/{len(checks)} checks passed"
+          + (f"; failed: {', '.join(failed)}" if failed else ""))
+    return Exit.FAIL if failed else Exit.OK
+
+
+def bless_argv(cfg: Config, repo: Path, work: Path, *extra: str | Path) -> list[str | Path]:
+    """``./bless`` with the configured cache, FASTA and docker work dir."""
+    return [repo / "bless", *extra, "--vep-cache-dir", cfg.need("vep_cache_dir"),
+            "--vep-fasta", cfg.need("vep_fasta"), "--docker-work-dir", work]
+
+
+def test_dir(p: Path) -> Path:
+    """An existing data-test directory, absolute."""
+    d = p.expanduser().resolve()
+    if not d.is_dir():
+        raise DtError(f"{d}: no such directory")
+    return d
+
+
+# ---------------------------------------------------------------- FASTA / fixture
+
+
+class Fasta:
+    """Random access to a FASTA through its ``.fai`` index (pure Python)."""
+
+    def __init__(self, path: Path) -> None:
+        """Load ``<path>.fai``; name -> (length, offset, line bases, line width)."""
+        self.path = path
+        self.index: dict[str, tuple[int, int, int, int]] = {}
+        for ln in Path(f"{path}.fai").read_text().splitlines():
+            name, length, offset, lb, lw = ln.split("\t")[:5]
+            self.index[name] = (int(length), int(offset), int(lb), int(lw))
+
+    def fetch(self, chrom: str, pos: int, n: int) -> str:
+        """Return ``n`` bases starting at 1-based ``pos`` (upper case)."""
+        length, offset, lb, lw = self.index[chrom]
+        if pos < 1 or pos + n - 1 > length:
+            raise ValueError(f"{chrom}:{pos}+{n} outside 1..{length}")
+        with self.path.open("rb") as fh:
+            bases: list[str] = []
+            for p in range(pos - 1, pos - 1 + n):
+                fh.seek(offset + (p // lb) * lw + p % lb)
+                bases.append(fh.read(1).decode())
+        return "".join(bases).upper()
+
+
+def refcheck_records(fasta: Fasta, records: Sequence[Record]) -> list[Check]:
+    """One check per record: REF equals the FASTA bases at POS (out of range = FAIL)."""
+    out: list[Check] = []
+    for r in records:
+        where = f"ref {r.chrom}:{r.pos} {r.id} REF={r.ref}"
+        if r.chrom not in fasta.index:
+            out.append(Check(where, False, f"contig {r.chrom!r} not in FASTA (native names, no 'chr')"))
+            continue
+        try:
+            got = fasta.fetch(r.chrom, r.pos, len(r.ref))
+        except ValueError as e:
+            out.append(Check(where, False, str(e)))
+            continue
+        out.append(Check(where, got == r.ref.upper(), f"FASTA has {got}"))
+    return out
+
+
+def mutate_ref(r: Record) -> Record:
+    """Same record with the first REF base replaced by a different base."""
+    swap = {"A": "C", "C": "G", "G": "T", "T": "A"}
+    return Record(r.chrom, r.pos, r.id, swap.get(r.ref[0].upper(), "A") + r.ref[1:], r.alt)
+
+
+def read_source(spec: str) -> str:
+    """Text of ``spec``: a path, an ``http(s)://`` URL or ``git:<repo>:<rev>:<path>``."""
+    match spec.split(":", 1):
+        case ["http" | "https", _]:
+            try:
+                with urllib.request.urlopen(spec, timeout=60) as resp:
+                    return resp.read().decode()
+            except OSError as e:  # URLError, HTTPError, timeouts
+                raise ToolError(f"cannot fetch {spec}: {e}") from e
+        case ["git", rest]:
+            try:
+                repo, rev, path = rest.split(":", 2)
+            except ValueError as e:
+                raise DtError(f"bad git spec {spec!r}: want git:<repo>:<rev>:<path>") from e
+            proc = run(["git", "-C", repo, "show", f"{rev}:{path}"], quiet=True)
+            if proc.returncode:
+                raise DtError(f"git show failed: {proc.stderr.strip()}")
+            return proc.stdout
+        case _:
+            return read_vcf_text(Path(spec).expanduser())
+
+
+def rust_const_vcf(source: str, name: str) -> str:
+    """Extract a Rust ``const NAME: &str = "...";`` VCF literal.
+
+    Handles ``\\``-newline continuations (which also swallow the next line's leading
+    whitespace) and the escapes ``\\n``, ``\\t``, ``\\\\`` and ``\\"``; raw strings are
+    not supported.
+    """
+    m = re.search(rf'const\s+{re.escape(name)}\s*:\s*&(?:\'static\s+)?str\s*=\s*"((?:[^"\\]|\\.)*)"', source, re.S)
+    if m is None:
+        raise DtError(f"no `const {name}: &str = \"...\"` in fixture")
+    body = re.sub(r"\\\n\s*", "", m.group(1))
+    return re.sub(r"\\(.)", lambda e: {"n": "\n", "t": "\t"}.get(e.group(1), e.group(1)), body)
+
+
+def match_first(inp: Sequence[Record], fix: Sequence[Record], n: int, by_pos: bool = False) -> Check:
+    """CHROM, POS, ID, REF, ALT of the first ``n`` input records equal the fixture's.
+
+    Positional (i-th vs i-th) by default; with ``by_pos`` each input record is compared
+    with the fixture record at the same CHROM:POS (fixture may hold other rows).
+    """
+    if by_pos:
+        index = {(r.chrom, r.pos): r for r in fix}
+        fix = [index.get((r.chrom, r.pos), Record(r.chrom, r.pos, "<absent>", "", "")) for r in inp[:n]]
+    if len(inp) < n or len(fix) < n:
+        return Check(f"fixture-match first {n}", False, f"input has {len(inp)}, fixture {len(fix)} records")
+    for i, (a, b) in enumerate(zip(inp[:n], fix[:n], strict=True), 1):
+        if a.key != b.key:
+            return Check(f"fixture-match first {n}", False, f"record {i}: input {a.key} != fixture {b.key}")
+    return Check(f"fixture-match first {n}", True, "CHROM,POS,ID,REF,ALT identical")
+
+
+# ---------------------------------------------------------------- verify checks
+
+
+def toml(d: Path) -> dict[str, object]:
+    """Parsed ``test.toml`` of ``d``."""
+    return load_toml(d / "test.toml")
+
+
+def table(doc: dict[str, object], key: str) -> dict[str, object]:
+    """``doc[key]`` if it is a table, else an empty dict."""
+    value = doc.get(key)
+    return value if isinstance(value, dict) else {}
+
+
+def vepyr_runs(doc: dict[str, object]) -> list[dict[str, object]]:
+    """``[[vepyr_run]]`` tables of a parsed ``test.toml``; a wrong shape is a :class:`DtError`."""
+    runs = doc.get("vepyr_run", [])
+    if not isinstance(runs, list) or not all(isinstance(r, dict) for r in runs):
+        raise DtError(f"test.toml: vepyr_run = {runs!r} is not an array of tables ([[vepyr_run]])")
+    return runs
+
+
+def check_files(d: Path) -> Check:
+    """The three files exist and are non-empty, and nothing else is in the directory."""
+    missing = [n for n in FILES if not (d / n).is_file() or (d / n).stat().st_size == 0]
+    extra = sorted(p.name for p in d.iterdir() if p.name not in FILES)
+    return Check("files", not missing and not extra, f"missing/empty {missing}, extra {extra}")
+
+
+def check_order(d: Path) -> Check:
+    """Records ascend by POS within a contig and each contig is one contiguous block."""
+    recs = parse_records((d / "input.vcf").read_text(), str(d / "input.vcf"))
+    seen: list[str] = []
+    for prev, cur in pairwise(recs):
+        if cur.chrom != prev.chrom:
+            if cur.chrom in seen:
+                return Check("order", False, f"contig {cur.chrom} interleaved")
+            seen.append(prev.chrom)
+        elif cur.pos < prev.pos:
+            return Check("order", False, f"{cur.chrom}:{cur.pos} after {prev.pos}")
+    return Check("order", bool(recs), f"{len(recs)} records, contigs {sorted({r.chrom for r in recs})}")
+
+
+def check_mode(repo: Path, d: Path) -> Check:
+    """``[vepyr]`` and every ``[[vepyr_run]]`` are in the one mode of ``tools/vep_flags.toml``.
+
+    Each mapped ``vepyr_key`` holds its ``vepyr_value``, no table has ``fields``, the
+    effective ``flavour`` is ``ensembl``, and a present ``[vep] command`` carries every
+    mapped VEP flag.
+    """
+    rows = load_toml(repo / "tools" / "vep_flags.toml").get("mapping", [])
+    if not rows:
+        return Check("mode", False, f"no [[mapping]] rows in {repo / 'tools' / 'vep_flags.toml'}")
+    doc = toml(d)
+    base = table(doc, "vepyr")
+    if not base:
+        return Check("mode", False, f"[vepyr] missing or not a table: {doc.get('vepyr')!r}")
+    try:
+        runs = vepyr_runs(doc)
+    except DtError as e:
+        return Check("mode", False, str(e))
+    problems: list[str] = []
+    if "vep" in doc and not isinstance(doc["vep"], dict):
+        problems.append(f"vep = {doc['vep']!r} is not a table")
+    for i, t in enumerate((base, *runs)):
+        where = "[vepyr]" if i == 0 else f"[[vepyr_run]] {i}"
+        eff = base | t
+        if "fields" in t:
+            problems.append(f"{where} has `fields` (unsupported since #149)")
+        if eff.get("flavour") != FLAVOUR:
+            problems.append(f"{where} flavour = {eff.get('flavour')!r}, want {FLAVOUR!r}")
+        for row in rows:
+            if eff.get(row["vepyr_key"]) is not row["vepyr_value"]:
+                problems.append(f"{where} {row['vepyr_key']} = {eff.get(row['vepyr_key'])!r}, "
+                                f"want {row['vepyr_value']!r} ({row['vep_flag']})")
+    command = table(doc, "vep").get("command", "")
+    if not isinstance(command, str):
+        problems.append(f"[vep] command = {command!r} is not a string")
+    elif command:
+        tokens = set(shlex.split(command))
+        problems += [f"[vep] command lacks {r['vep_flag']}" for r in rows if r["vep_flag"] not in tokens]
+    # tests/data_dirs.rs runs each [[vepyr_run]] (merged over [vepyr]); [vepyr] alone only when there is none.
+    how = f"[vepyr] + {len(runs)} [[vepyr_run]] override(s)" if runs else "[vepyr] alone"
+    return Check("mode", not problems, "; ".join(problems) or
+                 f"{len(rows)} tools/vep_flags.toml keys hold in {len(runs) or 1} run(s) ({how}), "
+                 f"flavour {FLAVOUR}, no fields")
+
+
+def engine_line(repo: Path) -> str:
+    """The engine revision ``cargo test`` builds: ``Cargo.lock``'s git sha and the lockfile's sha256."""
+    lock = repo / "Cargo.lock"
+    if not lock.is_file():
+        return f"# engine: {lock} missing"
+    text = lock.read_text()
+    m = re.search(rf'name = "{ENGINE_CRATE}"\nversion = "[^"]*"\nsource = "[^"]*#([0-9a-f]{{40}})"', text)
+    sha = m.group(1) if m else "<not found>"
+    return (f"# engine: {ENGINE_CRATE} @ {sha} (Cargo.lock sha256 "
+            f"{hashlib.sha256(text.encode()).hexdigest()}); cite this sha, never a vepyr version")
+
+
+def check_idempotent(cfg: Config, repo: Path, d: Path) -> Check:
+    """Re-normalising ``input.vcf`` reproduces it byte for byte and keeps ``[input]``.
+
+    The copy's ``input.vcf`` is deleted first, so a normaliser that writes nothing fails
+    instead of ``cmp`` comparing the file with its own copy.
+    """
+    with scratch(cfg, "idem") as s:
+        dst = copy_test(d, s)
+        (dst / "input.vcf").unlink()
+        proc = run([repo / "tools" / "normalize_input", d / "input.vcf", dst], cwd=repo)
+        if proc.returncode:
+            return Check("idempotent", False, f"normalize_input exit {proc.returncode}")
+        if not (dst / "input.vcf").is_file():
+            return Check("idempotent", False, "normalize_input exited 0 but wrote no input.vcf")
+        cmp = run(["cmp", d / "input.vcf", dst / "input.vcf"])
+        same_input = toml(dst).get("input") == toml(d).get("input")
+        return Check("idempotent", cmp.returncode == 0 and same_input,
+                     f"cmp exit {cmp.returncode}, [input] unchanged={same_input}")
+
+
+def check_oracle_meta(d: Path) -> Check:
+    """Exactly one ``##VEP=`` line and a digest-pinned ``[vep] image``."""
+    vep_lines = [ln for ln in (d / "expected_output.vcf").read_text().splitlines() if ln.startswith("##VEP=")]
+    image = str(table(toml(d), "vep").get("image", ""))
+    return Check("oracle-meta", len(vep_lines) == 1 and bool(IMAGE_RE.match(image)),
+                 f"{len(vep_lines)} ##VEP= line(s), image {image or '<missing>'}")
+
+
+def check_md5(d: Path) -> Check:
+    """``[compare] body_md5`` equals md5 of the oracle body."""
+    doc = toml(d)
+    if not isinstance(doc.get("compare"), dict):
+        return Check("body-md5", False, f"[compare] missing or not a table: {doc.get('compare')!r}")
+    want = doc["compare"].get("body_md5", "")  # type: ignore[union-attr]
+    got = body_md5(d / "expected_output.vcf")
+    if not isinstance(want, str):
+        return Check("body-md5", False, f"[compare] body_md5 = {want!r} is not a string; oracle body {got}")
+    return Check("body-md5", want == got, f"test.toml {want}, oracle body {got}")
+
+
+def check_one_to_one(d: Path) -> Check:
+    """Oracle body line count equals input record count."""
+    a, b = len(body_lines(d / "input.vcf")), len(body_lines(d / "expected_output.vcf"))
+    return Check("one-to-one", a == b, f"input {a} records, oracle {b} body lines")
+
+
+def flip_last_body_letter(vcf: Path) -> None:
+    """Change the last letter of the last body line to a different letter."""
+    lines = vcf.read_bytes().splitlines(keepends=True)
+    i = max(k for k, ln in enumerate(lines) if not ln.startswith(b"#"))
+    j = max(k for k, ch in enumerate(lines[i]) if chr(ch).isalpha() and ch < 128)
+    ch = chr(lines[i][j])
+    new = "B" if ch.upper() == "A" else "A"
+    lines[i] = lines[i][:j] + (new if ch.isupper() else new.lower()).encode() + lines[i][j + 1:]
+    vcf.write_bytes(b"".join(lines))
+
+
+def set_body_md5(d: Path, md5: str) -> None:
+    """Rewrite the ``body_md5 = "..."`` line of ``test.toml``."""
+    p = d / "test.toml"
+    text, n = re.subn(r'(?m)^body_md5\s*=\s*"[0-9a-f]*"', f'body_md5 = "{md5}"', p.read_text())
+    if n != 1:
+        raise DtError(f"expected one body_md5 line in {p}, found {n}")
+    p.write_text(text)
+
+
+def check_bless(cfg: Config, repo: Path, d: Path) -> list[Check]:
+    """``./bless --check`` passes on the directory and fails on a tampered copy."""
+    ok = run([repo / "bless", "--check", d], cwd=repo)
+    pos = Check("bless-check", ok.returncode == 0, f"exit {ok.returncode}")
+
+    def tampered() -> Check:
+        with scratch(cfg, "tamper") as s:
+            t = copy_test(d, s)
+            flip_last_body_letter(t / "expected_output.vcf")
+            bad = run([repo / "bless", "--check", t], cwd=repo, quiet=True)
+        return Check("bless-check-negative", bad.returncode == 1, f"tampered copy exit {bad.returncode} (want 1)")
+
+    return [pos, negative("bless-check-negative", pos, tampered)]
+
+
+def check_reproduce(cfg: Config, repo: Path, d: Path) -> Check:
+    """``./bless --check --reproduce`` re-runs VEP and matches the stored md5."""
+    with docker_work(cfg, d.name) as w:
+        proc = run(bless_argv(cfg, repo, w, "--check", "--reproduce", d), cwd=repo)
+    return Check("bless-reproduce", proc.returncode == 0, f"exit {proc.returncode}")
+
+
+def creatable_dir(root: Path) -> str | None:
+    """Why directory ``root`` cannot be created/written, else ``None`` (nothing is created)."""
+    probe = root
+    while not probe.exists() and probe != probe.parent:
+        probe = probe.parent
+    if not probe.is_dir():
+        return f"{probe} exists and is not a directory"
+    if not os.access(probe, os.W_OK | os.X_OK):
+        return f"{probe} is not writable" + ("" if probe == root else f" (nearest existing parent of {root})")
+    return None
+
+
+def cargo_target(cfg: Config, repo: Path, *, create: bool = True) -> Path:
+    """Per-checkout CARGO_TARGET_DIR under ``cargo_target_root`` (root created on demand).
+
+    Never shared across worktrees: the test binary embeds the manifest path of the
+    checkout it was built in and looks for ``PINS.toml`` there at run time.
+    """
+    root = cfg.need("cargo_target_root")
+    if create:
+        try:
+            root.mkdir(parents=True, exist_ok=True)
+        except OSError as e:
+            raise DtError(f"cannot create cargo_target_root {root}: {e}") from e
+    tag = hashlib.sha1(str(repo.resolve()).encode()).hexdigest()[:8]
+    return root / f"target-{repo.name}-{tag}"
+
+
+def cargo_env(cfg: Config, repo: Path, root: Path) -> dict[str, str]:
+    """Environment for the data_dirs runner of ``repo`` walking ``root``."""
+    return os.environ | {"DATA_DIRS_ROOT": str(root), "VEPYR_CACHE_ROOT": str(cfg.need("vepyr_cache_root")),
+                         "CARGO_TARGET_DIR": str(cargo_target(cfg, repo))}
+
+
+def check_runner(cfg: Config, repo: Path, d: Path) -> list[Check]:
+    """The cargo runner passes on a scratch copy and fails as designed on a flipped oracle."""
+    runs = max(1, len(vepyr_runs(toml(d))))
+    print(engine_line(repo))
+    with scratch(cfg, "runner") as s:
+        copy_test(d, s / "pos")
+        proc = run(RUNNER, cwd=repo, env=cargo_env(cfg, repo, s / "pos"))
+        pos = Check("runner", proc.returncode == 0, f"exit {proc.returncode}")
+
+        def flipped() -> Check:
+            neg = copy_test(d, s / "neg")
+            flip_last_body_letter(neg / "expected_output.vcf")
+            set_body_md5(neg, body_md5(neg / "expected_output.vcf"))
+            bad = run(RUNNER, cwd=repo, env=cargo_env(cfg, repo, s / "neg"), quiet=True)
+            blocks = (bad.stdout + bad.stderr).count(f"[{d.name}] body md5 mismatch")
+            return Check("runner-negative", bad.returncode != 0 and blocks == runs,
+                         f"exit {bad.returncode}, {blocks} 'body md5 mismatch' block(s), want {runs}")
+
+        return [pos, negative("runner-negative", pos, flipped)]
+
+
+# ---------------------------------------------------------------- subcommands
+
+
+def tool_version_check(repo: Path | None) -> Check:
+    """``bcftools --version`` matches the pin in the repo's ``tools/normalize_input``."""
+    want = ["bcftools 1.23", "htslib 1.23.1"]
+    if repo is not None and (src := repo / "tools" / "normalize_input").is_file():
+        text = src.read_text()
+        for i, const in enumerate(("_REQUIRED_VERSION", "_REQUIRED_HTSLIB")):
+            if m := re.search(rf'^{const}: Final\[str\] = "([^"]+)"', text, re.M):
+                want[i] = m.group(1)
+    if shutil.which("bcftools") is None:
+        return Check("env bcftools version", False, "bcftools not on PATH")
+    proc = run(["bcftools", "--version"], quiet=True)
+    head = proc.stdout.splitlines()[:2]
+    ok = len(head) == 2 and head[0] == want[0] and head[1] == f"Using {want[1]}"
+    return Check("env bcftools version", ok, f"got {head}, want [{want[0]!r}, 'Using {want[1]}']")
+
+
+def docker_check() -> Check:
+    """The Docker daemon answers (``docker info``; nothing is pulled)."""
+    if shutil.which("docker") is None:
+        return Check("env docker daemon", False, "docker not on PATH")
+    try:
+        proc = run(["docker", "info", "--format", "{{.ServerVersion}}"], quiet=True, timeout=30)
+    except ToolError as e:
+        return Check("env docker daemon", False, str(e))
+    return Check("env docker daemon", proc.returncode == 0,
+                 f"exit {proc.returncode}, server {proc.stdout.strip() or proc.stderr.strip()[:80]}")
+
+
+def uv_env_check() -> Check:
+    """``UV_PROJECT_ENVIRONMENT`` is set, absolute and outside every git checkout (no ``.venv`` in a checkout)."""
+    name = "env UV_PROJECT_ENVIRONMENT"
+    text = os.environ.get("UV_PROJECT_ENVIRONMENT", "")
+    if not text:
+        return Check(name, False, "unset: prefix every command with UV_PROJECT_ENVIRONMENT=<scratch>/venv-<N>, "
+                                  "else uv/./bless create .venv inside the checkout")
+    try:
+        venv = absolute_path(text, "UV_PROJECT_ENVIRONMENT")
+    except DtError as e:
+        return Check(name, False, str(e))
+    if (top := git_toplevel(venv)) is not None:
+        return Check(name, False, f"{venv} is inside git checkout {top}; use <scratch>/venv-<N>")
+    return Check(name, True, str(venv))
+
+
+def cmd_env(cfg: Config, _: argparse.Namespace) -> Exit:
+    """Check config, the repository dt will use, and the tools; list every problem at once."""
+    checks: list[Check] = []
+    config_error = False
+    print(f"# config lookup: {lookup_text()}")
+    values: dict[str, Path | None] = {}
+    for key in KEYS:
+        try:
+            values[key] = v = cfg.get(key)
+        except DtError as e:
+            checks.append(Check(f"env {key}", False, f"unset ({KEYS[key]})" if "unset" in str(e) else str(e)))
+            config_error = True
+            continue
+        detail = f"{v or '<unset>'} ({cfg.origin(key)})"
+        problem: str | None = None
+        try:
+            match key:
+                case "cargo_target_root":
+                    problem = creatable_dir(v) if v else None
+                case "scratch_root":
+                    scratch_root(cfg)
+                    problem = creatable_dir(v) if v else None
+                case "main_checkout":
+                    main_checkout(cfg)
+                case _ if v is not None and not v.exists():
+                    checks.append(Check(f"env {key}", False, f"{detail}: does not exist"))
+                    continue
+        except DtError as e:
+            problem = str(e)
+        if problem is not None and key in ("cargo_target_root", "scratch_root", "main_checkout"):
+            config_error = True
+        checks.append(Check(f"env {key}", problem is None, f"{detail}: {problem}" if problem else detail))
+    print(f"# config file: {cfg.source}")
+    if fa := values.get("vep_fasta"):
+        checks.append(Check("env vep_fasta index", Path(f"{fa}.fai").is_file(), f"{fa}.fai"))
+    if root := values.get("vepyr_cache_root"):
+        for rel in (VEPYR_FASTA, f"{VEPYR_FASTA}.fai", VEPYR_CACHE_DIR):
+            checks.append(Check(f"env vepyr_cache_root/{rel}", (root / rel).exists(), str(root / rel)))
+    repo: Path | None = None
+    try:
+        repo, why = resolve_repo()
+        here = checkout_of(Path.cwd())
+        detail = f"{repo} ({why}); cwd checkout {here or '<none>'}"
+        if here != repo:
+            checks.append(Check("env repo", False, f"{detail}: cwd is not the checkout dt writes into; cd there"))
+        else:
+            try:
+                main = is_main_checkout(cfg, repo)
+            except DtError as e:  # own try: the base check below must still print its line
+                checks.append(Check("env repo", False, f"{detail}: {e}"))
+            else:
+                allowed = main and os.environ.get("DT_ALLOW_MAIN") == "1"
+                if allowed:
+                    detail += ": WARN protected main checkout, DT_ALLOW_MAIN=1 permits writes (owner only)"
+                elif main:
+                    detail += ": protected main checkout; work in your own worktree/clone"
+                checks.append(Check("env repo", not main or allowed, detail))
+    except DtError as e:
+        checks.append(Check("env repo", False, str(e)))
+        config_error = config_error or str(e).startswith("DT_REPO")
+    uv_check = uv_env_check()
+    checks.append(uv_check)
+    config_error = config_error or not uv_check.ok
+    try:
+        if repo is None:
+            raise DtError("no repository resolved (see env repo)")
+        match git(repo, "merge-base", "--is-ancestor", "origin/master", "HEAD"):
+            case GitResult(code=0):
+                checks.append(Check("env base", True, "HEAD contains origin/master as last fetched (git fetch first)"))
+            case GitResult(code=1):
+                checks.append(Check("env base", False, "HEAD does not contain origin/master: branch from a "
+                                    "freshly fetched origin/master"))
+            case GitResult(code=code, err=err):
+                checks.append(Check("env base", False, f"git merge-base exit {code}: {err or '<no stderr>'} "
+                                    "(git fetch origin first?)"))
+        if values.get("cargo_target_root"):
+            print(f"# CARGO_TARGET_DIR for this checkout: {cargo_target(cfg, repo, create=False)} "
+                  "(delete it at the end)")
+    except DtError as e:
+        checks.append(Check("env base", False, str(e)))
+    for tool in ("uv", "cargo", "git"):
+        checks.append(Check(f"env tool {tool}", shutil.which(tool) is not None, str(shutil.which(tool))))
+    checks.append(tool_version_check(repo))
+    checks.append(docker_check())
+    code = report(checks)
+    if config_error:
+        print(f"# config problem (see FAIL env <key> lines); lookup order: {lookup_text()}")
+        return Exit.USAGE
+    return code
+
+
+def cmd_raw2input(cfg: Config, a: argparse.Namespace) -> Exit:
+    """Normalise a raw VCF into ``<dir>/input.vcf`` and prove idempotence."""
+    raw, d = a.raw.expanduser().resolve(), a.dir.expanduser().resolve()
+    if not raw.is_file():
+        raise DtError(f"--raw {raw}: no such file")
+    raw_text = read_vcf_text(raw)
+    if not parse_records(raw_text, str(raw)):
+        # Fail before guard_write/normalize_input, like `dt refcheck` (exit 1, nothing written).
+        return report([Check("raw records", False, f"{raw}: VCF has no records")])
+    repo = guard_write(cfg, d)
+    print(f"# repo {repo}\n# raw  {raw}\n# dir  {d}")
+    if (d / "input.vcf").exists():
+        (d / "input.vcf").unlink()  # so "input.vcf written" proves this run wrote it
+        print(f"# removed pre-existing {d / 'input.vcf'}")
+    proc = run([repo / "tools" / "normalize_input", raw, d], cwd=repo)
+    checks = [Check("normalize_input", proc.returncode == 0, f"exit {proc.returncode}")]
+    if proc.returncode == 0:
+        written = (d / "input.vcf").is_file()
+        checks.append(Check("input.vcf written", written, str(d / "input.vcf")))
+    if proc.returncode == 0 and written:
+        # What normalisation changed; expected: only the added ##FILTER=<ID=PASS,...> line.
+        diff = "".join(difflib.unified_diff(raw_text.splitlines(keepends=True),
+                                            (d / "input.vcf").read_text().splitlines(keepends=True),
+                                            str(raw), str(d / "input.vcf")))
+        print(f"$ diff -u {shlex.quote(str(raw))} {shlex.quote(str(d / 'input.vcf'))}  # in Python, gzip-aware")
+        print(diff or "    | (raw and input.vcf identical)", end="" if diff else "\n")
+        with scratch(cfg, "idem") as s:
+            (s / d.name).mkdir()
+            again = run([repo / "tools" / "normalize_input", d / "input.vcf", s / d.name], cwd=repo)
+            cmp = run(["cmp", d / "input.vcf", s / d.name / "input.vcf"])
+            checks.append(Check("idempotent", again.returncode == 0 and cmp.returncode == 0,
+                                f"normalize_input exit {again.returncode}, cmp exit {cmp.returncode}"))
+    return report(checks)
+
+
+def vcf_records(target: Path) -> list[Record]:
+    """Records of a VCF, or of ``<dir>/input.vcf`` when ``target`` is a directory."""
+    path = target / "input.vcf" if target.is_dir() else target
+    return parse_records(read_vcf_text(path), str(path))
+
+
+def cmd_refcheck(cfg: Config, a: argparse.Namespace) -> Exit:
+    """Every REF equals the GRCh38 FASTA base(s) at POS."""
+    recs = vcf_records(a.target.expanduser().resolve())
+    fasta = Fasta(cfg.need("vep_fasta"))
+    if not recs:
+        return report([Check("refcheck records", False, "VCF has no records: nothing to check")])
+    checks = refcheck_records(fasta, recs)
+    if a.negative_control:
+        pos = Check("refcheck (all records)", all(c.ok for c in checks))
+
+        def mutated() -> Check:
+            bad = refcheck_records(fasta, [mutate_ref(recs[0])])[0]
+            return Check("refcheck-negative", not bad.ok, f"mutated copy -> {bad.line()}")
+
+        checks.append(negative("refcheck-negative", pos, mutated))
+    return report(checks)
+
+
+def cmd_fixture_match(_: Config, a: argparse.Namespace) -> Exit:
+    """First N records of the input equal the fixture's (CHROM,POS,ID,REF,ALT)."""
+    inp = vcf_records(a.input.expanduser().resolve())
+    text = read_source(a.fixture)
+    fix = parse_records(rust_const_vcf(text, a.rust_const) if a.rust_const else text, a.fixture)
+    pos = match_first(inp, fix, a.records, a.by_pos)
+
+    def mutated() -> Check:
+        r = inp[0]
+        neg = match_first([Record(r.chrom, r.pos, r.id, r.ref, r.alt + "A"), *inp[1:]], fix, a.records, a.by_pos)
+        return Check("fixture-match-negative", not neg.ok, f"mutated copy -> {neg.line()}")
+
+    return report([pos, negative("fixture-match-negative", pos, mutated)])
+
+
+def cmd_bless(cfg: Config, a: argparse.Namespace) -> Exit:
+    """Make the oracle with ``./bless`` in a fresh Docker-shared work dir."""
+    d = test_dir(a.dir)
+    repo = guard_write(cfg, d)
+    with docker_work(cfg, d.name) as w:
+        proc = run(bless_argv(cfg, repo, w, d), cwd=repo)
+    checks = [Check("bless", proc.returncode == 0, f"exit {proc.returncode}")]
+    if proc.returncode == 0:
+        checks.append(check_md5(d))
+    return report(checks)
+
+
+def cmd_verify(cfg: Config, a: argparse.Namespace) -> Exit:
+    """The mechanical AC battery for one data-test directory."""
+    d = test_dir(a.dir)
+    repo, why = resolve_repo(d)
+    scratch_root(cfg)  # refuse a bad scratch_root before any check runs
+    if checkout_of(d) != repo:
+        raise DtError(f"{d} is not inside the resolved repo {repo} ({why})")
+    print(f"# repo {repo} ({why})\n# dir  {d}\n{engine_line(repo)}")
+    steps: list[Callable[[], Check | list[Check]]] = [
+        lambda: check_files(d), lambda: check_order(d), lambda: check_mode(repo, d),
+        lambda: check_idempotent(cfg, repo, d), lambda: check_oracle_meta(d), lambda: check_md5(d),
+    ]
+    if not a.not_one_to_one:
+        steps.append(lambda: check_one_to_one(d))
+    steps.append(lambda: refcheck_summary(cfg, d))
+    steps.append(lambda: check_bless(cfg, repo, d))
+    if a.reproduce:
+        steps.append(lambda: check_reproduce(cfg, repo, d))
+    if not a.no_cargo:
+        steps.append(lambda: check_runner(cfg, repo, d))
+    checks: list[Check] = []
+    for step in steps:
+        got = step()
+        for c in got if isinstance(got, list) else [got]:
+            print(c.line(), flush=True)
+            checks.append(c)
+    return report(checks, echo=False)
+
+
+def refcheck_summary(cfg: Config, d: Path) -> Check:
+    """One summarising REF-vs-FASTA check for ``verify``."""
+    results = refcheck_records(Fasta(cfg.need("vep_fasta")), vcf_records(d))
+    bad = [c for c in results if not c.ok]
+    if not results:
+        return Check("refcheck", False, "input.vcf has no records")
+    return Check("refcheck", not bad,
+                 "; ".join(f"{c.name} {c.detail}" for c in bad) or f"all {len(results)} REF match FASTA")
+
+
+def cmd_report(_: Config, a: argparse.Namespace) -> Exit:
+    """Print the PR-body table: file, size, sha256, origin."""
+    d = test_dir(a.dir)
+    doc = toml(d)
+    vep, inp = table(doc, "vep"), table(doc, "input")
+    cells = {f"[{t}] {k}": tbl.get(k) for t, tbl, keys in (("input", inp, ("command", "bcftools_version")),
+                                                           ("vep", vep, ("image", "command")))
+             for k in keys}
+    bad = [f"{k} = {v!r}" for k, v in cells.items() if not isinstance(v, str) or not v]
+    extra = vep.get("extra_flags") or "none"
+    if isinstance(extra, list) and all(isinstance(x, str) for x in extra):
+        extra = " ".join(extra)
+    if not isinstance(extra, str):
+        bad.append(f"[vep] extra_flags = {extra!r}")
+    if bad:  # no partial table: it is pasted into the PR body
+        return report([Check("report test.toml", False, "missing or not a non-empty string: " + "; ".join(bad))])
+    origin = {
+        "input.vcf": f"`tools/normalize_input` (`{inp.get('command')}`, {inp.get('bcftools_version')})",
+        "expected_output.vcf": (f"`./bless`, native VEP 116 `{vep.get('image')}`; `[vep] command` "
+                                f"`{vep.get('command')}`; extra_flags {extra}"),
+        "test.toml": "hand-written; `[input]` by normalize_input, `[vep]`/`[compare]` by `./bless`",
+    }
+    print("| file | size (bytes) | sha256 | origin |\n|---|---:|---|---|")
+    for name in FILES:
+        p = d / name
+        sha = hashlib.sha256(p.read_bytes()).hexdigest()
+        print(f"| `{d.name}/{name}` | {p.stat().st_size} | `{sha}` | {origin[name]} |")
+    return Exit.OK
+
+
+def positive_int(text: str) -> int:
+    """argparse type: an integer >= 1 (anything else is a usage error, exit 2)."""
+    try:
+        value = int(text)
+    except ValueError as e:
+        raise argparse.ArgumentTypeError(f"{text!r} is not an integer") from e
+    if value < 1:
+        raise argparse.ArgumentTypeError(f"{value} < 1: need at least one record")
+    return value
+
+
+def parser() -> argparse.ArgumentParser:
+    """Build the CLI."""
+    p = argparse.ArgumentParser(prog="dt", description=__doc__, formatter_class=argparse.RawDescriptionHelpFormatter)
+    sub = p.add_subparsers(dest="cmd", required=True)
+    sub.add_parser("env", help="check config, repo, tools, docker daemon").set_defaults(fn=cmd_env)
+    s = sub.add_parser("raw2input", help="tools/normalize_input + idempotence (writes into the cwd checkout)")
+    s.add_argument("--raw", type=Path, required=True)
+    s.add_argument("--dir", type=Path, required=True, help="tests/data/<slug> of the cwd checkout")
+    s.set_defaults(fn=cmd_raw2input)
+    s = sub.add_parser("refcheck", help="REF == FASTA at POS")
+    s.add_argument("target", type=Path, help="VCF file or data-test directory")
+    s.add_argument("--negative-control", action="store_true")
+    s.set_defaults(fn=cmd_refcheck)
+    s = sub.add_parser("fixture-match", help="first N records equal a fixture's")
+    s.add_argument("--input", type=Path, required=True, help="VCF file or data-test directory")
+    s.add_argument("--fixture", required=True, help="path, http(s) URL or git:<repo>:<rev>:<path>")
+    s.add_argument("--rust-const", metavar="NAME", help="fixture is Rust source; take `const NAME: &str`")
+    s.add_argument("--records", type=positive_int, required=True, help="N >= 1")
+    s.add_argument("--by-pos", action="store_true", help="match fixture rows by CHROM:POS, not by order")
+    s.set_defaults(fn=cmd_fixture_match)
+    s = sub.add_parser("bless", help="./bless with configured cache/FASTA (writes into the cwd checkout)")
+    s.add_argument("dir", type=Path)
+    s.set_defaults(fn=cmd_bless)
+    s = sub.add_parser("verify", help="mechanical AC battery (incl. one-mode check, engine revision)")
+    s.add_argument("dir", type=Path)
+    s.add_argument("--reproduce", action="store_true", help="also ./bless --check --reproduce (docker)")
+    s.add_argument("--no-cargo", action="store_true", help="skip the cargo runner and its negative control")
+    s.add_argument("--not-one-to-one", action="store_true", help="skip body-lines == input-records")
+    s.set_defaults(fn=cmd_verify)
+    s = sub.add_parser("report", help="PR-body file table")
+    s.add_argument("dir", type=Path)
+    s.set_defaults(fn=cmd_report)
+    return p
+
+
+def main(argv: Sequence[str] | None = None) -> int:
+    """Entry point; returns the exit code (0 pass, 1 check failed, 2 usage/config/input, 3 error)."""
+    args = parser().parse_args(argv)
+    os.environ.pop("VIRTUAL_ENV", None)  # dt's own uv env must not leak into ./bless or tools
+    try:
+        return int(args.fn(Config(), args))
+    except (DtError, FileNotFoundError, NotADirectoryError, IsADirectoryError, tomllib.TOMLDecodeError) as e:
+        print(f"dt: error: {e}", file=sys.stderr)
+        return Exit.USAGE
+    except ToolError as e:
+        print(f"dt: tool error: {e}", file=sys.stderr)
+        return Exit.ERROR
+    except KeyboardInterrupt:
+        return Exit.ERROR
+    except Exception as e:  # noqa: BLE001 -- last resort: one line, distinct exit code, no traceback
+        print(f"dt: unexpected {type(e).__name__}: {e} (DT_DEBUG=1 shows the traceback)", file=sys.stderr)
+        if os.environ.get("DT_DEBUG") == "1":
+            raise
+        return Exit.ERROR
+
+
+if __name__ == "__main__":
+    sys.exit(main())

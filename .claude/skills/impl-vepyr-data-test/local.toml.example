@@ -1,0 +1,46 @@
+# dt machine config. dt reads the FIRST of these that exists (lazily, only the keys a
+# subcommand needs):
+#   1. $DT_CONFIG
+#   2. $XDG_CONFIG_HOME/dt/local.toml  (default ~/.config/dt/local.toml)  <- preferred
+#   3. <skill dir>/local.toml
+# Every key can be overridden by the env var DT_<KEY>. `~` is expanded; every path must be
+# absolute after that (relative values are rejected, exit 2). `dt env` checks all.
+#
+# There is NO `repo` key: the repository is DT_REPO, else the checkout containing the
+# cwd. dt refuses to write anywhere but tests/data/ of the cwd checkout.
+#
+# Every value in this file is a placeholder: copy it to one of the lookup locations above
+# (preferred: ~/.config/dt/local.toml) and replace each /path/to/... with a real absolute
+# path on your machine. Never commit the copy (.claude/skills/*/local.toml is git-ignored).
+
+# DT_MAIN_CHECKOUT (required) -- the owner's main checkout. dt never writes into it and
+# `dt env` fails there (DT_ALLOW_MAIN=1, owner only, permits writes and turns that check
+# into a WARN); compared by inode, so case/symlink variants match. Unset, empty, relative
+# or non-existent: `dt env` exits 2 and every write is refused.
+# A legacy `repo` key is read as this.
+main_checkout = "/path/to/vepyr-porting-tests"
+
+# DT_VEP_CACHE_DIR -- complete native VEP release-116 cache (read-only for dt).
+vep_cache_dir = "/path/to/vep-cache"
+
+# DT_VEP_FASTA -- GRCh38 primary assembly FASTA with its .fai (contigs 1..22, X, Y, MT).
+vep_fasta = "/path/to/GRCh38.fa"
+
+# DT_DOCKER_SHARED_ROOT -- a directory Docker (Desktop file sharing) can bind-mount; dt
+# creates and deletes a fresh `.bless-work-<slug>-*` directory under it per bless/reproduce.
+docker_shared_root = "/path/to/docker-shared"
+
+# DT_VEPYR_CACHE_ROOT -- vepyr cache root (VEPYR_CACHE_ROOT for cargo). Since #149
+# (reference_fasta = true) it must hold, as `./run_tests --cache-dir` writes them:
+#   116_GRCh38_ensembl/
+#   fasta/Homo_sapiens.GRCh38.dna.primary_assembly.fa  (+ .fai)
+vepyr_cache_root = "/path/to/vepyr_cache"
+
+# DT_CARGO_TARGET_ROOT -- parent of per-checkout CARGO_TARGET_DIRs (target-<checkout>-<hash>).
+# NEVER share one target/ across worktrees: the test binary embeds the manifest path of
+# the checkout it was built in and panics looking for PINS.toml there. Expect a full
+# rebuild per new worktree (run dt verify in the background) and delete it when done.
+cargo_target_root = "/path/to/dt-cargo-targets"
+
+# DT_SCRATCH_ROOT -- where scratch copies go (never inside any git checkout: exit 2). Empty = system temp.
+scratch_root = ""
