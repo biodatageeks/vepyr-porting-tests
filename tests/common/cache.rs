@@ -11,9 +11,10 @@
 //!
 //! **Required contigs.** Contigs are not discovered from the VCF at runtime. Each
 //! data-test directory declares them in `tests/data/<name>/test.toml` as
-//! `[vepyr] required_contigs` (with the cache `entities` it reads) — exactly the
-//! contigs of the loci under test (not wider, not narrower). The generic runner
-//! `tests/data_dirs.rs` passes both to [`requires_shards`].
+//! `[vepyr] required_contigs` — exactly the contigs of the loci under test (not
+//! wider, not narrower). The entities are not declared: the generic runner
+//! `tests/data_dirs.rs` derives them per contig with [`Entity::read_under_everything`]
+//! and passes both to [`requires_shards`].
 //! The cache flavour is chosen by the directory under the root
 //! ([`Flavour::dir_name`]), never by an engine config flag. This module only enforces
 //! shards for the list it is given.
@@ -69,9 +70,9 @@ impl Flavour {
 /// The seven entities a flavour carries — the subdirectories of `116_GRCh38_<flavour>/`.
 ///
 /// Not every entity has a shard for every contig: at the pinned revisions `motif/` and
-/// `regulatory/` hold 24 shards (chr1–22, X, Y) while `variation/` holds 463, so a test
-/// names the `(entity, contig)` pairs it reads through [`requires_shards`] rather than
-/// asking for "the contig" across the board.
+/// `regulatory/` hold 24 shards (chr1–22, X, Y) while `variation/` holds 463, so the
+/// `(entity, contig)` pairs are derived per contig ([`Entity::read_under_everything`])
+/// rather than asking for "the contig" across all seven entities.
 #[derive(Clone, Copy, Debug, PartialEq, Eq, Hash)]
 pub enum Entity {
     Exon,
@@ -108,11 +109,19 @@ impl Entity {
         }
     }
 
-    /// Inverse of [`Entity::dir_name`] — how a `test.toml` `[vepyr] entities` names it.
-    pub fn from_dir_name(name: &str) -> Option<Self> {
-        Self::ALL
-            .into_iter()
-            .find(|entity| entity.dir_name() == name)
+    /// The entities vepyr reads for `contig` in the one supported mode, `--everything`.
+    ///
+    /// All seven ([`Entity::ALL`]), except on `chrMT`, where the Hub datasets carry no
+    /// `motif` or `regulatory` shard: there the engine reads the other five. This is the
+    /// single rule the runner's pre-run shard check uses; `test.toml` has no key for it.
+    pub fn read_under_everything(contig: &str) -> Vec<Self> {
+        match contig {
+            "chrMT" => Self::ALL
+                .into_iter()
+                .filter(|entity| !matches!(entity, Self::Motif | Self::Regulatory))
+                .collect(),
+            _ => Self::ALL.to_vec(),
+        }
     }
 }
 
@@ -233,12 +242,14 @@ pub fn full_cache_at(root: &Path, flavour: Flavour) -> FullCache {
     }
 }
 
-/// Every declared `(entity, contig)` pair is on disk as `<entity>/<contig>.parquet` and
-/// listed in that entity's manifest — panic 3 otherwise, for the first missing pair.
+/// For every contig in `contigs`, every entity in `entities_for(contig)` is on disk as
+/// `<entity>/<contig>.parquet` and listed in that entity's manifest — panic 3
+/// otherwise, for the first missing pair.
 ///
-/// The caller names the entities it actually reads: the engine opens only what a run
-/// needs, and the Hub datasets do not carry every contig in every entity (see
-/// [`Entity`]). A pair that is declared and absent is a hard failure, never a skip.
+/// The runner passes [`Entity::read_under_everything`]: under `--everything` the engine
+/// reads all of these entities (`variation` is mandatory, the others are scanned or
+/// loaded unconditionally), and the Hub datasets do not carry every contig in every
+/// entity (see [`Entity`]). A missing shard is a hard failure, never a skip.
 ///
 /// Contig lists should come from the ledger field `required_contigs` (see
 /// [`super::ledger`]), equal to the contigs of the loci under test.
@@ -248,10 +259,14 @@ pub fn full_cache_at(root: &Path, flavour: Flavour) -> FullCache {
 /// (`--add-contigs chrMT` alone exits 4 because `motif/` has no chrMT), while the list a
 /// test declares is by construction one the tool accepts.
 #[track_caller]
-pub fn requires_shards(cache: &FullCache, entities: &[Entity], contigs: &[&str]) {
+pub fn requires_shards(
+    cache: &FullCache,
+    contigs: &[&str],
+    entities_for: impl Fn(&str) -> Vec<Entity>,
+) {
     let declared = contigs.join(",");
     for contig in contigs {
-        for entity in entities {
+        for entity in entities_for(contig) {
             let entity = entity.dir_name();
             let shard = cache.dir().join(entity).join(format!("{contig}.parquet"));
             if !shard.is_file() {

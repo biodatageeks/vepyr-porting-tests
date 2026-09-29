@@ -67,12 +67,13 @@ pub fn required_contigs_from_assertion_toml_at(toml_text: &str, index: usize) ->
 
 /// Load `required_contigs` from `assertion_toml` and enforce those shards on `cache`.
 ///
-/// Callable path for AC-3: ledger assertion → contig list → [`requires_shards`].
+/// Callable path for AC-3: ledger assertion → contig list → [`requires_shards`], with
+/// the entities derived per contig by [`Entity::read_under_everything`].
 #[track_caller]
-pub fn requires_shards_for_assertion(cache: &FullCache, entities: &[Entity], assertion_toml: &str) {
+pub fn requires_shards_for_assertion(cache: &FullCache, assertion_toml: &str) {
     let contigs = required_contigs_from_assertion_toml(assertion_toml);
     let refs: Vec<&str> = contigs.iter().map(String::as_str).collect();
-    requires_shards(cache, entities, &refs);
+    requires_shards(cache, &refs, Entity::read_under_everything);
 }
 
 #[cfg(test)]

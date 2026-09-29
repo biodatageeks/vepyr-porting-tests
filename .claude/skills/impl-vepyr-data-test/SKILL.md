@@ -11,7 +11,7 @@ description: Use when implementing, re-blessing, verifying or reviewing a data-t
 
 ## Contract (origin/master; default branch is `master`, not `main`)
 
-- One mode (#143/#149). `[vepyr]` has `everything = true`, `reference_fasta = true`, `preserve_record_layout = true`, `flavour = "ensembl"`, **no `fields`**; `entities`, `required_contigs`, optional `buffer_size` and `[[vepyr_run]]` come from the issue. Who enforces what:
+- One mode (#143/#149). `[vepyr]` has `everything = true`, `reference_fasta = true`, `preserve_record_layout = true`, `flavour = "ensembl"`, **no `fields`**; the runner derives the cache entities itself; `required_contigs`, optional `buffer_size` and `[[vepyr_run]]` come from the issue. Who enforces what:
   - the 3 keys mapped in `tools/vep_flags.toml`: `./bless` (`require_vepyr_mode`) and the loader reject another value (`unsupported mode`);
   - `fields`: only the loader rejects it (`unknown key`); bless accepts it;
   - `flavour = "ensembl"`: owner policy (README: the oracle is always Ensembl; #156). Bless and the loader accept `refseq`/`merged`; **`dt verify` (mode check) is the only gate**, so it must PASS.
@@ -65,7 +65,7 @@ zsh: always brace, `${REPO}:...`; `$REPO:c`, `:h`, `:t`, `:r` (and `:e :a :A :l 
 
 - vepyr body md5 != VEP: report `VEP:`/`vepyr:` lines; never touch the oracle. Never file or comment upstream (vepyr, dfbf, Ensembl); the owner decides.
 - REF != FASTA.
-- Issue asks for a value outside the Contract (another flag, flavour, `fields`, `everything = false`) or leaves `entities`/`required_contigs`/`[origin]` values open.
+- Issue asks for a value outside the Contract (another flag, flavour, `fields`, `everything = false`) or leaves `required_contigs`/`[origin]` values open.
 - Issue contradicts code; `dt` exits 2/3 and the cause is not your input.
 
 ## Red flags

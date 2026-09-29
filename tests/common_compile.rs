@@ -26,6 +26,5 @@ fn common_modules_link() {
 
 #[test]
 fn ledger_to_requires_shards_path_compiles() {
-    let _f: fn(&common::cache::FullCache, &[Entity], &str) =
-        common::ledger::requires_shards_for_assertion;
+    let _f: fn(&common::cache::FullCache, &str) = common::ledger::requires_shards_for_assertion;
 }

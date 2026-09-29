@@ -23,7 +23,7 @@
 //! | `[origin]` | `vep_test`, `vep_test_pinned`, `vep_subject`, `ledger?`, `issue?` |
 //! | `[input]` | `command` (the #85 command), `bcftools_version` |
 //! | `[vep]` | `image`, `command`, `date`, `cache_source`, `cache_checksum`, `fasta_source`, `fasta_checksum` — exactly what `./bless` writes |
-//! | `[vepyr]` | `flavour`, `entities`, `required_contigs`, `everything`, `preserve_record_layout`, `reference_fasta`, `buffer_size?` |
+//! | `[vepyr]` | `flavour`, `required_contigs`, `everything`, `preserve_record_layout`, `reference_fasta`, `buffer_size?` |
 //! | `[compare]` | `body_md5` |
 //! | `[[vepyr_run]]?` | any `[vepyr]` key, overriding it for that run |
 //!
@@ -31,8 +31,11 @@
 //! `everything`, `preserve_record_layout` and `buffer_size` are config fields;
 //! `fields` stays `None` (the full `--everything` CSQ layout); `reference_fasta = true`
 //! sets `reference_fasta_path` to `cache::reference_fasta()`. `flavour` picks the
-//! cache directory (`116_GRCh38_<flavour>`), never a config flag; `entities` and
-//! `required_contigs` go to `cache::requires_shards`.
+//! cache directory (`116_GRCh38_<flavour>`), never a config flag; `required_contigs`
+//! goes to `cache::requires_shards`, which, for the Hub root only, checks per contig
+//! the entities derived by `Entity::read_under_everything` (the selftest's synthetic
+//! cache is not held to it). A `test.toml` does not declare entities: a leftover
+//! entities key is rejected as an unknown key.
 //!
 //! # One mode: `--everything` (#143)
 //!
@@ -170,7 +173,6 @@ const VEP_KEYS: &[Key] = &[
 
 const VEPYR_KEYS: &[Key] = &[
     ("flavour", Kind::Str, true),
-    ("entities", Kind::StrList, true),
     ("required_contigs", Kind::StrList, true),
     ("everything", Kind::Bool, true),
     ("preserve_record_layout", Kind::Bool, true),
@@ -299,7 +301,6 @@ fn str_list(value: &Value) -> Vec<String> {
 #[derive(Clone, Debug, PartialEq, Eq)]
 struct VepyrSettings {
     flavour: Flavour,
-    entities: Vec<Entity>,
     required_contigs: Vec<String>,
     everything: bool,
     preserve_record_layout: bool,
@@ -315,17 +316,9 @@ impl VepyrSettings {
         let flavour = Flavour::from_key(flavour_key).unwrap_or_else(|| {
             panic!("[{name}] [vepyr] flavour = {flavour_key:?} is not ensembl, refseq or merged")
         });
-        let entities = str_list(&table["entities"])
-            .iter()
-            .map(|entity| {
-                Entity::from_dir_name(entity).unwrap_or_else(|| {
-                    panic!("[{name}] [vepyr] entities: {entity:?} is not a cache entity")
-                })
-            })
-            .collect::<Vec<_>>();
         let required_contigs = str_list(&table["required_contigs"]);
-        if entities.is_empty() || required_contigs.is_empty() {
-            panic!("[{name}] [vepyr] entities and required_contigs must not be empty");
+        if required_contigs.is_empty() {
+            panic!("[{name}] [vepyr] required_contigs must not be empty");
         }
         require_mode(name, table);
         let buffer_size = table.get("buffer_size").map(|value| {
@@ -340,7 +333,6 @@ impl VepyrSettings {
         let flag = |key: &str| table[key].as_bool().expect("checked");
         Self {
             flavour,
-            entities,
             required_contigs,
             everything: flag("everything"),
             preserve_record_layout: flag("preserve_record_layout"),
@@ -601,7 +593,9 @@ async fn check_dir(test: &TestDir, cache_root: CacheRoot<'_>) -> bool {
             .iter()
             .map(String::as_str)
             .collect();
-        cache::requires_shards(&full, &settings.entities, &contigs);
+        if matches!(cache_root, CacheRoot::Env) {
+            cache::requires_shards(&full, &contigs, Entity::read_under_everything);
+        }
         let fasta = settings
             .reference_fasta
             .then(|| cache_root.reference_fasta());
@@ -912,6 +906,50 @@ fn old_vep_command_is_rejected() {
 #[should_panic(expected = "unknown key: fields")]
 fn fields_key_is_rejected() {
     load_fixture_edited("[vepyr]\n", "[vepyr]\nfields = [\"Allele\"]\n");
+}
+
+#[test]
+#[should_panic(expected = "unknown key: entities")]
+fn entities_key_is_rejected() {
+    load_fixture_edited("[vepyr]\n", "[vepyr]\nentities = [\"variation\"]\n");
+}
+
+#[test]
+fn derived_entities_for_chr21_are_all_seven() {
+    let names: Vec<&str> = Entity::read_under_everything("chr21")
+        .into_iter()
+        .map(Entity::dir_name)
+        .collect();
+    assert_eq!(
+        names,
+        [
+            "exon",
+            "motif",
+            "regulatory",
+            "transcript",
+            "translation_core",
+            "translation_sift",
+            "variation"
+        ]
+    );
+}
+
+#[test]
+fn derived_entities_for_chrmt_omit_motif_and_regulatory() {
+    let names: Vec<&str> = Entity::read_under_everything("chrMT")
+        .into_iter()
+        .map(Entity::dir_name)
+        .collect();
+    assert_eq!(
+        names,
+        [
+            "exon",
+            "transcript",
+            "translation_core",
+            "translation_sift",
+            "variation"
+        ]
+    );
 }
 
 #[test]
