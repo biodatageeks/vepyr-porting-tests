@@ -346,6 +346,24 @@ that `[input]` matches what the script writes; it does not verify the raw source
 file (raw inputs are not committed, #90; raw provenance: #111). CI runs it in the
 `input-normalised-check` workflow (`.github/workflows/input-normalised-check.yml`).
 
+`./check_test_dir [DIR]` (issue #164) checks the structure of data-test
+directories. `DIR` is a data root (default `tests/data`; every immediate
+subdirectory holding a `test.toml` is checked) or one data-test directory. Five
+checks run on every directory, all of them every time: `files` (exactly
+`input.vcf`, `expected_output.vcf` and `test.toml`, each non-empty, nothing
+else), `input-records` (`input.vcf` has at least one record), `order` (POS
+ascends within each contig and each contig is one contiguous block),
+`oracle-meta` (exactly one `##VEP=` line in the oracle and `[vep] image` pinned as
+`ensemblorg/ensembl-vep@sha256:<64 hex>`) and `one-to-one` (one oracle body line
+per input record; there is no option or `test.toml` key to skip it). It prints
+`OK <dir>`, or one `FAIL <dir> <check>: <detail>` line per failing check, and
+exits 0 only if every directory is OK and at least one was found; 1 on any
+failure, no test found, or `DIR` not a directory; 2 on bad usage. It never
+writes, needs no VEP, cache or bcftools, and reads records with the shared
+`tools/vcf_records.py`. It does not check the `test.toml` schema (the loader),
+the body md5 (`./bless --check`) or REF against the FASTA. It is not part of
+`./run_tests` and no CI workflow runs it (workflows are disabled).
+
 ### Caveats
 
 **Windows.** `./run_tests` is a bash script (it bootstraps `uv` and then runs

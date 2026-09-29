@@ -56,7 +56,7 @@ Every negative control must run only after its positive passed (`dt` marks it FA
 | `dt raw2input --raw R --dir D` | `tools/normalize_input`, raw->input diff, `cmp` idempotence |
 | `dt fixture-match --input I --fixture F --records N [--by-pos] [--rust-const NAME]` | first N records = fixture; F = path, URL or `git:<repo>:<rev>:<path>` |
 | `dt bless D` | `./bless` in a temporary Docker-shared dir |
-| `dt verify D [--reproduce] [--no-cargo]` | files, order, mode, idempotence, md5, REF, `bless --check` (+tamper), runner (+flip) |
+| `dt verify D [--reproduce] [--no-cargo]` | `./check_test_dir` (files, input-records, order, oracle-meta, one-to-one; no opt-out), mode, idempotence, md5, REF, `bless --check` (+tamper), runner (+flip) |
 | `dt report D` | size, sha256, origin table |
 
 zsh: always brace, `${REPO}:...`; `$REPO:c`, `:h`, `:t`, `:r` (and `:e :a :A :l :u :q`) are modifiers. `--fixture git:https://...` breaks (split at the URL colon): pass a raw.githubusercontent URL or a local path.
