@@ -140,7 +140,11 @@ failure never cascades.
 
 Exit codes: `0` ready, `1` not ready, `2` usage or tool error (no argument, non-numeric
 `N`, unreadable or non-JSON input, `gh` missing or failing, `README.md` changed but no
-README diff in the input). `--help` exits 0. Fixture mode reads one JSON document: the
+README diff in the input, or malformed input: every field the gate reads is
+type-checked, so a missing key, a wrong type, `null`, a string where a boolean
+belongs or a boolean where an integer belongs is one `pr_status: malformed input:`
+line, never a pass). A verdict other than exactly `APPROVE` fails its check.
+`--help` exits 0. Fixture mode reads one JSON document: the
 `gh pr view` output plus `issues` (closing issues with labels) and, when `README.md`
 changed, `readme_diff` and `readme`. Fixtures: `tools/fixtures/pr_status/` (two valid,
 one failing fixture per check id, `not-json.txt`); `tools/fixtures/gh_stub/gh` is an
