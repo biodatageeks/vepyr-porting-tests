@@ -321,6 +321,29 @@ def test_uv_environment_in_this_checkout_is_caught() -> None:
     assert check.status is check_env.Status.FAIL and str(REPO) in check.detail
 
 
+@pytest.mark.parametrize("value", ["~/x", "~", "~other/venv"])
+def test_uv_environment_literal_tilde_is_relative(
+    value: str,
+    healthy: Stub,
+    monkeypatch: pytest.MonkeyPatch,
+    capsys: pytest.CaptureFixture[str],
+) -> None:
+    """Super-review B2: uv does not expand ``~`` and would create ``./~/x``."""
+    monkeypatch.setenv("UV_PROJECT_ENVIRONMENT", value)
+    code, lines = run(capsys)
+    assert code == 2
+    assert lines["UV_PROJECT_ENVIRONMENT"].startswith(
+        f"FAIL UV_PROJECT_ENVIRONMENT: {value!r} is relative"
+    )
+
+
+def test_uv_environment_absolute_under_home_passes(tmp_path: Path) -> None:
+    """Positive control for B2: an absolute path (as the shell expands it) passes."""
+    venv = tmp_path / "x"
+    check = check_env.uv_environment_check({"UV_PROJECT_ENVIRONMENT": str(venv)})
+    assert check.status is check_env.Status.PASS and check.detail == str(venv)
+
+
 def test_unexpected_error_exits_3(
     healthy: Stub, monkeypatch: pytest.MonkeyPatch
 ) -> None:

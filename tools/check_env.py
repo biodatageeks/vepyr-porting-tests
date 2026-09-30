@@ -161,14 +161,17 @@ def uv_environment_check(environ: Mapping[str, str]) -> Check:
                 "unset: export it to an absolute path outside every "
                 "checkout, else uv/./bless create .venv inside the checkout",
             )
-        case text if not Path(text).expanduser().is_absolute():
+        # No expanduser(): uv does not expand ``~``, so a literal ``~/x`` is
+        # a relative path and uv would create ``./~/x`` inside the checkout.
+        case text if not Path(text).is_absolute():
             return Check(
                 UV_ENV,
                 Status.FAIL,
-                f"{text!r} is relative; use an absolute path outside every checkout",
+                f"{text!r} is relative (uv does not expand '~'); "
+                "use an absolute path outside every checkout",
             )
         case text:
-            venv = Path(os.path.normpath(Path(text).expanduser()))
+            venv = Path(os.path.normpath(text))
             if (top := git_checkout_of(venv)) is not None:
                 return Check(
                     UV_ENV,
