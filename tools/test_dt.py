@@ -16,6 +16,8 @@ from __future__ import annotations
 
 import importlib.machinery
 import importlib.util
+import os
+import shutil
 import subprocess
 import sys
 from pathlib import Path
@@ -152,6 +154,7 @@ def checkout(dt: ModuleType, tmp_path: Path, monkeypatch: pytest.MonkeyPatch) ->
         'echo "PASS stub: ok"\nexit "${CHECK_ENV_EXIT:-0}"\n'
     )
     stub.chmod(0o755)
+    shutil.copy2(REPO / "tools" / "workspace_guard", repo / "tools")  # dt env runs it
     _git(repo, "init", "-q")
     _git(repo, "add", "-A")
     _git(repo, "commit", "-q", "-m", "init")
@@ -228,3 +231,100 @@ def test_dt_owns_no_prerequisite_checks(dt: ModuleType) -> None:
     """The checks moved to ``./check_env``; dt keeps no copy (nor the pin)."""
     for name in ("tool_version_check", "docker_check", "uv_env_check", "VEPYR_FASTA"):
         assert not hasattr(dt, name)
+
+
+# ---------------------------------------------------------------- write_target (#163)
+
+STUB_NORMALIZE: Final[str] = (
+    '#!/bin/sh\n[ -n "$STUB_FAIL" ] && exit 1\n'
+    'mkdir -p "$2" && cp "$1" "$2/input.vcf"\n'
+)
+STUB_CHECK: Final[str] = '#!/bin/sh\necho "OK $1"\n'
+
+
+@pytest.fixture
+def fake_repo(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> Path:
+    """A checkout dt takes for vepyr-porting-tests: the real guard, a stub normaliser.
+
+    The cwd and ``DT_REPO`` are this checkout; ``DT_CONFIG`` is a tmp ``local.toml``
+    whose ``main_checkout`` is another existing directory (a test overrides it with
+    ``DT_MAIN_CHECKOUT``).
+    """
+    root = Path(os.path.realpath(tmp_path))
+    repo = root / "repo"
+    (repo / "tools").mkdir(parents=True)
+    (repo / "tests" / "data").mkdir(parents=True)
+    (repo / "tests" / "data_dirs.rs").write_text("", encoding="utf-8")
+    shutil.copy2(REPO / "tools" / "workspace_guard", repo / "tools" / "workspace_guard")
+    for rel, text in (
+        ("bless", "#!/bin/sh\nexit 3\n"),
+        ("tools/normalize_input", STUB_NORMALIZE),
+        ("check_normalised_input", STUB_CHECK),
+    ):
+        (repo / rel).write_text(text, encoding="utf-8")
+        (repo / rel).chmod(0o755)
+    subprocess.run(["git", "init", "-q", str(repo)], check=True)
+    (main := root / "main").mkdir()
+    (cfg := root / "local.toml").write_text(
+        f'main_checkout = "{main}"\n', encoding="utf-8"
+    )
+    (root / "raw.vcf").write_text(HEADER + ROW, encoding="utf-8")
+    for var in ("DT_ALLOW_MAIN", "DT_MAIN_CHECKOUT", "STUB_FAIL"):
+        monkeypatch.delenv(var, raising=False)
+    monkeypatch.setenv("DT_CONFIG", str(cfg))
+    monkeypatch.setenv("DT_REPO", str(repo))
+    monkeypatch.chdir(repo)
+    return repo
+
+
+def raw2input(dt: ModuleType, repo: Path, slug: str = "zz") -> int:
+    """``dt raw2input --raw <tmp>/raw.vcf --dir <repo>/tests/data/<slug>``."""
+    raw = repo.parent / "raw.vcf"
+    return dt.main(
+        ["raw2input", "--raw", str(raw), "--dir", str(repo / "tests/data" / slug)]
+    )
+
+
+def test_write_target_exit0(
+    dt: ModuleType, fake_repo: Path, capsys: pytest.CaptureFixture[str]
+) -> None:
+    assert raw2input(dt, fake_repo) == 0
+    assert "workspace_guard write-target" in capsys.readouterr().out  # dt runs the tool
+    assert (fake_repo / "tests/data/zz/input.vcf").is_file()
+
+
+def test_write_target_exit1(
+    dt: ModuleType, fake_repo: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    monkeypatch.setenv("STUB_FAIL", "1")  # write allowed, the normaliser check fails
+    assert raw2input(dt, fake_repo) == 1
+
+
+def test_write_target_exit2(
+    dt: ModuleType,
+    fake_repo: Path,
+    monkeypatch: pytest.MonkeyPatch,
+    capsys: pytest.CaptureFixture[str],
+) -> None:
+    assert raw2input(dt, fake_repo, "a/b") == 2  # nested target
+    monkeypatch.setenv("DT_MAIN_CHECKOUT", str(fake_repo))  # the protected checkout
+    assert raw2input(dt, fake_repo) == 2
+    assert "REFUSED write-target" in capsys.readouterr().err
+    assert not (fake_repo / "tests/data/zz").exists()
+    monkeypatch.setenv("DT_ALLOW_MAIN", "1")
+    assert raw2input(dt, fake_repo) == 0
+
+
+def test_write_target_exit3(
+    dt: ModuleType, fake_repo: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    real = subprocess.run
+
+    def fake(args: list[str], *a: Any, **kw: Any) -> subprocess.CompletedProcess[str]:
+        if args and str(args[0]).endswith("workspace_guard"):
+            raise OSError("tool cannot start")
+        return real(args, *a, **kw)
+
+    monkeypatch.setattr(dt.subprocess, "run", fake)
+    assert raw2input(dt, fake_repo) == 3
+    assert not (fake_repo / "tests/data/zz").exists()

@@ -26,6 +26,8 @@ containing the test directory given; there is no configured fallback. Writes
 (raw2input, bless) go only into tests/data/ of the checkout the cwd is in, and never
 into the protected main checkout (required config key `main_checkout`, compared by
 inode, so case or symlink variants are caught) unless DT_ALLOW_MAIN=1.
+These guards, and `dt env`'s scratch, base and upstream checks, run the
+repository's tools/workspace_guard (#163); dt supplies the policy from its config.
 
 Lint: ``uvx ruff check --no-cache --select E,F,B,UP --line-length 120 scripts/dt``.
 """
@@ -350,20 +352,6 @@ def resolve_repo(target: Path | None = None) -> tuple[Path, str]:
                   "(there is no configured fallback)")
 
 
-def same_path(a: Path, b: Path) -> bool:
-    """``a`` and ``b`` name the same file: by inode when both exist, else case-insensitively.
-
-    ``Path.resolve`` keeps the caller's spelling on case-insensitive APFS, so a plain
-    ``==`` misses ``/users/x`` vs ``/Users/x``; the fallback errs towards "same".
-    """
-    try:
-        return os.path.samefile(a, b)
-    except OSError:
-        def norm(p: Path) -> str:
-            return os.path.normcase(os.path.realpath(p)).casefold()
-        return norm(a) == norm(b)
-
-
 def main_checkout(cfg: Config) -> Path:
     """The protected main checkout; unset, relative or non-existent is a :class:`DtError` (refuse)."""
     main = cfg.need("main_checkout")
@@ -373,55 +361,48 @@ def main_checkout(cfg: Config) -> Path:
     return main
 
 
-def is_main_checkout(cfg: Config, repo: Path) -> bool:
-    """``repo`` is the protected main checkout (config ``main_checkout``, required: unset refuses)."""
-    return same_path(main_checkout(cfg), repo)
+def workspace_guard(repo: Path, *args: str | Path, cwd: Path | None = None,
+                    env: dict[str, str] | None = None) -> tuple[int, str]:
+    """Run ``<repo>/tools/workspace_guard <args>`` (#163): its exit code 0-2 and its ``OK``/``REFUSED`` line.
+
+    A tool that cannot start or exits outside 0-2 is a :class:`ToolError` (exit 3).
+    """
+    proc = run([repo / "tools" / "workspace_guard", *args], cwd=cwd, env=env, quiet=True)
+    if proc.returncode not in (0, 1, 2):
+        raise ToolError(f"workspace_guard exited {proc.returncode}: {proc.stderr.strip()[-200:]}")
+    lines = proc.stdout.strip().splitlines()
+    return proc.returncode, lines[-1] if lines else proc.stderr.strip()
 
 
-def git_toplevel(path: Path) -> Path | None:
-    """Toplevel of ANY git checkout/worktree containing ``path`` (nearest existing ancestor), else ``None``."""
-    start = path
-    while not start.is_dir() and start != start.parent:
-        start = start.parent
-    top = git_out(start, "rev-parse", "--show-toplevel")
-    return Path(top).resolve() if top else None
-
-
-def scratch_root(cfg: Config) -> Path | None:
-    """Validated ``scratch_root`` (``None`` = system temp): absolute and outside every git checkout."""
-    root = cfg.get("scratch_root")
-    if root is None:
-        return None
-    if (top := git_toplevel(root)) is not None:
-        raise DtError(f"config key 'scratch_root' = {root} ({cfg.origin('scratch_root')}) is inside the git "
-                      f"checkout {top}; scratch must live outside every checkout")
-    if (main := cfg.get("main_checkout")) is not None and root.is_relative_to(main):
-        raise DtError(f"config key 'scratch_root' = {root} is inside the main checkout {main}")
-    return root
-
-
-def guard_write(cfg: Config, target: Path) -> Path:
+def write_checkout(cfg: Config, target: Path) -> Path:
     """Return the checkout that will receive a write to ``target``, or refuse (exit 2).
 
-    ``target`` (absolute) must be a direct child of ``<repo>/tests/data/``; ``repo`` must
-    be the checkout the cwd is in (and equal ``DT_REPO`` if set) and must not be the
-    protected main checkout unless ``DT_ALLOW_MAIN=1``.
+    dt keeps the vepyr-porting-tests identity test (:func:`checkout_of`) and the config
+    policy; ``tools/workspace_guard write-target`` enforces the rest: a direct child of
+    ``<repo>/tests/data/``, the cwd checkout, ``DT_REPO`` if set, never the protected
+    main checkout (by inode) unless ``DT_ALLOW_MAIN=1``.
     """
     repo = checkout_of(target)
     if repo is None:
         raise DtError(f"refusing to write: {target} is not inside a vepyr-porting-tests checkout")
-    if target.parent != repo / "tests" / "data":
-        raise DtError(f"refusing to write: {target} is not a direct child of {repo / 'tests' / 'data'}")
-    here = checkout_of(Path.cwd())
-    if here != repo:
-        raise DtError(f"refusing to write: target is in {repo} but the cwd checkout is {here or '<none>'}; "
-                      "cd into the checkout you are writing to")
-    if (env := os.environ.get("DT_REPO")) and not same_path(Path(env).expanduser(), repo):
-        raise DtError(f"refusing to write: DT_REPO={env} differs from the target checkout {repo}")
-    if is_main_checkout(cfg, repo) and os.environ.get("DT_ALLOW_MAIN") != "1":
-        raise DtError(f"refusing to write into the main checkout {repo}; work in your own worktree/clone "
-                      "(DT_ALLOW_MAIN=1 overrides)")
+    expect = absolute_path(env, "DT_REPO") if (env := os.environ.get("DT_REPO")) else repo
+    code, line = workspace_guard(repo, "write-target", target, "--protect", main_checkout(cfg),
+                                 "--expect-checkout", expect)
+    if code != 0:
+        raise DtError(f"refusing to write: {line}")
     return repo
+
+
+def checked_scratch_root(cfg: Config, repo: Path) -> Path | None:
+    """``scratch_root`` (``None`` = system temp), refused (exit 2) when inside any git checkout."""
+    root = cfg.get("scratch_root")
+    if root is None:
+        return None
+    code, line = workspace_guard(repo, "outside-checkouts", root)
+    if code != 0:
+        raise DtError(f"config key 'scratch_root' ({cfg.origin('scratch_root')}): {line}; "
+                      "scratch must live outside every checkout")
+    return root
 
 
 def rmtree_reported(d: Path) -> None:
@@ -434,8 +415,8 @@ def rmtree_reported(d: Path) -> None:
 
 @contextmanager
 def scratch(cfg: Config, prefix: str) -> Iterator[Path]:
-    """A temporary directory outside the repo, removed afterwards."""
-    root = scratch_root(cfg)
+    """A temporary directory outside the repo, removed afterwards (``cmd_verify`` checked ``scratch_root``)."""
+    root = cfg.get("scratch_root")
     if root is not None:
         try:
             root.mkdir(parents=True, exist_ok=True)
@@ -807,6 +788,13 @@ def cmd_env(cfg: Config, _: argparse.Namespace) -> Exit:
     config_error = False
     print(f"# config lookup: {lookup_text()}")
     values: dict[str, Path | None] = {}
+    repo: Path | None = None
+    try:  # resolved first: the guards below run this checkout's tools/workspace_guard
+        repo, why = resolve_repo()
+    except DtError as e:
+        repo_error: DtError | None = e
+    else:
+        repo_error = None
     for key in KEYS:
         try:
             values[key] = v = cfg.get(key)
@@ -820,59 +808,69 @@ def cmd_env(cfg: Config, _: argparse.Namespace) -> Exit:
             match key:
                 case "cargo_target_root":
                     problem = creatable_dir(v) if v else None
-                case "scratch_root":
-                    scratch_root(cfg)
-                    problem = creatable_dir(v) if v else None
+                case "scratch_root" if v is not None:
+                    if repo is None:
+                        problem = "not checked: no repository resolved (see env repo)"
+                    else:
+                        checked_scratch_root(cfg, repo)
+                        problem = creatable_dir(v)
                 case "main_checkout":
                     main_checkout(cfg)
                 case _ if v is not None and not v.exists():
                     checks.append(Check(f"env {key}", False, f"{detail}: does not exist"))
                     continue
-        except DtError as e:
+        except (DtError, ToolError) as e:
             problem = str(e)
         if problem is not None and key in ("cargo_target_root", "scratch_root", "main_checkout"):
             config_error = True
         checks.append(Check(f"env {key}", problem is None, f"{detail}: {problem}" if problem else detail))
     print(f"# config file: {cfg.source}")
-    repo: Path | None = None
-    try:
-        repo, why = resolve_repo()
+    if repo is None:
+        checks.append(Check("env repo", False, str(repo_error)))
+        config_error = config_error or str(repo_error).startswith("DT_REPO")
+    else:
         here = checkout_of(Path.cwd())
         detail = f"{repo} ({why}); cwd checkout {here or '<none>'}"
         if here != repo:
             checks.append(Check("env repo", False, f"{detail}: cwd is not the checkout dt writes into; cd there"))
         else:
-            try:
-                main = is_main_checkout(cfg, repo)
-            except DtError as e:  # own try: the base check below must still print its line
+            try:  # exit 1 without DT_ALLOW_MAIN = the protected main checkout (cwd and target are this repo)
+                code, line = workspace_guard(repo, "write-target", repo / "tests" / "data" / "probe",
+                                             "--protect", main_checkout(cfg),
+                                             env={k: v for k, v in os.environ.items() if k != "DT_ALLOW_MAIN"})
+            except (DtError, ToolError) as e:  # own try: the base check below must still print its line
                 checks.append(Check("env repo", False, f"{detail}: {e}"))
             else:
+                main = code == 1
                 allowed = main and os.environ.get("DT_ALLOW_MAIN") == "1"
                 if allowed:
                     detail += ": WARN protected main checkout, DT_ALLOW_MAIN=1 permits writes (owner only)"
                 elif main:
                     detail += ": protected main checkout; work in your own worktree/clone"
-                checks.append(Check("env repo", not main or allowed, detail))
-    except DtError as e:
-        checks.append(Check("env repo", False, str(e)))
-        config_error = config_error or str(e).startswith("DT_REPO")
-    try:
+                elif code != 0:
+                    detail += f": {line}"
+                checks.append(Check("env repo", code == 0 or allowed, detail))
+    for name, args in (("env base", ("base", "--ref", "origin/master")),
+                       ("env upstream", ("upstream", "--not", "origin/master"))):
         if repo is None:
-            raise DtError("no repository resolved (see env repo)")
-        match git(repo, "merge-base", "--is-ancestor", "origin/master", "HEAD"):
-            case GitResult(code=0):
-                checks.append(Check("env base", True, "HEAD contains origin/master as last fetched (git fetch first)"))
-            case GitResult(code=1):
-                checks.append(Check("env base", False, "HEAD does not contain origin/master: branch from a "
-                                    "freshly fetched origin/master"))
-            case GitResult(code=code, err=err):
-                checks.append(Check("env base", False, f"git merge-base exit {code}: {err or '<no stderr>'} "
-                                    "(git fetch origin first?)"))
-        if values.get("cargo_target_root"):
+            checks.append(Check(name, False, "not checked: no repository resolved (see env repo)"))
+            continue
+        try:
+            code, line = workspace_guard(repo, *args, cwd=repo)
+        except ToolError as e:
+            code, line = Exit.ERROR, str(e)
+        match name, code:
+            case "env base", 2:
+                line += " (git fetch origin first?)"
+            case "env upstream", 1:
+                line += " (the branch must not track origin/master; SKILL.md step 0: --no-track)"
+        checks.append(Check(name, code == 0, line))
+    if repo is not None and values.get("cargo_target_root"):
+        try:
             print(f"# CARGO_TARGET_DIR for this checkout: {cargo_target(cfg, repo, create=False)} "
                   "(delete it at the end)")
-    except DtError as e:
-        checks.append(Check("env base", False, str(e)))
+        except DtError as e:
+            print(f"# CARGO_TARGET_DIR unknown: {e}")
     if repo is not None:  # tools, bcftools pin, docker, UV_PROJECT_ENVIRONMENT, caches: the repo's own checks
         tool_check, tool_config_error = check_env_call(repo, values)
         checks.append(tool_check)
@@ -890,7 +888,7 @@ def cmd_raw2input(cfg: Config, a: argparse.Namespace) -> Exit:
     if not raw.is_file():
         raise DtError(f"--raw {raw}: no such file")
     raw_text = read_vcf_text(raw)
-    repo = guard_write(cfg, d)
+    repo = write_checkout(cfg, d)
     print(f"# repo {repo}\n# raw  {raw}\n# dir  {d}")
     old = (d / "input.vcf").read_bytes() if (d / "input.vcf").exists() else None
     if old is not None:
@@ -961,7 +959,7 @@ def cmd_fixture_match(_: Config, a: argparse.Namespace) -> Exit:
 def cmd_bless(cfg: Config, a: argparse.Namespace) -> Exit:
     """Make the oracle with ``./bless`` in a fresh Docker-shared work dir."""
     d = test_dir(a.dir)
-    repo = guard_write(cfg, d)
+    repo = write_checkout(cfg, d)
     with docker_work(cfg, d.name) as w:
         proc = run(bless_argv(cfg, repo, w, d), cwd=repo)
     checks = [Check("bless", proc.returncode == 0, f"exit {proc.returncode}")]
@@ -974,7 +972,7 @@ def cmd_verify(cfg: Config, a: argparse.Namespace) -> Exit:
     """The mechanical AC battery for one data-test directory."""
     d = test_dir(a.dir)
     repo, why = resolve_repo(d)
-    scratch_root(cfg)  # refuse a bad scratch_root before any check runs
+    checked_scratch_root(cfg, repo)  # refuse a bad scratch_root before any check runs
     if checkout_of(d) != repo:
         raise DtError(f"{d} is not inside the resolved repo {repo} ({why})")
     print(f"# repo {repo} ({why})\n# dir  {d}\n{engine_line(repo)}")
