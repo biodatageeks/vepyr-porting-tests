@@ -482,6 +482,24 @@ writes, needs no VEP, cache or bcftools, and reads records with the shared
 the body md5 (`./bless --check`) or REF against the FASTA. It is not part of
 `./run_tests` and no CI workflow runs it (workflows are disabled).
 
+`tools/fixture_match --input PATH --fixture SRC --records N [--rust-const NAME]
+[--by-pos] [--negative-control]` (issue #171) checks that the first `N` records
+of an input equal an upstream fixture's (CHROM, POS, ID, REF, ALT). `PATH` is a
+VCF (plain or gzip, detected by magic bytes) or a data-test directory (its
+`input.vcf`); `SRC` is a local path or an `http(s)://` URL (there is no
+`git:<repo>:<rev>:<path>` form). `--rust-const NAME` reads the fixture as Rust
+source and takes `const NAME: &str = "...";` (line continuations and the
+escapes `\n`, `\t`, `\\`, `\"`; raw strings are rejected). Records are compared
+in order; with `--by-pos` each input record is compared with the fixture record
+at the same CHROM:POS, so the fixture may hold other rows. It prints one
+`PASS|FAIL fixture-match first N: <detail>` line; `--negative-control` also
+appends `A` to the first input record's ALT in memory, expects a mismatch
+(`PASS|FAIL fixture-match-negative: ...`) and prints a `summary` line. Exit 0
+match, 1 mismatch (including fewer than `N` records on either side), 2 usage or
+unreadable/invalid input, 3 network error or anything unexpected. Records are
+read with the shared `tools/vcf_records.py`. `dt fixture-match` of the
+data-test skill runs it with `--negative-control`.
+
 ### Caveats
 
 **Windows.** `./run_tests` is a bash script (it bootstraps `uv` and then runs
