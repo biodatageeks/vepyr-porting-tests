@@ -54,8 +54,6 @@ from typing import Final
 SKILL_DIR: Final[Path] = Path(__file__).resolve().parents[1]
 FILES: Final[tuple[str, ...]] = ("input.vcf", "expected_output.vcf", "test.toml")
 FLAVOUR: Final[str] = "ensembl"
-VEPYR_FASTA: Final[str] = "fasta/Homo_sapiens.GRCh38.dna.primary_assembly.fa"
-VEPYR_CACHE_DIR: Final[str] = "116_GRCh38_ensembl"
 
 KEYS: Final[dict[str, str]] = {
     "vep_cache_dir": "complete native VEP release-116 cache",
@@ -772,48 +770,26 @@ def check_runner(cfg: Config, repo: Path, d: Path, vepyr: str) -> list[Check]:
 # ---------------------------------------------------------------- subcommands
 
 
-def tool_version_check(repo: Path | None) -> Check:
-    """``bcftools --version`` matches the pin in the repo's ``tools/normalize_input``."""
-    want = ["bcftools 1.23", "htslib 1.23.1"]
-    if repo is not None and (src := repo / "tools" / "normalize_input").is_file():
-        text = src.read_text()
-        for i, const in enumerate(("_REQUIRED_VERSION", "_REQUIRED_HTSLIB")):
-            if m := re.search(rf'^{const}: Final\[str\] = "([^"]+)"', text, re.M):
-                want[i] = m.group(1)
-    if shutil.which("bcftools") is None:
-        return Check("env bcftools version", False, "bcftools not on PATH")
-    proc = run(["bcftools", "--version"], quiet=True)
-    head = proc.stdout.splitlines()[:2]
-    ok = len(head) == 2 and head[0] == want[0] and head[1] == f"Using {want[1]}"
-    return Check("env bcftools version", ok, f"got {head}, want [{want[0]!r}, 'Using {want[1]}']")
+def check_env_call(repo: Path, values: dict[str, Path | None]) -> tuple[Check, bool]:
+    """Run the repo's ``./check_env`` with the configured paths; print its lines in full.
 
+    Returns:
+        ``(check, config_error)``: one ``env check_env`` check carrying the tool's exit
+        code, and whether that code was 2 (misconfigured invocation environment).
 
-def docker_check() -> Check:
-    """The Docker daemon answers (``docker info``; nothing is pulled)."""
-    if shutil.which("docker") is None:
-        return Check("env docker daemon", False, "docker not on PATH")
-    try:
-        proc = run(["docker", "info", "--format", "{{.ServerVersion}}"], quiet=True, timeout=30)
-    except ToolError as e:
-        return Check("env docker daemon", False, str(e))
-    return Check("env docker daemon", proc.returncode == 0,
-                 f"exit {proc.returncode}, server {proc.stdout.strip() or proc.stderr.strip()[:80]}")
-
-
-def uv_env_check() -> Check:
-    """``UV_PROJECT_ENVIRONMENT`` is set, absolute and outside every git checkout (no ``.venv`` in a checkout)."""
-    name = "env UV_PROJECT_ENVIRONMENT"
-    text = os.environ.get("UV_PROJECT_ENVIRONMENT", "")
-    if not text:
-        return Check(name, False, "unset: prefix every command with UV_PROJECT_ENVIRONMENT=<scratch>/venv-<N>, "
-                                  "else uv/./bless create .venv inside the checkout")
-    try:
-        venv = absolute_path(text, "UV_PROJECT_ENVIRONMENT")
-    except DtError as e:
-        return Check(name, False, str(e))
-    if (top := git_toplevel(venv)) is not None:
-        return Check(name, False, f"{venv} is inside git checkout {top}; use <scratch>/venv-<N>")
-    return Check(name, True, str(venv))
+    Raises:
+        ToolError: The tool could not start or exited 3 (unexpected).
+    """
+    flags = {"vepyr_cache_root": "--vepyr-cache-root", "vep_cache_dir": "--vep-cache-dir", "vep_fasta": "--vep-fasta"}
+    argv: list[str | Path] = [repo / "check_env"]
+    for key, flag in flags.items():
+        if (v := values.get(key)) is not None:
+            argv += [flag, v]
+    proc = run(argv, cwd=repo, quiet=True)
+    sys.stdout.write(proc.stdout + tail(proc.stderr, 25, "!"))
+    if proc.returncode not in (0, 1, 2):
+        raise ToolError(f"./check_env exit {proc.returncode}")
+    return Check("env check_env", proc.returncode == 0, f"exit {proc.returncode}"), proc.returncode == 2
 
 
 def cmd_env(cfg: Config, _: argparse.Namespace) -> Exit:
@@ -849,11 +825,6 @@ def cmd_env(cfg: Config, _: argparse.Namespace) -> Exit:
             config_error = True
         checks.append(Check(f"env {key}", problem is None, f"{detail}: {problem}" if problem else detail))
     print(f"# config file: {cfg.source}")
-    if fa := values.get("vep_fasta"):
-        checks.append(Check("env vep_fasta index", Path(f"{fa}.fai").is_file(), f"{fa}.fai"))
-    if root := values.get("vepyr_cache_root"):
-        for rel in (VEPYR_FASTA, f"{VEPYR_FASTA}.fai", VEPYR_CACHE_DIR):
-            checks.append(Check(f"env vepyr_cache_root/{rel}", (root / rel).exists(), str(root / rel)))
     repo: Path | None = None
     try:
         repo, why = resolve_repo()
@@ -876,9 +847,6 @@ def cmd_env(cfg: Config, _: argparse.Namespace) -> Exit:
     except DtError as e:
         checks.append(Check("env repo", False, str(e)))
         config_error = config_error or str(e).startswith("DT_REPO")
-    uv_check = uv_env_check()
-    checks.append(uv_check)
-    config_error = config_error or not uv_check.ok
     try:
         if repo is None:
             raise DtError("no repository resolved (see env repo)")
@@ -896,10 +864,10 @@ def cmd_env(cfg: Config, _: argparse.Namespace) -> Exit:
                   "(delete it at the end)")
     except DtError as e:
         checks.append(Check("env base", False, str(e)))
-    for tool in ("uv", "cargo", "git"):
-        checks.append(Check(f"env tool {tool}", shutil.which(tool) is not None, str(shutil.which(tool))))
-    checks.append(tool_version_check(repo))
-    checks.append(docker_check())
+    if repo is not None:  # tools, bcftools pin, docker, UV_PROJECT_ENVIRONMENT, caches: the repo's own checks
+        tool_check, tool_config_error = check_env_call(repo, values)
+        checks.append(tool_check)
+        config_error = config_error or tool_config_error
     code = report(checks)
     if config_error:
         print(f"# config problem (see FAIL env <key> lines); lookup order: {lookup_text()}")
