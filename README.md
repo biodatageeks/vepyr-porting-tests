@@ -407,7 +407,9 @@ store the raw pre-normalisation file (rationale: issue #90).
 `tools/normalize_input` on every committed `input.vcf` in a temporary directory
 and compares `input.vcf` and `test.toml` byte for byte with the committed files.
 It prints `OK <dir>` or `MISMATCH <dir>` (plus a unified diff) per test and exits
-0 only if every test matches and at least one was found. It never writes under
+0 only if every test matches and at least one was found. `DATA_DIR` may also be
+one data-test directory (it holds a `test.toml`), which checks only that test
+(#166). It never writes under
 `DATA_DIR`, and needs the same pinned bcftools 1.23 / htslib 1.23.1. It checks
 that `input.vcf` is already normalised (a fixed point of `normalize_input`) and
 that `[input]` matches what the script writes; it does not verify the raw source
