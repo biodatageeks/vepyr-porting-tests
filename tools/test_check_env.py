@@ -66,22 +66,31 @@ def run(capsys: pytest.CaptureFixture[str], *argv: str) -> tuple[int, dict[str, 
     return code, by_name
 
 
-def vepyr_cache(root: Path) -> Path:
-    """A minimal cache that satisfies the real ``precheck_cache`` for ``PINS.toml``."""
+def vepyr_cache(
+    root: Path, flavours: tuple[fetch.Flavour, ...] = (fetch.Flavour.ENSEMBL,)
+) -> Path:
+    """A minimal cache that satisfies the real ``precheck_cache`` for ``PINS.toml``.
+
+    Every flavour in ``flavours`` is recorded at its pinned revision and gets its
+    dataset directory.
+    """
     pins, fasta_pin = fetch.load_dataset_pins(REPO / "PINS.toml")
     assert fasta_pin is not None
-    flavour = fetch.Flavour.ENSEMBL
-    record = fetch.FlavourRecord(
-        repo_id="x",
-        revision=pins[flavour].revision,
-        contigs=["chr21"],
-        manifests_trimmed=True,
-        files=0,
-        bytes=0,
-    )
+    records = {
+        f.value: fetch.FlavourRecord(
+            repo_id="x",
+            revision=pins[f].revision,
+            contigs=["chr21"],
+            manifests_trimmed=True,
+            files=0,
+            bytes=0,
+        )
+        for f in flavours
+    }
     root.mkdir(parents=True)
-    fetch.write_provenance(root, fetch.Provenance(datasets={flavour.value: record}))
-    (root / flavour.dir_name).mkdir()
+    fetch.write_provenance(root, fetch.Provenance(datasets=records))
+    for f in flavours:
+        (root / f.dir_name).mkdir()
     (root / fetch.FASTA_DIR).mkdir()
     for suffix in ("", ".fai"):
         (root / fetch.FASTA_DIR / f"{fasta_pin.fa_name}{suffix}").write_text(">21\nA\n")
@@ -220,14 +229,55 @@ def test_real_precheck_cache_fixture_passes(
 def test_vepyr_cache_without_dataset_dir_fails(
     healthy: Stub, tmp_path: Path, capsys: pytest.CaptureFixture[str]
 ) -> None:
-    """Provenance and FASTA pass ``precheck_cache``, but the data directory is gone."""
-    root = vepyr_cache(tmp_path / "cache")
-    (root / fetch.Flavour.ENSEMBL.dir_name).rmdir()
+    """Provenance and FASTA pass ``precheck_cache``, a recorded dataset dir is gone."""
+    root = vepyr_cache(
+        tmp_path / "cache", (fetch.Flavour.ENSEMBL, fetch.Flavour.REFSEQ)
+    )
+    (root / fetch.Flavour.REFSEQ.dir_name).rmdir()
     code, lines = run(capsys, "--vepyr-cache-root", str(root))
     assert code == 1
     line = lines["vepyr cache"]
     assert line.startswith("FAIL vepyr cache: dataset directory")
-    assert str(root / "116_GRCh38_ensembl") in line and "missing" in line
+    assert str(root / "116_GRCh38_refseq") in line and "missing" in line
+
+
+def test_refseq_only_vepyr_cache_fails_naming_ensembl(
+    healthy: Stub, tmp_path: Path, capsys: pytest.CaptureFixture[str]
+) -> None:
+    """Super-review F1 on PR #181: the data-tests' flavour is required regardless."""
+    root = vepyr_cache(tmp_path / "cache", (fetch.Flavour.REFSEQ,))
+    code, lines = run(capsys, "--vepyr-cache-root", str(root))
+    assert code == 1
+    line = lines["vepyr cache"]
+    assert line.startswith("FAIL vepyr cache: dataset directory")
+    assert "required: the data-tests run on the ensembl flavour" in line
+    assert str(root / check_env.REQUIRED_FLAVOUR.dir_name) in line
+    assert "116_GRCh38_ensembl" in line
+
+
+def test_ensembl_and_refseq_vepyr_cache_passes(
+    healthy: Stub, tmp_path: Path, capsys: pytest.CaptureFixture[str]
+) -> None:
+    root = vepyr_cache(
+        tmp_path / "cache", (fetch.Flavour.ENSEMBL, fetch.Flavour.REFSEQ)
+    )
+    code, lines = run(capsys, "--vepyr-cache-root", str(root))
+    assert code == 0
+    assert lines["vepyr cache"].startswith("PASS vepyr cache:")
+    assert "116_GRCh38_ensembl, 116_GRCh38_refseq" in lines["vepyr cache"]
+
+
+def test_ensembl_recorded_but_dir_missing_fails(
+    healthy: Stub, tmp_path: Path, capsys: pytest.CaptureFixture[str]
+) -> None:
+    root = vepyr_cache(
+        tmp_path / "cache", (fetch.Flavour.ENSEMBL, fetch.Flavour.REFSEQ)
+    )
+    (root / fetch.Flavour.ENSEMBL.dir_name).rmdir()
+    code, lines = run(capsys, "--vepyr-cache-root", str(root))
+    assert code == 1
+    assert "116_GRCh38_ensembl" in lines["vepyr cache"]
+    assert lines["vepyr cache"].startswith("FAIL vepyr cache:")
 
 
 def test_vepyr_cache_dataset_dirs_follow_provenance(tmp_path: Path) -> None:

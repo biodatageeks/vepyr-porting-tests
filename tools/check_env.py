@@ -22,7 +22,10 @@ second copy of any rule:
     ``run_tests.tests.precheck_cache`` against ``PINS.toml``: provenance,
     pinned revisions and the pinned FASTA name; then the dataset directory
     (``fetch.Flavour.dir_name``, e.g. ``116_GRCh38_<flavour>``) of every flavour
-    recorded in ``PROVENANCE.json`` must exist (owner decision on PR #181).
+    recorded in ``PROVENANCE.json`` must exist (owner decision on PR #181),
+    and so must the dataset directory of the flavour the data-tests need
+    (``REQUIRED_FLAVOUR``, ``ensembl``: ``dt``'s ``FLAVOUR``), whatever the
+    provenance records (super-review F1 on PR #181).
 ``vep cache`` (with ``--vep-cache-dir``)
     ``bless.ensembl.require_complete_cache``.
 ``vep fasta`` (with ``--vep-fasta``)
@@ -79,6 +82,8 @@ PINS_TOML: Final[Path] = REPO / "PINS.toml"
 UV_ENV: Final[str] = "UV_PROJECT_ENVIRONMENT"
 TOOLS: Final[tuple[str, ...]] = ("uv", "cargo", "git")
 DEFAULT_DOCKER_TIMEOUT: Final[float] = 30.0
+REQUIRED_FLAVOUR: Final[fetch.Flavour] = fetch.Flavour.ENSEMBL
+"""The flavour every data-test runs on (``dt``: ``FLAVOUR = "ensembl"``)."""
 
 
 class Exit(IntEnum):
@@ -247,13 +252,32 @@ def dataset_dirs(root: Path) -> list[Path]:
         ) from exc
 
 
-def vepyr_cache_check(root: Path | None) -> Check:
-    """``root`` is a usable ``./run_tests --cache-dir`` product for ``PINS.toml``."""
+def vepyr_cache_check(
+    root: Path | None, required: fetch.Flavour = REQUIRED_FLAVOUR
+) -> Check:
+    """``root`` is a usable ``./run_tests --cache-dir`` product for ``PINS.toml``.
+
+    Args:
+        root: The cache root, or ``None`` (check skipped).
+        required: Flavour whose dataset directory must exist even when the
+            provenance does not record it (the data-tests' flavour).
+
+    Returns:
+        The check result.
+    """
     if root is None:
         return Check("vepyr cache", Status.SKIP, "no --vepyr-cache-root")
 
     def probe() -> str:
         precheck_cache(root, pins_toml=PINS_TOML)
+        if not (need := root / required.dir_name).is_dir():
+            raise RunTestsError(
+                RunTestsExit.INCOMPLETE,
+                f"dataset directory {need} missing (required: the data-tests "
+                f"run on the {required.value} flavour, whatever "
+                f"{fetch.PROVENANCE} records). "
+                f"Run: ./run_tests --cache-dir {root} [--add-contigs LIST]",
+            )
         dirs = dataset_dirs(root)
         if missing := [d for d in dirs if not d.is_dir()]:
             raise RunTestsError(
