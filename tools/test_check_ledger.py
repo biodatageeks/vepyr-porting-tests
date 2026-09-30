@@ -324,6 +324,76 @@ def test_dirty_tree_cannot_be_measured(
     assert code == 2 and "dirty" in err
 
 
+def _sparse_without_b(upstream: Path) -> None:
+    """Sparse-checkout ``upstream`` without ``t/B.t``: clean, pinned, one file short."""
+    _git(upstream, "sparse-checkout", "set", "--no-cone", "/t/*", "!/t/B.t")
+    assert not (upstream / "t" / "B.t").exists()
+    assert _git(upstream, "status", "--porcelain") == ""
+
+
+@pytest.mark.parametrize(
+    "mode",
+    [
+        pytest.param(("--list",), id="list"),
+        pytest.param(("--sweep",), id="sweep"),
+        pytest.param(("--sweep", "--glob", "t/*.pm"), id="sweep-pm-unaffected"),
+    ],
+)
+def test_sparse_checkout_list_and_sweep(
+    upstream: Path, capsys: pytest.CaptureFixture[str], mode: tuple[str, ...]
+) -> None:
+    _sparse_without_b(upstream)
+    code = cl.main(["--upstream", str(upstream), *mode])
+    _, err = capsys.readouterr()
+    if "t/*.pm" in mode:
+        assert code == 0, err  # t/Support.pm is present: that glob is complete
+    else:
+        assert code == 2 and "missing 1 (t/B.t)" in err, err
+
+
+def test_sparse_checkout_cannot_be_measured(
+    upstream: Path, tmp_path: Path, capsys: pytest.CaptureFixture[str]
+) -> None:
+    """A CSV without B.t's rows passes coverage on a sparse checkout lacking B.t."""
+    records = [r for r in _records(upstream) if r[0] != "t/B.t"]
+    csv_path = _write(tmp_path / "noB.csv", records)
+    _sparse_without_b(upstream)
+    code, out, err = _check(csv_path, upstream, capsys)
+    assert code == 2, out
+    assert "differ from the pinned tree (missing 1 (t/B.t))" in err
+    _git(upstream, "sparse-checkout", "disable")
+    assert _check(csv_path, upstream, capsys)[0] == 1  # full tree: B.t is missing
+
+
+def test_untracked_ignored_file_is_extra(
+    upstream: Path, tmp_path: Path, capsys: pytest.CaptureFixture[str]
+) -> None:
+    """A file on disk that is not in the pinned tree (ignored, so not dirty)."""
+    csv_path = _write(tmp_path / "d.csv", _records(upstream))
+    (upstream / ".git" / "info" / "exclude").write_text("t/C.t\n")
+    (upstream / "t" / "C.t").write_text("ok(1);\n")
+    code, _, err = _check(csv_path, upstream, capsys)
+    assert code == 2 and "extra 1 (t/C.t)" in err, err
+
+
+def test_glob_matches_like_path_glob() -> None:
+    assert cl.glob_matches("t/A.t", "t/*.t")
+    assert not cl.glob_matches("t/sub/A.t", "t/*.t")
+    assert not cl.glob_matches("x/t/A.t", "t/*.t")
+    assert not cl.glob_matches("t/A.pm", "t/*.t")
+    with pytest.raises(cl.CannotMeasure):
+        cl.glob_matches("t/A.t", "t/**/*.t")
+
+
+def test_indented_assertions_are_rows(tmp_path: Path) -> None:
+    """``ROW_RE`` allows leading whitespace (spaces and tabs) before the name."""
+    (tmp_path / "t").mkdir()
+    path = tmp_path / "t" / "I.t"
+    path.write_text("SKIP: {\n    ok(1);\n\tis(1, 1);\n}\nis_deeply([], []);\n")
+    found = [(a.n, a.perl_line, a.perl_kind) for a in cl.enumerate_file(tmp_path, path)]
+    assert found == [(1, 2, "ok"), (2, 3, "is"), (3, 5, "is_deeply")]
+
+
 def test_missing_upstream_or_csv_cannot_be_measured(
     upstream: Path, tmp_path: Path, capsys: pytest.CaptureFixture[str]
 ) -> None:

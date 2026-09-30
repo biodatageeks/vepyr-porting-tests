@@ -195,7 +195,10 @@ Without `--upstream` it makes a partial sparse clone of the tag into a temp dir
 (`t/*.t`, `t/*.pm` and `modules/Bio/EnsEMBL/VEP/Config.pm`, about 1 MB); with
 `--upstream DIR` it uses that checkout. Either way `git rev-parse HEAD` must be
 `57ea5c52340acc1f156267f810ad162e26597082` and `git status --porcelain` empty;
-`--ref` only picks the tag to clone, the pin does not move.
+`--ref` only picks the tag to clone, the pin does not move. The files the glob
+selects on disk must also equal those in `git ls-tree -r HEAD` at the pin: a clean,
+pinned but sparse checkout that omits or adds a file exits 2 (`files matching ...
+differ from the pinned tree`), so a missing file cannot pass as covered.
 
 The default mode checks the schema (the 13 columns of #109, optionally followed by
 `data_test_verdict`; field counts, enums, integer `n`/`perl_line`, conditional
@@ -210,8 +213,9 @@ of the explained ones on stderr; `--sweep-dir DIR` does the same on a plain
 directory without the pin check (for fixtures; its summary says `unpinned`).
 
 Exit codes: `0` ok, `1` violations (one `file:n: reason` line each), `2` cannot
-measure (CSV missing, unreadable or not UTF-8, upstream unavailable, another commit,
-dirty tree, no `git`). `.github/workflows/ledger-check.yml` runs the unit tests, the
+measure (CSV missing, unreadable or not UTF-8, a CSV field over 131072 bytes (the
+Python `csv` field size limit; fails closed), upstream unavailable, another commit,
+dirty tree, file set differing from the pinned tree, no `git`). `.github/workflows/ledger-check.yml` runs the unit tests, the
 two sweeps and, once `ledger/assertions.csv` exists, the CSV check (Actions is
 disabled, see `AGENTS.md`). Tests: `tools/test_check_ledger.py` (offline, against a
 synthetic upstream repository).
@@ -591,8 +595,9 @@ use_ok 148, throws_ok 99, like 11, cmp_deeply 3, dies_ok 2, isa_ok 1). An earlie
 independent Rust lexer from the deprecated porting repository found the same
 `(file, line, kind)` rows, with 0 differences in 49 files apart from its 5 `warning`
 capture rows. `tools/check_ledger --sweep` searches the same files for every function
-name documented by Test::More, Test::Exception, Test::Deep and Test::Warnings, at line
-start or mid-line (comments, strings and regex literals removed), and reports every
+name documented by Test::More, Test::Exception, Test::Deep and Test::Warnings as a
+bare word, at line start or mid-line, after removing comments, strings, regex
+literals, sigiled names, every `{ word }` and every `word =>`, and reports every
 occurrence the rule did not count; on the pinned files the only ones are explained
 non-assertions (`use`/`no warnings`, `done_testing`, `skip`, `diag`, Test::Deep
 comparators as arguments, import lists and the 6 `warning {` captures), and nothing
@@ -604,7 +609,11 @@ so a moved tag or an edited file cannot pass silently.
 these 49 files at this ref only: a line-start scan does not see assertions reached through helper subs or
 names outside the documented lists, and a line run many times in a loop is counted
 once; support files such as `t/VEPTestingConfig.pm` are not test files and are not
-read for rows (none of the 8 top-level `t/*.pm` contains an assertion).
+read for rows (none of the 8 top-level `t/*.pm` contains an assertion). The sweep
+does not see three forms, none of which occurs in the pinned files: an assertion
+alone in a block, `if (1) { fail }`, and `eval { pass };` (every `{ word }` is
+blanked as a hash key), and a call with the `&` sigil, `&ok(1, "x");` (blanked as
+a variable).
 
 ## Agent setup (per machine)
 

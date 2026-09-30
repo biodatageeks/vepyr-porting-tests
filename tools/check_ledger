@@ -29,12 +29,17 @@ is why any other commit is refused (exit 2).
 
 The upstream checkout (#110 Q1 = B) is a partial sparse clone of the pinned tag
 into a temp dir, or ``--upstream DIR``; either way ``git rev-parse HEAD`` must be
-the pinned commit and ``git status --porcelain`` must be empty. ``--ref`` only
-selects the tag to clone; the pin never changes.
+the pinned commit, ``git status --porcelain`` must be empty, and the files the
+glob selects on disk must equal those in ``git ls-tree -r HEAD`` (a sparse
+checkout that omits a file is refused). ``--ref`` only selects the tag to clone;
+the pin never changes.
 
 ``--list`` prints the enumeration as ``vep_file<TAB>n<TAB>perl_line<TAB>perl_kind``.
 ``--sweep`` (iii) searches the files for every documented function name of the four
-test modules, anywhere in the code (comments, strings and regex literals removed),
+test modules as a bare word, at line start or mid-line, after removing comments,
+strings, regex literals, sigiled names (``$ @ % &``, so ``&ok(...)`` is not seen),
+every ``{ word }`` (so ``{ fail }`` and ``eval { pass }`` are not seen) and
+``word =>``,
 and prints every occurrence the 22-name rule did not count and no fixed rule
 explains, as ``file:line: uncounted `name`: text``; explained occurrences are
 tallied on the stderr summary line. ``--sweep-dir DIR`` runs the sweep on ``DIR``
@@ -42,8 +47,9 @@ without the pin check (for fixtures only; the summary says ``unpinned``).
 ``--glob`` (default ``t/*.t``) selects the files for ``--list`` and the sweeps.
 
 Exit codes: ``0`` ok; ``1`` violations (one ``file:n: reason`` line each on stdout);
-``2`` cannot measure (CSV unreadable, upstream unavailable, not the pinned commit,
-dirty upstream tree, git missing). The check summary
+``2`` cannot measure (CSV unreadable or a field over 131072 bytes, upstream
+unavailable, not the pinned commit, dirty upstream tree, file set differs from the
+pinned tree, git missing). The check summary
 ``rows R, files F, missing M, orphan O`` is the last stdout line of the default mode.
 """
 
@@ -62,6 +68,7 @@ from collections.abc import Iterator, Sequence
 from contextlib import contextmanager
 from dataclasses import dataclass, field
 from enum import StrEnum
+from fnmatch import fnmatchcase
 from pathlib import Path
 from typing import Final
 
@@ -287,6 +294,55 @@ def upstream_files(root: Path, glob: str) -> list[Path]:
     return sorted(
         (p for p in root.glob(glob) if p.is_file()),
         key=lambda p: p.relative_to(root).as_posix().encode(),
+    )
+
+
+def glob_matches(rel: str, glob: str) -> bool:
+    """Whether the relative POSIX path ``rel`` matches ``glob`` as ``Path.glob`` does.
+
+    Segment-wise ``fnmatch`` (``*`` never crosses ``/``); ``**`` is not supported.
+
+    Raises:
+        CannotMeasure: ``glob`` contains ``**``.
+    """
+    if "**" in glob:
+        raise CannotMeasure(
+            f"--glob {glob!r}: '**' is not supported on a pinned checkout"
+        )
+    parts, pattern = rel.split("/"), glob.split("/")
+    return len(parts) == len(pattern) and all(map(fnmatchcase, parts, pattern))
+
+
+def verify_file_set(root: Path, glob: str) -> None:
+    """Refuse a checkout whose files matching ``glob`` differ from the pinned tree.
+
+    A sparse or partial checkout is clean and at the pinned commit, yet can lack
+    files; the set read from disk must equal the set in ``git ls-tree`` of HEAD.
+
+    Args:
+        root: A checkout already verified by :func:`verify_checkout`.
+        glob: The file selection (for example ``t/*.t``).
+
+    Raises:
+        CannotMeasure: ``git ls-tree`` failed, or any file is missing on disk or
+            not in the pinned tree.
+    """
+    tree = _git("-C", str(root), "ls-tree", "-r", "--name-only", "HEAD")
+    if tree.returncode != 0:
+        raise CannotMeasure(f"upstream {root}: git ls-tree failed")
+    pinned = {rel for rel in tree.stdout.splitlines() if glob_matches(rel, glob)}
+    on_disk = {p.relative_to(root).as_posix() for p in upstream_files(root, glob)}
+    if pinned == on_disk:
+        return
+    missing, extra = sorted(pinned - on_disk), sorted(on_disk - pinned)
+    detail = "; ".join(
+        f"{label} {len(names)} ({', '.join(names[:5])}{', ...' * (len(names) > 5)})"
+        for label, names in (("missing", missing), ("extra", extra))
+        if names
+    )
+    raise CannotMeasure(
+        f"upstream {root}: files matching {glob!r} differ from the pinned tree "
+        f"({detail}); a sparse or partial checkout cannot be measured"
     )
 
 
@@ -962,6 +1018,7 @@ def run(args: argparse.Namespace) -> int:
         return _report_sweep(result, "unpinned")
     if args.list or args.sweep:
         with upstream_checkout(args.upstream, args.ref) as root:
+            verify_file_set(root, args.glob)
             if args.sweep:
                 return _report_sweep(sweep(root, args.glob), f"pinned {PINNED_COMMIT}")
             for a in enumerate_upstream(root, args.glob):
@@ -969,6 +1026,7 @@ def run(args: argparse.Namespace) -> int:
             return EXIT_OK
     report = read_csv(args.csv)
     with upstream_checkout(args.upstream, args.ref) as root:
+        verify_file_set(root, DEFAULT_GLOB)
         upstream = enumerate_upstream(root)
     files = len({row.vep_file for row in report.rows})
     if report.keyed:
