@@ -190,7 +190,8 @@ Checks, each reusing the code of the tool that depends on it: `UV_PROJECT_ENVIRO
 `PATH`), `bcftools pin` (`tools/normalize_input`'s own version check; the pin has no
 second copy), `docker daemon` (`./bless`'s probe with a wall-clock limit, default 30 s),
 and with their flags `vepyr cache` (`./run_tests`'s precheck: `PROVENANCE.json`, pinned
-revisions, pinned FASTA name), `vep cache` and `vep fasta` (`./bless`'s cache and FASTA
+revisions, pinned FASTA name, plus a `116_GRCh38_<flavour>` dataset directory for each
+flavour recorded in `PROVENANCE.json`), `vep cache` and `vep fasta` (`./bless`'s cache and FASTA
 checks, plus `<fasta>.fai`); without a flag that check prints `SKIP`. Exit codes: 0
 every check passed (`SKIP` does not fail), 1 a check failed, 2
 `UV_PROJECT_ENVIRONMENT` unset, relative or inside a checkout (or bad usage), 3

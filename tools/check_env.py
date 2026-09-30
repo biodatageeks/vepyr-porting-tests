@@ -20,7 +20,9 @@ second copy of any rule:
     ``bless.vep.require_docker`` with a wall-clock timeout.
 ``vepyr cache`` (with ``--vepyr-cache-root``)
     ``run_tests.tests.precheck_cache`` against ``PINS.toml``: provenance,
-    pinned revisions and the pinned FASTA name.
+    pinned revisions and the pinned FASTA name; then the dataset directory
+    (``fetch.Flavour.dir_name``, e.g. ``116_GRCh38_<flavour>``) of every flavour
+    recorded in ``PROVENANCE.json`` must exist (owner decision on PR #181).
 ``vep cache`` (with ``--vep-cache-dir``)
     ``bless.ensembl.require_complete_cache``.
 ``vep fasta`` (with ``--vep-fasta``)
@@ -57,7 +59,9 @@ from typing import Final
 from bless import BlessError
 from bless.ensembl import require_complete_cache, require_fasta
 from bless.vep import require_docker
+from run_tests import fetch
 from run_tests.tests import precheck_cache
+from run_tests.verdict import Exit as RunTestsExit
 from run_tests.verdict import RunTestsError
 
 __all__ = [
@@ -212,6 +216,34 @@ def docker_check(timeout: float) -> Check:
     )
 
 
+def dataset_dirs(root: Path) -> list[Path]:
+    """The dataset directory of every flavour recorded in ``root``'s provenance.
+
+    Names come from :attr:`run_tests.fetch.Flavour.dir_name`, the same source the
+    fetch writes them with; the flavours from ``PROVENANCE.json``, the same set
+    ``precheck_cache`` checks when given no ``flavours``.
+
+    Args:
+        root: A cache root that already passed ``precheck_cache``.
+
+    Returns:
+        One path per recorded flavour, in provenance order.
+
+    Raises:
+        RunTestsError: Provenance vanished or names a flavour ``fetch`` does not know.
+    """
+    if (provenance := fetch.read_provenance(root)) is None:
+        raise RunTestsError(
+            RunTestsExit.INCOMPLETE, f"{root / fetch.PROVENANCE} missing"
+        )
+    try:
+        return [root / fetch.Flavour(f).dir_name for f in provenance.datasets]
+    except ValueError as exc:
+        raise RunTestsError(
+            RunTestsExit.USAGE, f"{root / fetch.PROVENANCE}: {exc}"
+        ) from exc
+
+
 def vepyr_cache_check(root: Path | None) -> Check:
     """``root`` is a usable ``./run_tests --cache-dir`` product for ``PINS.toml``."""
     if root is None:
@@ -219,7 +251,18 @@ def vepyr_cache_check(root: Path | None) -> Check:
 
     def probe() -> str:
         precheck_cache(root, pins_toml=PINS_TOML)
-        return f"{root} (provenance and revisions match PINS.toml, FASTA present)"
+        dirs = dataset_dirs(root)
+        if missing := [d for d in dirs if not d.is_dir()]:
+            raise RunTestsError(
+                RunTestsExit.INCOMPLETE,
+                f"dataset directory {', '.join(map(str, missing))} missing "
+                f"(flavour recorded in {root / fetch.PROVENANCE}). "
+                f"Run: ./run_tests --cache-dir {root} [--add-contigs LIST]",
+            )
+        return (
+            f"{root} (provenance and revisions match PINS.toml, FASTA present, "
+            f"datasets {', '.join(d.name for d in dirs)})"
+        )
 
     return _outcome("vepyr cache", probe, RunTestsError, OSError)
 

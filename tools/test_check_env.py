@@ -81,6 +81,7 @@ def vepyr_cache(root: Path) -> Path:
     )
     root.mkdir(parents=True)
     fetch.write_provenance(root, fetch.Provenance(datasets={flavour.value: record}))
+    (root / flavour.dir_name).mkdir()
     (root / fetch.FASTA_DIR).mkdir()
     for suffix in ("", ".fai"):
         (root / fetch.FASTA_DIR / f"{fasta_pin.fa_name}{suffix}").write_text(">21\nA\n")
@@ -194,6 +195,28 @@ def test_real_precheck_cache_fixture_passes(
     root = vepyr_cache(tmp_path / "cache")
     code, lines = run(capsys, "--vepyr-cache-root", str(root))
     assert code == 0 and lines["vepyr cache"].startswith("PASS vepyr cache:")
+
+
+def test_vepyr_cache_without_dataset_dir_fails(
+    healthy: Stub, tmp_path: Path, capsys: pytest.CaptureFixture[str]
+) -> None:
+    """Provenance and FASTA pass ``precheck_cache``, but the data directory is gone."""
+    root = vepyr_cache(tmp_path / "cache")
+    (root / fetch.Flavour.ENSEMBL.dir_name).rmdir()
+    code, lines = run(capsys, "--vepyr-cache-root", str(root))
+    assert code == 1
+    line = lines["vepyr cache"]
+    assert line.startswith("FAIL vepyr cache: dataset directory")
+    assert str(root / "116_GRCh38_ensembl") in line and "missing" in line
+
+
+def test_vepyr_cache_dataset_dirs_follow_provenance(tmp_path: Path) -> None:
+    """Directory names come from the recorded flavours, not a hard-coded list."""
+    root = vepyr_cache(tmp_path / "cache")
+    assert check_env.dataset_dirs(root) == [root / "116_GRCh38_ensembl"]
+    prov = root / fetch.PROVENANCE
+    prov.write_text(prov.read_text().replace('"ensembl"', '"refseq"'))
+    assert check_env.dataset_dirs(root) == [root / "116_GRCh38_refseq"]
 
 
 def test_vepyr_cache_wrong_revision_fails(
