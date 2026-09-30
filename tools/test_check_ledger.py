@@ -1,0 +1,450 @@
+"""Tests for ``tools/check_ledger`` (#110).
+
+The script has no ``.py`` suffix, so it is loaded by path, like
+``tools/build_test_index`` in ``test_build_test_index.py``. Every test runs
+offline: the upstream is a synthetic git repository made in ``tmp_path`` and
+``PINNED_COMMIT`` is re-pinned to its HEAD, so the pin and clean-tree checks
+run for real against it. The fixtures mirror criteria 2-11, 15 and 21 of #110.
+"""
+
+from __future__ import annotations
+
+import csv
+import io
+import subprocess
+import sys
+from collections.abc import Callable
+from importlib.machinery import SourceFileLoader
+from importlib.util import module_from_spec, spec_from_loader
+from pathlib import Path
+from types import ModuleType
+from typing import Final
+
+import pytest
+
+TOOLS: Final[Path] = Path(__file__).resolve().parent
+SCRIPT: Final[Path] = TOOLS / "check_ledger"
+
+
+def _load() -> ModuleType:
+    """Import the extension-less script as a module."""
+    loader = SourceFileLoader("check_ledger", str(SCRIPT))
+    spec = spec_from_loader(loader.name, loader)
+    assert spec is not None
+    module = module_from_spec(spec)
+    sys.modules[loader.name] = module  # dataclasses resolve the module by name
+    loader.exec_module(module)
+    return module
+
+
+cl: Final[ModuleType] = _load()
+
+A_T: Final[str] = """\
+use strict;
+use warnings;
+use Test::More;
+use Test::Exception;
+use Test::Warnings qw(warning);
+use_ok('Foo');
+ok(1, 'one');   # is(2) in a comment is not an assertion
+is(1, 1, "is: pass the test");
+my $w = warning { carp 'x' };
+like($w, qr/x/, 'captured');
+warning { 1 };
+cmp_deeply([1], [re('^1$')], 'deep');
+throws_ok { die } qr/ok/, 'dies';
+done_testing();
+"""
+"""Six rows (use_ok ok is like cmp_deeply throws_ok); two captures, one comparator."""
+
+B_T: Final[str] = """\
+use Test::More;
+my $cfg = {};
+$cfg->{pass} = 1;
+my %h = (fail => 1);
+is_deeply(
+  [1],
+  [1],
+  'multi-line'
+);
+done_testing;
+"""
+"""One row; ``{pass}`` and ``fail =>`` are autoquoted hash keys, not calls."""
+
+EXPECTED_LIST: Final[str] = (
+    "t/A.t\t1\t6\tuse_ok\nt/A.t\t2\t7\tok\nt/A.t\t3\t8\tis\nt/A.t\t4\t10\tlike\n"
+    "t/A.t\t5\t12\tcmp_deeply\nt/A.t\t6\t13\tthrows_ok\nt/B.t\t1\t5\tis_deeply\n"
+)
+
+
+def _git(root: Path, *args: str) -> str:
+    """Run git in ``root`` with a fixed identity and return stdout."""
+    done = subprocess.run(
+        ["git", "-C", str(root), "-c", "user.name=t", "-c", "user.email=t@t", *args],
+        capture_output=True,
+        text=True,
+        check=True,
+    )
+    return done.stdout.strip()
+
+
+@pytest.fixture
+def upstream(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> Path:
+    """A clean synthetic upstream checkout; the tool is pinned to its HEAD."""
+    root = tmp_path / "up"
+    (root / "t").mkdir(parents=True)
+    (root / "t" / "A.t").write_text(A_T)
+    (root / "t" / "B.t").write_text(B_T)
+    (root / "t" / "Support.pm").write_text("package Support;\nuse warnings;\n1;\n")
+    _git(root, "init", "-q")
+    _git(root, "add", ".")
+    _git(root, "commit", "-q", "-m", "fixture")
+    monkeypatch.setattr(cl, "PINNED_COMMIT", _git(root, "rev-parse", "HEAD"))
+    return root
+
+
+def _records(root: Path) -> list[list[str]]:
+    """A valid 13-column CSV (header first) for the upstream enumeration."""
+    rows = [list(cl.COLUMNS)]
+    for a in cl.enumerate_upstream(root):
+        rows.append([a.vep_file, str(a.n), str(a.perl_line), a.perl_kind,
+                     "no-feature", f"desc {a.n}", "why", "unchanged",
+                     "", "", "area", "", ""])  # fmt: skip
+    return rows
+
+
+def _write(path: Path, records: list[list[str]]) -> Path:
+    """Write ``records`` canonically (the #109 format)."""
+    path.write_text(cl.canonical(records), newline="")
+    return path
+
+
+def _check(
+    csv_path: Path, root: Path, capsys: pytest.CaptureFixture[str]
+) -> tuple[int, str, str]:
+    """Run the default mode; return (exit, stdout, stderr)."""
+    code = cl.main(["--csv", str(csv_path), "--upstream", str(root)])
+    out, err = capsys.readouterr()
+    return code, out, err
+
+
+def test_list_prints_the_line_start_enumeration(
+    upstream: Path, capsys: pytest.CaptureFixture[str]
+) -> None:
+    assert cl.main(["--upstream", str(upstream), "--list"]) == 0
+    assert capsys.readouterr().out == EXPECTED_LIST
+
+
+def test_bare_warning_statements_are_not_rows(upstream: Path) -> None:
+    kinds = [a.perl_kind for a in cl.enumerate_upstream(upstream)]
+    assert "warning" not in kinds and len(kinds) == 7
+
+
+def test_list_glob_selects_support_modules(
+    upstream: Path, capsys: pytest.CaptureFixture[str]
+) -> None:
+    assert cl.main(["--upstream", str(upstream), "--list", "--glob", "t/*.pm"]) == 0
+    assert capsys.readouterr().out == ""
+
+
+def test_base_run_passes(
+    upstream: Path, tmp_path: Path, capsys: pytest.CaptureFixture[str]
+) -> None:
+    code, out, _ = _check(_write(tmp_path / "d.csv", _records(upstream)), upstream,
+                          capsys)  # fmt: skip
+    assert (code, out) == (0, "rows 7, files 2, missing 0, orphan 0\n")
+
+
+type Mutation = Callable[[list[list[str]]], None]
+
+
+def _append_orphan(r: list[list[str]]) -> None:
+    r.append([*r[-1][:1], str(int(r[-1][1]) + 1), *r[-1][2:]])
+
+
+def _swap_rows(r: list[list[str]]) -> None:
+    r[1], r[2] = r[2], r[1]
+
+
+def _set(row: int, col: int, value: str) -> Mutation:
+    def mutate(r: list[list[str]]) -> None:
+        r[row][col] = value
+
+    return mutate
+
+
+def _set_fn(row: int, col: int, fn: Callable[[str], str]) -> Mutation:
+    def mutate(r: list[list[str]]) -> None:
+        r[row][col] = fn(r[row][col])
+
+    return mutate
+
+
+def _plus_one(value: str) -> str:
+    return str(int(value) + 1)
+
+
+MUTATIONS: Final[list[tuple[str, Mutation, str]]] = [
+    ("2 deleted row", lambda r: r.pop(1), "missing row"),
+    ("3 duplicated row", lambda r: r.insert(2, list(r[1])), "duplicate key"),
+    ("4 orphan row", _append_orphan, "orphan row"),
+    ("5 perl_line", _set_fn(1, 2, _plus_one), "perl_line 7 != upstream 6"),
+    ("6 perl_kind", _set(1, 3, "ok"), "perl_kind ok != upstream use_ok"),
+    ("7 bad enum", _set(1, 4, "failed"), "category 'failed'"),
+    ("8 empty rationale", _set(1, 6, ""), "rationale is empty"),
+    ("9 unsorted", _swap_rows, "row out of order"),
+    ("10 newline", _set_fn(1, 5, lambda v: v + "\nx"), "newline in field desc"),
+    ("i bad issue", _set(1, 12, "http://x"), "neither empty nor an https:// URL"),
+    ("i ported without rust_test", _set(1, 4, "unit-port"), "rust_test is empty"),
+    ("i vep_file prefix", _set(1, 0, "A.t"), "does not start with t/"),
+    ("i non-integer n", _set(1, 1, "01"), "is not a positive integer"),
+]  # fmt: skip
+
+
+@pytest.mark.parametrize(
+    ("mutation", "message"),
+    [pytest.param(m, msg, id=name) for name, m, msg in MUTATIONS],
+)
+def test_mutation_is_a_violation(
+    upstream: Path,
+    tmp_path: Path,
+    capsys: pytest.CaptureFixture[str],
+    mutation: Mutation,
+    message: str,
+) -> None:
+    records = _records(upstream)
+    mutation(records)
+    code, out, err = _check(_write(tmp_path / "m.csv", records), upstream, capsys)
+    assert code == 1, out
+    assert message in out
+    assert "violation" in err
+
+
+def test_deleted_row_is_the_only_message(
+    upstream: Path, tmp_path: Path, capsys: pytest.CaptureFixture[str]
+) -> None:
+    records = _records(upstream)
+    del records[1]
+    _, out, _ = _check(_write(tmp_path / "m.csv", records), upstream, capsys)
+    assert out.splitlines() == [
+        "t/A.t:1: missing row (upstream line 6, use_ok)",
+        "rows 6, files 2, missing 1, orphan 0",
+    ]
+
+
+@pytest.mark.parametrize(
+    ("raw", "message"),
+    [
+        pytest.param(lambda t: t.replace("\n", "\r\n"), "canonical", id="11 CRLF"),
+        pytest.param(lambda t: "﻿" + t, "BOM", id="11 BOM"),
+        pytest.param(lambda t: t.rstrip("\n"), "canonical", id="no final LF"),
+        pytest.param(lambda t: t.replace("desc 1", '"desc 1"'), "canonical",
+                     id="needless quotes"),
+        pytest.param(lambda t: "", "empty file", id="empty"),
+    ],
+)  # fmt: skip
+def test_non_canonical_bytes_are_a_violation(
+    upstream: Path,
+    tmp_path: Path,
+    capsys: pytest.CaptureFixture[str],
+    raw: Callable[[str], str],
+    message: str,
+) -> None:
+    path = tmp_path / "m.csv"
+    path.write_bytes(raw(cl.canonical(_records(upstream))).encode())
+    code, out, _ = _check(path, upstream, capsys)
+    assert code == 1 and message in out
+
+
+def _with_verdict(records: list[list[str]]) -> list[list[str]]:
+    """The #101 14-column form of ``records`` (as criterion 21's ``mk14``)."""
+    return [r[:13] + (["data_test_verdict"] if i == 0 else ["UNSURE"])
+            for i, r in enumerate(records)]  # fmt: skip
+
+
+def test_fourteenth_column_is_accepted(
+    upstream: Path, tmp_path: Path, capsys: pytest.CaptureFixture[str]
+) -> None:
+    records = _with_verdict(_records(upstream))
+    code, out, _ = _check(_write(tmp_path / "m.csv", records), upstream, capsys)
+    assert (code, out) == (0, "rows 7, files 2, missing 0, orphan 0\n")
+
+
+def _pop(r: list[list[str]]) -> None:
+    r[1].pop()
+
+
+def _fifteenth(r: list[list[str]]) -> None:
+    for row in r:
+        row.append("x")
+
+
+FOURTEEN: Final[list[tuple[str, Mutation, str]]] = [
+    ("other header", _set(0, 13, "data_test_verdicts"), "header must be"),
+    ("empty value", _set(1, 13, ""), "data_test_verdict is empty"),
+    ("15th column", _fifteenth, "header must be"),
+    ("short row", _pop, "13 fields, header has 14"),
+    ("perl_line", _set_fn(1, 2, _plus_one), "perl_line 7 != upstream 6"),
+]
+
+
+@pytest.mark.parametrize(
+    ("mutation", "message"),
+    [pytest.param(m, msg, id=f"21 {name}") for name, m, msg in FOURTEEN],
+)
+def test_fourteenth_column_mutations(
+    upstream: Path,
+    tmp_path: Path,
+    capsys: pytest.CaptureFixture[str],
+    mutation: Mutation,
+    message: str,
+) -> None:
+    records = _with_verdict(_records(upstream))
+    mutation(records)
+    code, out, _ = _check(_write(tmp_path / "m.csv", records), upstream, capsys)
+    assert code == 1 and message in out
+
+
+def test_extra_commit_cannot_be_measured(
+    upstream: Path, tmp_path: Path, capsys: pytest.CaptureFixture[str]
+) -> None:
+    csv_path = _write(tmp_path / "d.csv", _records(upstream))
+    _git(upstream, "commit", "-q", "--allow-empty", "-m", "x")
+    code, _, err = _check(csv_path, upstream, capsys)
+    assert code == 2 and "!= pinned" in err
+
+
+def test_dirty_tree_cannot_be_measured(
+    upstream: Path, tmp_path: Path, capsys: pytest.CaptureFixture[str]
+) -> None:
+    csv_path = _write(tmp_path / "d.csv", _records(upstream))
+    with (upstream / "t" / "A.t").open("a") as fh:
+        fh.write("x")
+    code, _, err = _check(csv_path, upstream, capsys)
+    assert code == 2 and "dirty" in err
+
+
+def test_missing_upstream_or_csv_cannot_be_measured(
+    upstream: Path, tmp_path: Path, capsys: pytest.CaptureFixture[str]
+) -> None:
+    csv_path = _write(tmp_path / "d.csv", _records(upstream))
+    assert _check(csv_path, tmp_path / "nonexistent", capsys)[0] == 2
+    assert _check(tmp_path / "absent.csv", upstream, capsys)[0] == 2
+    plain = tmp_path / "plain"
+    plain.mkdir()
+    assert _check(csv_path, plain, capsys)[0] == 2
+    (tmp_path / "latin1.csv").write_bytes(b"\xff\n")
+    assert _check(tmp_path / "latin1.csv", upstream, capsys)[0] == 2
+
+
+# --- sweep --------------------------------------------------------------------------
+
+
+def _sweep_dir(tmp_path: Path, extra: str) -> Path:
+    """An unpinned directory with ``t/A.t``, ``t/B.t``; ``extra`` appended to A.t."""
+    root = tmp_path / "sweep"
+    (root / "t").mkdir(parents=True)
+    (root / "t" / "A.t").write_text(A_T + extra)
+    (root / "t" / "B.t").write_text(B_T)
+    return root
+
+
+def _sweep(root: Path, capsys: pytest.CaptureFixture[str]) -> tuple[int, str, str]:
+    code = cl.main(["--sweep-dir", str(root)])
+    out, err = capsys.readouterr()
+    return code, out, err
+
+
+def test_sweep_base_explains_everything(
+    tmp_path: Path, capsys: pytest.CaptureFixture[str]
+) -> None:
+    code, out, err = _sweep(_sweep_dir(tmp_path, ""), capsys)
+    assert (code, out) == (0, "")
+    assert err == (
+        "sweep (unpinned): files 2, counted 7; capture warning/warnings 2, "
+        "comparator 1, done_testing 2, import list 1, use/no warnings 1; "
+        "unexplained 0\n"
+    )
+
+
+@pytest.mark.parametrize(
+    ("extra", "report"),
+    [
+        pytest.param('1; lives_ok { 1 } "x";\n', "t/A.t:15: uncounted `lives_ok`: "
+                     '1; lives_ok { 1 } "x";', id="15 mid-line lives_ok"),
+        pytest.param("had_no_warnings();\n", "t/A.t:15: uncounted `had_no_warnings`: "
+                     "had_no_warnings();", id="15 line-start had_no_warnings"),
+        pytest.param("warning(1);\n", "t/A.t:15: uncounted `warning`: warning(1);",
+                     id="warning call form"),
+        pytest.param("my $x = 1 + fail;\n", "uncounted `fail`", id="mid-line fail"),
+        pytest.param("re('x');\n", "uncounted `re`", id="comparator as statement"),
+        pytest.param("ok(1) && is(1, 1);\n", "uncounted `is`",
+                     id="second assertion on a counted line"),
+    ],
+)  # fmt: skip
+def test_sweep_reports_uncounted(
+    tmp_path: Path, capsys: pytest.CaptureFixture[str], extra: str, report: str
+) -> None:
+    code, out, err = _sweep(_sweep_dir(tmp_path, extra), capsys)
+    assert code == 1
+    assert report in out and len(out.splitlines()) == 1
+    assert "unexplained 1" in err
+
+
+@pytest.mark.parametrize(
+    "extra",
+    [
+        pytest.param("warning { 1 };\n", id="bare warning capture"),
+        pytest.param("my @w = warnings { 1 };\n", id="warnings capture after ="),
+        pytest.param("# lives_ok { 1 };\n", id="comment"),
+        pytest.param("my $s = 'lives_ok { 1 }';\n", id="string"),
+        pytest.param("my $s = q{had_no_warnings()};\n", id="q literal"),
+        pytest.param("my $r = qr/ok\\(fail\\)/;\n", id="regex literal"),
+        pytest.param("$x =~ s/is/isnt/g;\n", id="substitution"),
+        pytest.param("my $n = $#fail;\n", id="array length"),
+        pytest.param("$obj->is(1);\n", id="method call"),
+    ],
+)
+def test_sweep_explains_or_ignores(
+    tmp_path: Path, capsys: pytest.CaptureFixture[str], extra: str
+) -> None:
+    code, out, _ = _sweep(_sweep_dir(tmp_path, extra), capsys)
+    assert (code, out) == (0, "")
+
+
+def test_bare_warning_is_tallied_as_capture(
+    tmp_path: Path, capsys: pytest.CaptureFixture[str]
+) -> None:
+    _, _, err = _sweep(_sweep_dir(tmp_path, "warning { 1 };\n"), capsys)
+    assert "capture warning/warnings 3" in err
+
+
+def test_pinned_sweep_over_support_modules(
+    upstream: Path, capsys: pytest.CaptureFixture[str]
+) -> None:
+    assert cl.main(["--upstream", str(upstream), "--sweep", "--glob", "t/*.pm"]) == 0
+    out, err = capsys.readouterr()
+    assert out == "" and f"pinned {cl.PINNED_COMMIT}" in err
+
+
+def test_pinned_sweep_refuses_a_dirty_tree(
+    upstream: Path, capsys: pytest.CaptureFixture[str]
+) -> None:
+    with (upstream / "t" / "A.t").open("a") as fh:
+        fh.write("had_no_warnings();\n")
+    assert cl.main(["--upstream", str(upstream), "--sweep"]) == 2
+
+
+def test_strip_perl_keeps_positions() -> None:
+    src = "ok(1, 'a # b'); # c\nmy $x = qq{\n  is\n}; is(2);\n"
+    code = cl.strip_perl(src)
+    assert len(code) == len(src) and code.count("\n") == src.count("\n")
+    assert code.split("\n")[3].endswith("is(2);")
+    assert "a # b" not in code and "# c" not in code and " is\n" not in code
+
+
+def test_canonical_matches_the_109_format() -> None:
+    records = [["a", "b,c", 'd"e', "f g"]]
+    expected = io.StringIO(newline="")
+    csv.writer(expected, lineterminator="\n").writerows(records)
+    assert cl.canonical(records) == expected.getvalue() == 'a,"b,c","d""e",f g\n'
