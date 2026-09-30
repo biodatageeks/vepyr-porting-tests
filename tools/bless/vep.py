@@ -280,11 +280,16 @@ def docker_argv(image: str, mounts: Mounts, extra: tuple[str, ...] = ()) -> list
     ]  # fmt: skip
 
 
-def require_docker() -> str:
+def require_docker(timeout: float | None = None) -> str:
     """Return the docker executable, or fail with a readable message.
 
+    Args:
+        timeout: Wall-clock limit in seconds for the daemon probe; ``None``
+            (the default, what ``./bless`` uses) waits indefinitely.
+
     Raises:
-        BlessError: If docker is missing or its daemon does not answer.
+        BlessError: If docker is missing, its daemon does not answer, or the
+            probe exceeds ``timeout``.
     """
     exe = shutil.which("docker")
     if exe is None:
@@ -293,9 +298,18 @@ def require_docker() -> str:
             "`./bless --check <test-dir>`, "
             "which needs no docker)"
         )
-    probe = subprocess.run(
-        [exe, "info", "--format", "{{.ServerVersion}}"], capture_output=True, text=True
-    )
+    try:
+        probe = subprocess.run(
+            [exe, "info", "--format", "{{.ServerVersion}}"],
+            capture_output=True,
+            text=True,
+            timeout=timeout,
+        )
+    except subprocess.TimeoutExpired as exc:
+        raise BlessError(
+            "docker daemon did not answer: `docker info` timed out after "
+            f"{exc.timeout:g}s"
+        ) from exc
     if probe.returncode != 0:
         raise BlessError(
             "docker is installed but its daemon does not answer: "

@@ -176,6 +176,27 @@ or tool error (no argument, unknown kind, non-numeric `N`, unknown state or one 
 other kind, `gh` failing, read-back mismatch). Tests: `tools/test_set_state.py`, against
 the offline `gh` stub.
 
+## ./check_env (local prerequisites)
+
+`./check_env` (issue #170) answers "can the repo tools run on this machine" with
+one `PASS`/`FAIL`/`SKIP <name>: <detail>` line per check and a summary line:
+
+```bash
+./check_env [--vepyr-cache-root DIR] [--vep-cache-dir DIR] [--vep-fasta FILE] [--docker-timeout SECONDS]
+```
+
+Checks, each reusing the code of the tool that depends on it: `UV_PROJECT_ENVIRONMENT`
+(set, absolute, outside every git checkout), `tool uv` / `tool cargo` / `tool git` (on
+`PATH`), `bcftools pin` (`tools/normalize_input`'s own version check; the pin has no
+second copy), `docker daemon` (`./bless`'s probe with a wall-clock limit, default 30 s),
+and with their flags `vepyr cache` (`./run_tests`'s precheck: `PROVENANCE.json`, pinned
+revisions, pinned FASTA name), `vep cache` and `vep fasta` (`./bless`'s cache and FASTA
+checks, plus `<fasta>.fai`); without a flag that check prints `SKIP`. Exit codes: 0
+every check passed (`SKIP` does not fail), 1 a check failed, 2
+`UV_PROJECT_ENVIRONMENT` unset, relative or inside a checkout (or bad usage), 3
+unexpected. It never writes; it runs with `uv run --no-project`, so it creates no
+environment before checking `UV_PROJECT_ENVIRONMENT`. The skill helper `dt env` calls it.
+
 ## ./bless
 
 `./bless` makes and checks the oracle of a data-test directory `tests/data/<name>/`:
