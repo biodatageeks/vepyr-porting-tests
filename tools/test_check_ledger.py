@@ -324,6 +324,56 @@ def test_dirty_tree_cannot_be_measured(
     assert code == 2 and "dirty" in err
 
 
+@pytest.mark.parametrize("var", ["GIT_WORK_TREE", "GIT_DIR", "GIT_INDEX_FILE"])
+def test_inherited_git_env_cannot_redirect_the_check(
+    upstream: Path,
+    tmp_path: Path,
+    capsys: pytest.CaptureFixture[str],
+    monkeypatch: pytest.MonkeyPatch,
+    var: str,
+) -> None:
+    """A dirty checkout stays dirty when ``GIT_*`` points git at a clean copy."""
+    clean = tmp_path / "clean"
+    subprocess.run(["cp", "-R", str(upstream), str(clean)], check=True)
+    csv_path = _write(tmp_path / "d.csv", _records(upstream))
+    (upstream / "t" / "A.t").write_text("1;\n")
+    baseline, _, _ = _check(csv_path, upstream, capsys)
+    assert baseline == 2
+    target = {
+        "GIT_WORK_TREE": clean,
+        "GIT_DIR": clean / ".git",
+        "GIT_INDEX_FILE": clean / ".git" / "index",
+    }[var]
+    monkeypatch.setenv(var, str(target))
+    if var == "GIT_DIR":
+        monkeypatch.setenv("GIT_WORK_TREE", str(clean))
+    code, _, err = _check(csv_path, upstream, capsys)
+    assert code == baseline and "dirty" in err, err
+
+
+def test_git_env_drops_every_git_variable(monkeypatch: pytest.MonkeyPatch) -> None:
+    """Removing the scrub makes this fail: no ``GIT_*`` reaches a git child."""
+    monkeypatch.setenv("GIT_WORK_TREE", "/elsewhere")
+    monkeypatch.setenv("GIT_OBJECT_DIRECTORY", "/elsewhere/objects")
+    monkeypatch.setenv("KEEP_ME", "1")
+    env = cl._git_env()
+    assert not [k for k in env if k.startswith("GIT_")] and env["KEEP_ME"] == "1"
+
+
+def test_clean_run_ignores_a_bogus_git_env(
+    upstream: Path,
+    tmp_path: Path,
+    capsys: pytest.CaptureFixture[str],
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    """Positive control: a nonexistent ``GIT_WORK_TREE`` does not break a clean run."""
+    csv_path = _write(tmp_path / "d.csv", _records(upstream))
+    monkeypatch.setenv("GIT_WORK_TREE", "/nonexistent")
+    monkeypatch.setenv("GIT_DIR", "/nonexistent/.git")
+    code, out, err = _check(csv_path, upstream, capsys)
+    assert code == 0, (out, err)
+
+
 def _sparse_without_b(upstream: Path) -> None:
     """Sparse-checkout ``upstream`` without ``t/B.t``: clean, pinned, one file short."""
     _git(upstream, "sparse-checkout", "set", "--no-cone", "/t/*", "!/t/B.t")

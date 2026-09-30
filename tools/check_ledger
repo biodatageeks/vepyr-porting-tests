@@ -58,6 +58,7 @@ from __future__ import annotations
 import argparse
 import csv
 import io
+import os
 import re
 import shutil
 import subprocess
@@ -217,15 +218,36 @@ class Assertion:
         return (self.vep_file, self.n)
 
 
+def _git_env() -> dict[str, str]:
+    """The caller's environment with every ``GIT_*`` variable removed.
+
+    Variables such as ``GIT_DIR``, ``GIT_WORK_TREE``, ``GIT_INDEX_FILE``,
+    ``GIT_OBJECT_DIRECTORY``, ``GIT_ALTERNATE_OBJECT_DIRECTORIES``,
+    ``GIT_COMMON_DIR``, ``GIT_NAMESPACE`` or ``GIT_CEILING_DIRECTORIES`` make git
+    inspect a different repository or tree than the ``-C`` directory whose bytes
+    the tool reads, so a clean verdict could describe another checkout. None is
+    needed: every call names its directory with ``-C`` (or clones into a fresh
+    temporary directory over public HTTPS), so all of them are dropped and none
+    is re-added. ``git -c`` / ``GIT_CONFIG_*`` injection is covered by the same
+    prefix rule.
+    """
+    return {k: v for k, v in os.environ.items() if not k.startswith("GIT_")}
+
+
 def _git(*args: str) -> subprocess.CompletedProcess[str]:
     """Run ``git`` with ``args``, capturing text output (never raises on exit code).
+
+    The child gets :func:`_git_env`, so no inherited ``GIT_*`` variable can
+    redirect it away from the checkout being measured.
 
     Raises:
         CannotMeasure: ``git`` is not on ``PATH``.
     """
     if shutil.which("git") is None:
         raise CannotMeasure("git not found on PATH")
-    return subprocess.run(["git", *args], capture_output=True, text=True, check=False)
+    return subprocess.run(
+        ["git", *args], capture_output=True, text=True, check=False, env=_git_env()
+    )
 
 
 def verify_checkout(root: Path) -> None:

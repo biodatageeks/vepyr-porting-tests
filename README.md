@@ -614,6 +614,10 @@ does not see three forms, none of which occurs in the pinned files: an assertion
 alone in a block, `if (1) { fail }`, and `eval { pass };` (every `{ word }` is
 blanked as a hash key), and a call with the `&` sigil, `&ok(1, "x");` (blanked as
 a variable).
+The tool trusts the checkout's bytes and `git status`: it ignores inherited
+`GIT_*` variables, but it does not check assume-unchanged or skip-worktree flags
+or git attributes against the pinned blobs (a known limit, tracked in a follow-up
+issue).
 
 ## Agent setup (per machine)
 
