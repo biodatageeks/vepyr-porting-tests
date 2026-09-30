@@ -1,0 +1,50 @@
+{
+  "headRefOid": "5b9bdcbaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+  "labels": [
+    {
+      "name": "tooling"
+    },
+    {
+      "name": "state:implementing"
+    }
+  ],
+  "comments": [
+    {
+      "id": "IC_sticky",
+      "author": {
+        "login": "sitekwb"
+      },
+      "createdAt": "2026-09-29T12:00:00Z",
+      "body": "### pr-status:v1\nPR status: head 5b9bdcb, updated 2026-09-29T12:00Z. The state label on the PR is the source of truth for the state; this comment does not repeat it.\n\n| AC | Command | Exit | Expected | Head sha | Evidence |\n|----|---------|------|----------|----------|----------|\n| 1 | `./pr_status --from-json tools/fixtures/pr_status/ready.json` | 0 | 0 | 5b9bdcb | scaffold |\n| 2 | `uv run --frozen pytest tools/ -q` | 0 | 0 | 5b9bdcb | scaffold |\n| 3 | `owner reads the rendered AGENTS.md section` | manual | - | 5b9bdcb | full |\n\n```json\n{\n  \"v\": 1,\n  \"head\": \"5b9bdcbaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa\",\n  \"stale\": false,\n  \"ac\": [\n    {\n      \"id\": 1,\n      \"cmd\": \"./pr_status --from-json tools/fixtures/pr_status/ready.json\",\n      \"exit\": 0,\n      \"expected\": 0,\n      \"sha\": \"5b9bdcbaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa\",\n      \"evidence\": \"scaffold\",\n      \"manual\": false\n    },\n    {\n      \"id\": 2,\n      \"cmd\": \"uv run --frozen pytest tools/ -q\",\n      \"exit\": 0,\n      \"expected\": 0,\n      \"sha\": \"5b9bdcbaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa\",\n      \"evidence\": \"scaffold\",\n      \"manual\": false\n    },\n    {\n      \"id\": 3,\n      \"cmd\": \"owner reads the rendered AGENTS.md section\",\n      \"exit\": null,\n      \"expected\": null,\n      \"sha\": \"5b9bdcbaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa\",\n      \"evidence\": \"full\",\n      \"manual\": true,\n      \"reviewer\": \"sitekwb\"\n    }\n  ]\n}\n```\n— Claude-1"
+    },
+    {
+      "id": "IC_review",
+      "author": {
+        "login": "sitekwb"
+      },
+      "createdAt": "2026-09-29T12:30:00Z",
+      "body": "### pr-review:v1\nFresh review of head 5b9bdcb: all AC run, 3 own probes, each AC mutated.\n\n```json\n{\n  \"v\": 1,\n  \"role\": \"review\",\n  \"model\": \"opus-low\",\n  \"verdict\": \"APPROVE\",\n  \"sha\": \"5b9bdcbaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa\",\n  \"probes\": 3,\n  \"mutations\": [\n    {\n      \"ac\": 1,\n      \"exit\": 1\n    },\n    {\n      \"ac\": 2,\n      \"exit\": 1\n    }\n  ]\n}\n```\n— Claude-2"
+    }
+  ],
+  "reviews": [],
+  "files": [
+    {
+      "path": "tools/pr_status/gate.py",
+      "additions": 10,
+      "deletions": 0
+    }
+  ],
+  "issues": [
+    {
+      "number": 158,
+      "labels": [
+        {
+          "name": "tooling"
+        },
+        {
+          "name": "severity:medium"
+        }
+      ]
+    }
+  ]
+}

@@ -1,0 +1,91 @@
+#!/usr/bin/env python3
+"""Offline ``gh`` stand-in for ``./pr_status`` and ``./set_state`` tests (#158).
+
+State: one ``pr_status`` fixture document at ``$GH_STUB_STATE``. Every call's
+arguments (without ``gh``, space-joined) are appended to ``$GH_STUB_STATE.log``.
+``-R``/``--repo`` and its value are ignored. Answers only:
+
+- ``pr view N --json ...``: the document minus ``issues``/``readme``/``readme_diff``,
+  plus ``closingIssuesReferences`` built from ``issues``;
+- ``pr diff N``: the document's ``readme_diff``;
+- ``api ... repos/.../contents/README.md...``: the document's ``readme``;
+- ``issue view N --json ...``: the ``issues[]`` entry numbered N;
+- ``pr edit N`` / ``issue edit N`` with ``--add-label``/``--remove-label``: edits the state file.
+
+Anything else, or a missing state file, exits 2. Kept runnable on any python3.
+"""
+
+from __future__ import annotations
+
+import json
+import os
+import sys
+
+
+def fail(message: str) -> None:
+    sys.stderr.write("gh stub: " + message + "\n")
+    sys.exit(2)
+
+
+def main() -> None:
+    raw = sys.argv[1:]
+    state = os.environ.get("GH_STUB_STATE") or fail("GH_STUB_STATE unset")
+    with open(str(state) + ".log", "a", encoding="utf-8") as log:
+        log.write(" ".join(raw) + "\n")
+    args: list[str] = []
+    skip = False
+    for a in raw:
+        if skip:
+            skip = False
+        elif a in ("-R", "--repo"):
+            skip = True
+        elif not a.startswith(("--repo=", "-R=")):
+            args.append(a)
+    try:
+        with open(str(state), encoding="utf-8") as fh:
+            doc = json.load(fh)
+    except (OSError, ValueError) as exc:
+        fail("cannot read state: %s" % exc)
+    issues = doc.get("issues") or []
+
+    def issue(n: str) -> dict:
+        for entry in issues:
+            if str(entry.get("number")) == n:
+                return entry
+        fail("no issue %s" % n)
+        raise AssertionError
+
+    def labels_of(target: dict) -> None:
+        names = [lab["name"] for lab in target.get("labels") or []]
+        i = 0
+        while i < len(args):
+            if args[i] == "--add-label":
+                names.append(args[i + 1])
+            elif args[i] == "--remove-label":
+                names = [n for n in names if n != args[i + 1]]
+            i += 1
+        target["labels"] = [{"name": n} for n in names]
+        with open(str(state), "w", encoding="utf-8") as fh:
+            json.dump(doc, fh, indent=2)
+
+    head = args[:2]
+    if head == ["pr", "view"] and len(args) > 2:
+        out = {k: v for k, v in doc.items() if k not in ("issues", "readme", "readme_diff")}
+        out["closingIssuesReferences"] = [{"number": e.get("number")} for e in issues]
+        print(json.dumps(out))
+    elif head == ["pr", "diff"] and len(args) > 2:
+        sys.stdout.write(doc.get("readme_diff", ""))
+    elif args[:1] == ["api"] and any("contents/README.md" in a for a in args):
+        sys.stdout.write(doc.get("readme", ""))
+    elif head == ["issue", "view"] and len(args) > 2:
+        print(json.dumps(issue(args[2])))
+    elif head == ["pr", "edit"] and len(args) > 2:
+        labels_of(doc)
+    elif head == ["issue", "edit"] and len(args) > 2:
+        labels_of(issue(args[2]))
+    else:
+        fail("unsupported call: " + " ".join(raw))
+
+
+if __name__ == "__main__":
+    main()
