@@ -44,7 +44,6 @@ import subprocess
 import sys
 import tempfile
 import tomllib
-import urllib.request
 from collections.abc import Callable, Iterator, Sequence
 from contextlib import contextmanager
 from dataclasses import dataclass, field
@@ -549,59 +548,6 @@ def mutate_ref(r: Record) -> Record:
     return Record(r.chrom, r.pos, r.id, swap.get(r.ref[0].upper(), "A") + r.ref[1:], r.alt)
 
 
-def read_source(spec: str) -> str:
-    """Text of ``spec``: a path, an ``http(s)://`` URL or ``git:<repo>:<rev>:<path>``."""
-    match spec.split(":", 1):
-        case ["http" | "https", _]:
-            try:
-                with urllib.request.urlopen(spec, timeout=60) as resp:
-                    return resp.read().decode()
-            except OSError as e:  # URLError, HTTPError, timeouts
-                raise ToolError(f"cannot fetch {spec}: {e}") from e
-        case ["git", rest]:
-            try:
-                repo, rev, path = rest.split(":", 2)
-            except ValueError as e:
-                raise DtError(f"bad git spec {spec!r}: want git:<repo>:<rev>:<path>") from e
-            proc = run(["git", "-C", repo, "show", f"{rev}:{path}"], quiet=True)
-            if proc.returncode:
-                raise DtError(f"git show failed: {proc.stderr.strip()}")
-            return proc.stdout
-        case _:
-            return read_vcf_text(Path(spec).expanduser())
-
-
-def rust_const_vcf(source: str, name: str) -> str:
-    """Extract a Rust ``const NAME: &str = "...";`` VCF literal.
-
-    Handles ``\\``-newline continuations (which also swallow the next line's leading
-    whitespace) and the escapes ``\\n``, ``\\t``, ``\\\\`` and ``\\"``; raw strings are
-    not supported.
-    """
-    m = re.search(rf'const\s+{re.escape(name)}\s*:\s*&(?:\'static\s+)?str\s*=\s*"((?:[^"\\]|\\.)*)"', source, re.S)
-    if m is None:
-        raise DtError(f"no `const {name}: &str = \"...\"` in fixture")
-    body = re.sub(r"\\\n\s*", "", m.group(1))
-    return re.sub(r"\\(.)", lambda e: {"n": "\n", "t": "\t"}.get(e.group(1), e.group(1)), body)
-
-
-def match_first(inp: Sequence[Record], fix: Sequence[Record], n: int, by_pos: bool = False) -> Check:
-    """CHROM, POS, ID, REF, ALT of the first ``n`` input records equal the fixture's.
-
-    Positional (i-th vs i-th) by default; with ``by_pos`` each input record is compared
-    with the fixture record at the same CHROM:POS (fixture may hold other rows).
-    """
-    if by_pos:
-        index = {(r.chrom, r.pos): r for r in fix}
-        fix = [index.get((r.chrom, r.pos), Record(r.chrom, r.pos, "<absent>", "", "")) for r in inp[:n]]
-    if len(inp) < n or len(fix) < n:
-        return Check(f"fixture-match first {n}", False, f"input has {len(inp)}, fixture {len(fix)} records")
-    for i, (a, b) in enumerate(zip(inp[:n], fix[:n], strict=True), 1):
-        if a.key != b.key:
-            return Check(f"fixture-match first {n}", False, f"record {i}: input {a.key} != fixture {b.key}")
-    return Check(f"fixture-match first {n}", True, "CHROM,POS,ID,REF,ALT identical")
-
-
 # ---------------------------------------------------------------- verify checks
 
 
@@ -1024,19 +970,24 @@ def cmd_refcheck(cfg: Config, a: argparse.Namespace) -> Exit:
     return report(checks)
 
 
+FIXTURE_MATCH_EXITS: Final[frozenset[int]] = frozenset(Exit)
+
+
 def cmd_fixture_match(_: Config, a: argparse.Namespace) -> Exit:
-    """First N records of the input equal the fixture's (CHROM,POS,ID,REF,ALT)."""
-    inp = vcf_records(a.input.expanduser().resolve())
-    text = read_source(a.fixture)
-    fix = parse_records(rust_const_vcf(text, a.rust_const) if a.rust_const else text, a.fixture)
-    pos = match_first(inp, fix, a.records, a.by_pos)
-
-    def mutated() -> Check:
-        r = inp[0]
-        neg = match_first([Record(r.chrom, r.pos, r.id, r.ref, r.alt + "A"), *inp[1:]], fix, a.records, a.by_pos)
-        return Check("fixture-match-negative", not neg.ok, f"mutated copy -> {neg.line()}")
-
-    return report([pos, negative("fixture-match-negative", pos, mutated)])
+    """``tools/fixture_match --negative-control`` (#171); its output and exit code 0-3 pass through."""
+    repo, _why = resolve_repo(a.input.expanduser().resolve())
+    argv: list[str | Path] = [repo / "tools" / "fixture_match", "--input", a.input.expanduser().resolve(),
+                              "--fixture", a.fixture, "--records", str(a.records), "--negative-control"]
+    if a.rust_const:
+        argv += ["--rust-const", a.rust_const]
+    if a.by_pos:
+        argv.append("--by-pos")
+    proc = run(argv, quiet=True)
+    sys.stdout.write(proc.stdout)
+    sys.stderr.write(proc.stderr)
+    if proc.returncode not in FIXTURE_MATCH_EXITS:
+        raise ToolError(f"fixture_match exited {proc.returncode}")
+    return Exit(proc.returncode)
 
 
 def cmd_bless(cfg: Config, a: argparse.Namespace) -> Exit:
@@ -1144,7 +1095,7 @@ def parser() -> argparse.ArgumentParser:
     s.set_defaults(fn=cmd_refcheck)
     s = sub.add_parser("fixture-match", help="first N records equal a fixture's")
     s.add_argument("--input", type=Path, required=True, help="VCF file or data-test directory")
-    s.add_argument("--fixture", required=True, help="path, http(s) URL or git:<repo>:<rev>:<path>")
+    s.add_argument("--fixture", required=True, help="local path or http(s) URL")
     s.add_argument("--rust-const", metavar="NAME", help="fixture is Rust source; take `const NAME: &str`")
     s.add_argument("--records", type=positive_int, required=True, help="N >= 1")
     s.add_argument("--by-pos", action="store_true", help="match fixture rows by CHROM:POS, not by order")
