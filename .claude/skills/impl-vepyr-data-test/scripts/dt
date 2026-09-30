@@ -53,8 +53,6 @@ from typing import Final
 
 SKILL_DIR: Final[Path] = Path(__file__).resolve().parents[1]
 FILES: Final[tuple[str, ...]] = ("input.vcf", "expected_output.vcf", "test.toml")
-RUNNER: Final[tuple[str, ...]] = ("cargo", "test", "--test", "data_dirs", "data_dirs", "--", "--nocapture")
-ENGINE_CRATE: Final[str] = "datafusion-bio-function-vep"
 FLAVOUR: Final[str] = "ensembl"
 VEPYR_FASTA: Final[str] = "fasta/Homo_sapiens.GRCh38.dna.primary_assembly.fa"
 VEPYR_CACHE_DIR: Final[str] = "116_GRCh38_ensembl"
@@ -642,18 +640,6 @@ def check_mode(repo: Path, d: Path) -> Check:
                  f"flavour {FLAVOUR}, no fields")
 
 
-def engine_line(repo: Path) -> str:
-    """The engine revision ``cargo test`` builds: ``Cargo.lock``'s git sha and the lockfile's sha256."""
-    lock = repo / "Cargo.lock"
-    if not lock.is_file():
-        return f"# engine: {lock} missing"
-    text = lock.read_text()
-    m = re.search(rf'name = "{ENGINE_CRATE}"\nversion = "[^"]*"\nsource = "[^"]*#([0-9a-f]{{40}})"', text)
-    sha = m.group(1) if m else "<not found>"
-    return (f"# engine: {ENGINE_CRATE} @ {sha} (Cargo.lock sha256 "
-            f"{hashlib.sha256(text.encode()).hexdigest()}); cite this sha, never a vepyr version")
-
-
 def check_normalised(repo: Path, d: Path) -> Check:
     """``./check_normalised_input <d>`` (#89, #166): ``input.vcf`` and ``test.toml`` are a fixed point.
 
@@ -751,26 +737,31 @@ def cargo_target(cfg: Config, repo: Path, *, create: bool = True) -> Path:
     return root / f"target-{repo.name}-{tag}"
 
 
-def cargo_env(cfg: Config, repo: Path, root: Path) -> dict[str, str]:
-    """Environment for the data_dirs runner of ``repo`` walking ``root``."""
-    return os.environ | {"DATA_DIRS_ROOT": str(root), "VEPYR_CACHE_ROOT": str(cfg.need("vepyr_cache_root")),
+def cargo_env(cfg: Config, repo: Path) -> dict[str, str]:
+    """Environment for ``./run_tests`` of ``repo``: the vepyr cache and a per-checkout target dir."""
+    return os.environ | {"VEPYR_CACHE_ROOT": str(cfg.need("vepyr_cache_root")),
                          "CARGO_TARGET_DIR": str(cargo_target(cfg, repo))}
 
 
-def check_runner(cfg: Config, repo: Path, d: Path) -> list[Check]:
-    """The cargo runner passes on a scratch copy and fails as designed on a flipped oracle."""
+def run_tests_argv(repo: Path, copy: Path, vepyr: str) -> list[str | Path]:
+    """``./run_tests --only <copy> --vepyr REF``: the engine is the run's ``vepyr sha`` summary line."""
+    return [repo / "run_tests", "--only", copy, "--vepyr", vepyr]
+
+
+def check_runner(cfg: Config, repo: Path, d: Path, vepyr: str) -> list[Check]:
+    """``./run_tests --only`` passes on a scratch copy and fails as designed on a flipped oracle."""
     runs = max(1, len(vepyr_runs(toml(d))))
-    print(engine_line(repo))
     with scratch(cfg, "runner") as s:
-        copy_test(d, s / "pos")
-        proc = run(RUNNER, cwd=repo, env=cargo_env(cfg, repo, s / "pos"))
-        pos = Check("runner", proc.returncode == 0, f"exit {proc.returncode}")
+        pos_copy = copy_test(d, s / "pos")
+        proc = run(run_tests_argv(repo, pos_copy, vepyr), cwd=repo, env=cargo_env(cfg, repo))
+        sha = next((ln for ln in proc.stdout.splitlines() if ln.startswith("vepyr sha")), "vepyr sha: <none>")
+        pos = Check("runner", proc.returncode == 0, f"exit {proc.returncode}; {' '.join(sha.split())}")
 
         def flipped() -> Check:
             neg = copy_test(d, s / "neg")
             flip_last_body_letter(neg / "expected_output.vcf")
             set_body_md5(neg, body_md5(neg / "expected_output.vcf"))
-            bad = run(RUNNER, cwd=repo, env=cargo_env(cfg, repo, s / "neg"), quiet=True)
+            bad = run(run_tests_argv(repo, neg, vepyr), cwd=repo, env=cargo_env(cfg, repo), quiet=True)
             blocks = (bad.stdout + bad.stderr).count(f"[{d.name}] body md5 mismatch")
             return Check("runner-negative", bad.returncode != 0 and blocks == runs,
                          f"exit {bad.returncode}, {blocks} 'body md5 mismatch' block(s), want {runs}")
@@ -1006,10 +997,13 @@ def cmd_verify(cfg: Config, a: argparse.Namespace) -> Exit:
     """The mechanical AC battery for one data-test directory."""
     d = test_dir(a.dir)
     repo, why = resolve_repo(d)
+    if not a.no_cargo and a.vepyr is None:
+        raise DtError("verify: the runner step needs --vepyr REF (the engine ./run_tests --only builds; "
+                      "cite its summary's 'vepyr sha' line), or pass --no-cargo")
     scratch_root(cfg)  # refuse a bad scratch_root before any check runs
     if checkout_of(d) != repo:
         raise DtError(f"{d} is not inside the resolved repo {repo} ({why})")
-    print(f"# repo {repo} ({why})\n# dir  {d}\n{engine_line(repo)}")
+    print(f"# repo {repo} ({why})\n# dir  {d}")
     steps: list[Callable[[], Check | list[Check]]] = [
         lambda: check_structure(repo, d), lambda: check_mode(repo, d),
         lambda: check_normalised(repo, d), lambda: check_md5(d),
@@ -1019,7 +1013,7 @@ def cmd_verify(cfg: Config, a: argparse.Namespace) -> Exit:
     if a.reproduce:
         steps.append(lambda: check_reproduce(cfg, repo, d))
     if not a.no_cargo:
-        steps.append(lambda: check_runner(cfg, repo, d))
+        steps.append(lambda: check_runner(cfg, repo, d, a.vepyr))
     checks: list[Check] = []
     for step in steps:
         got = step()
@@ -1103,8 +1097,9 @@ def parser() -> argparse.ArgumentParser:
     s = sub.add_parser("bless", help="./bless with configured cache/FASTA (writes into the cwd checkout)")
     s.add_argument("dir", type=Path)
     s.set_defaults(fn=cmd_bless)
-    s = sub.add_parser("verify", help="mechanical AC battery (incl. one-mode check, engine revision)")
+    s = sub.add_parser("verify", help="mechanical AC battery (incl. one-mode check, ./run_tests --only)")
     s.add_argument("dir", type=Path)
+    s.add_argument("--vepyr", metavar="REF", help="vepyr ref for ./run_tests --only (required unless --no-cargo)")
     s.add_argument("--reproduce", action="store_true", help="also ./bless --check --reproduce (docker)")
     s.add_argument("--no-cargo", action="store_true", help="skip the cargo runner and its negative control")
     s.set_defaults(fn=cmd_verify)

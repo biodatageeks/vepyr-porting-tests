@@ -118,3 +118,123 @@ def test_fixture_match_exit3(
     assert fixture_match(dt, inp, inp) == 3
     monkeypatch.setattr(dt.subprocess, "run", real)
     assert fixture_match(dt, inp, "http://127.0.0.1:9/x.vcf") == 3
+
+
+# ---------------------------------------------------------------- verify runner (#168)
+
+VERIFY_DIR: Final[Path] = REPO / "tests" / "data" / "intergenic_variant_single_record"
+PASSING_STEPS: Final[tuple[str, ...]] = (
+    "check_structure",
+    "check_mode",
+    "check_normalised",
+    "check_md5",
+    "refcheck_summary",
+    "check_bless",
+)
+
+
+@pytest.fixture
+def runner_calls(
+    dt: ModuleType, monkeypatch: pytest.MonkeyPatch, tmp_path: Path
+) -> list[list[str]]:
+    """``dt verify`` with all but the runner step passing; ``run_tests`` argv recorded.
+
+    The config is a ``DT_CONFIG`` tmp file and the cwd is this checkout. The
+    non-runner steps need the machine config, the FASTA and Docker, so they are
+    stubbed to pass; ``subprocess.run`` is faked only for ``run_tests`` (dt's
+    ``git`` calls stay real).
+    """
+    config = tmp_path / "dt.toml"
+    config.write_text(
+        f'vepyr_cache_root = "{tmp_path / "cache"}"\n'
+        f'cargo_target_root = "{tmp_path / "targets"}"\n'
+        f'scratch_root = "{tmp_path / "scratch"}"\n'
+        f'main_checkout = "{tmp_path / "main"}"\n',
+        encoding="utf-8",
+    )
+    monkeypatch.setenv("DT_CONFIG", str(config))
+    monkeypatch.chdir(REPO)
+    for name in PASSING_STEPS:
+        monkeypatch.setattr(dt, name, lambda *_a, _n=name: dt.Check(_n, True))
+    return []
+
+
+def fake_run_tests(
+    dt: ModuleType,
+    monkeypatch: pytest.MonkeyPatch,
+    calls: list[list[str]],
+    results: list[int | OSError],
+) -> None:
+    """Answer successive ``run_tests`` calls with ``results`` (exit code or error)."""
+    real = subprocess.run
+    slug = VERIFY_DIR.name
+
+    def fake(args: list[str], *a: Any, **kw: Any) -> subprocess.CompletedProcess[str]:
+        if not (args and args[0].endswith("run_tests")):
+            return real(args, *a, **kw)
+        calls.append(list(args))
+        match results[len(calls) - 1]:
+            case OSError() as err:
+                raise err
+            case 0:
+                out = "vepyr sha        : " + "a" * 40 + "\n"
+                return subprocess.CompletedProcess(args, 0, out, "")
+            case code:
+                out = f"[{slug}] body md5 mismatch\n"
+                return subprocess.CompletedProcess(args, code, out, "")
+
+    monkeypatch.setattr(dt.subprocess, "run", fake)
+
+
+def verify(dt: ModuleType, *extra: str) -> int:
+    """``dt verify <intergenic_variant_single_record> <extra>``."""
+    return dt.main(["verify", str(VERIFY_DIR), *extra])
+
+
+def test_verify_runner_exit0(
+    dt: ModuleType,
+    monkeypatch: pytest.MonkeyPatch,
+    runner_calls: list[list[str]],
+    capsys: pytest.CaptureFixture[str],
+) -> None:
+    fake_run_tests(dt, monkeypatch, runner_calls, [0, 1])
+    assert verify(dt, "--vepyr", "master") == 0
+    out = capsys.readouterr().out
+    assert len(runner_calls) == 2
+    for argv, copy in zip(runner_calls, ("pos", "neg"), strict=True):
+        assert argv[0] == str(REPO / "run_tests")
+        assert argv[1] == "--only" and argv[3:] == ["--vepyr", "master"]
+        only = Path(argv[2])
+        assert only.name == VERIFY_DIR.name and only.parent.name == copy
+        assert not only.is_relative_to(REPO)
+    assert "PASS runner: exit 0; vepyr sha : " + "a" * 40 in out
+    assert "PASS runner-negative: exit 1, 1 'body md5 mismatch' block(s)" in out
+    assert "PASS summary: 8/8 checks passed" in out
+
+
+def test_verify_runner_exit1(
+    dt: ModuleType, monkeypatch: pytest.MonkeyPatch, runner_calls: list[list[str]]
+) -> None:
+    fake_run_tests(dt, monkeypatch, runner_calls, [1])
+    assert verify(dt, "--vepyr", "master") == 1
+    assert len(runner_calls) == 1  # negative control not run after a failed positive
+
+
+def test_verify_runner_exit2(
+    dt: ModuleType,
+    monkeypatch: pytest.MonkeyPatch,
+    runner_calls: list[list[str]],
+    capsys: pytest.CaptureFixture[str],
+) -> None:
+    fake_run_tests(dt, monkeypatch, runner_calls, [])
+    assert verify(dt) == 2
+    assert "--vepyr" in capsys.readouterr().err
+    assert runner_calls == []
+    assert verify(dt, "--no-cargo") == 0  # --no-cargo needs no --vepyr
+
+
+def test_verify_runner_exit3(
+    dt: ModuleType, monkeypatch: pytest.MonkeyPatch, runner_calls: list[list[str]]
+) -> None:
+    fake_run_tests(dt, monkeypatch, runner_calls, [OSError("cannot start")])
+    assert verify(dt, "--vepyr", "master") == 3
