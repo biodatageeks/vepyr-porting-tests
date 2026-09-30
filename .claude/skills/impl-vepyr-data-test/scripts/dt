@@ -981,15 +981,15 @@ def cmd_raw2input(cfg: Config, a: argparse.Namespace) -> Exit:
     if not raw.is_file():
         raise DtError(f"--raw {raw}: no such file")
     raw_text = read_vcf_text(raw)
-    if not parse_records(raw_text, str(raw)):
-        # Fail before guard_write/normalize_input, like `dt refcheck` (exit 1, nothing written).
-        return report([Check("raw records", False, f"{raw}: VCF has no records")])
     repo = guard_write(cfg, d)
     print(f"# repo {repo}\n# raw  {raw}\n# dir  {d}")
-    if (d / "input.vcf").exists():
+    old = (d / "input.vcf").read_bytes() if (d / "input.vcf").exists() else None
+    if old is not None:
         (d / "input.vcf").unlink()  # so "input.vcf written" proves this run wrote it
         print(f"# removed pre-existing {d / 'input.vcf'}")
     proc = run([repo / "tools" / "normalize_input", raw, d], cwd=repo)
+    if proc.returncode != 0 and old is not None:
+        (d / "input.vcf").write_bytes(old)  # a refused run (e.g. no records) keeps the old file
     checks = [Check("normalize_input", proc.returncode == 0, f"exit {proc.returncode}")]
     if proc.returncode == 0:
         written = (d / "input.vcf").is_file()

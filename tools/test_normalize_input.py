@@ -183,6 +183,67 @@ def test_a_multiallelic_record_is_split_into_one_line_per_allele(
     assert len(raw_body) == 1, "negative control: the raw file has one record"
 
 
+HEADER_ONLY_VCF: Final[str] = MULTIALLELIC_VCF.rsplit("#CHROM", 1)[0] + (
+    "#CHROM\tPOS\tID\tREF\tALT\tQUAL\tFILTER\tINFO\n"
+)
+"""A valid VCF header with no records -- a data-test that compares nothing."""
+
+
+@pytest.fixture
+def header_only_vcf(tmp_path: Path) -> Path:
+    """Write the record-less scratch VCF and return its path."""
+    path = tmp_path / "empty.vcf"
+    path.write_text(HEADER_ONLY_VCF, encoding="utf-8")
+    return path
+
+
+@requires_bcftools
+def test_header_only_is_refused(header_only_vcf: Path, tmp_path: Path) -> None:
+    """A record-less input exits 1 with a message naming the raw file (#167)."""
+    done = _run(str(header_only_vcf), str(tmp_path / "e1"))
+    assert done.returncode == 1
+    assert f"{header_only_vcf} has no records" in done.stderr
+
+
+@requires_bcftools
+def test_header_only_creates_no_input(header_only_vcf: Path, tmp_path: Path) -> None:
+    """The refusal comes before publishing: only the directory itself remains."""
+    test_dir = tmp_path / "e2"
+    assert _run(str(header_only_vcf), str(test_dir)).returncode == 1
+    assert test_dir.is_dir(), "created before bcftools ran, and not removed"
+    assert list(test_dir.iterdir()) == []
+
+
+@requires_bcftools
+def test_header_only_leaves_files_untouched(
+    header_only_vcf: Path, raw_vcf: Path, tmp_path: Path
+) -> None:
+    """A pre-existing ``input.vcf`` and ``test.toml`` stay byte-identical."""
+    test_dir = tmp_path / "e3"
+    assert _run(str(raw_vcf), str(test_dir)).returncode == 0
+    before = {p.name: p.read_bytes() for p in test_dir.iterdir()}
+    assert sorted(before) == ["input.vcf", "test.toml"]
+
+    assert _run(str(header_only_vcf), str(test_dir)).returncode == 1
+
+    assert {p.name: p.read_bytes() for p in test_dir.iterdir()} == before
+
+
+@requires_bcftools
+def test_one_record_still_accepted(tmp_path: Path) -> None:
+    """Control: the guard does not over-refuse -- one record is enough."""
+    raw = tmp_path / "one.vcf"
+    raw.write_text(HEADER_ONLY_VCF + "chr21\t100\t.\tC\tT\t.\t.\t.\n", encoding="utf-8")
+    test_dir = tmp_path / "e4"
+    assert _run(str(raw), str(test_dir)).returncode == 0
+    body = [
+        ln
+        for ln in (test_dir / "input.vcf").read_text().splitlines()
+        if not ln.startswith("#")
+    ]
+    assert len(body) == 1
+
+
 @requires_bcftools
 def test_a_gzipped_raw_file_gives_the_same_bytes(
     raw_vcf: Path, tmp_path: Path

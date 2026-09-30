@@ -46,8 +46,13 @@ because that is where the VCF handling actually lives.
 
 Exit codes: ``0`` success, ``1`` bcftools missing, bcftools or htslib being the
 wrong version, a banner that cannot be read, bcftools failing, a ``test.toml``
-that is not valid TOML, or a test directory that cannot be written; ``2`` bad
-usage.
+that is not valid TOML, a test directory that cannot be written, or an input
+with no records; ``2`` bad usage.
+
+An input with no records is refused: a data-test built on it would have an
+empty oracle body and compare nothing. The records are counted on the
+normalised output with :mod:`vcf_records`, the repo's one VCF record reader,
+before anything is published, so a refusal leaves every file as it was.
 """
 
 from __future__ import annotations
@@ -62,6 +67,8 @@ import tomllib
 from dataclasses import dataclass
 from pathlib import Path
 from typing import Final
+
+from vcf_records import VcfFormatError, iter_records
 
 __all__ = [
     "NormalizeError",
@@ -315,6 +322,27 @@ def _strip_stamps(text: str) -> str:
     return "".join(kept)
 
 
+def _require_records(body: str, *, raw: Path) -> None:
+    """Refuse a normalised VCF with no records.
+
+    Args:
+        body: The normalised VCF text, as it would be written to ``input.vcf``.
+        raw: The raw file it came from, named in the error message.
+
+    Raises:
+        NormalizeError: If ``body`` has no record, or a body line that is not
+            one.
+    """
+    try:
+        count = sum(1 for _ in iter_records(body.splitlines(), where=str(raw)))
+    except VcfFormatError as exc:
+        raise NormalizeError(str(exc)) from exc
+    if count == 0:
+        raise NormalizeError(
+            f"{raw} has no records; a data-test input needs at least one"
+        )
+
+
 def _is_trivia(line: str) -> bool:
     """Say whether ``line`` is a blank line or a whole-line TOML comment.
 
@@ -541,8 +569,9 @@ def normalize(raw: Path, test_dir: Path) -> Path:
     Raises:
         NormalizeError: If bcftools is missing, or bcftools or its htslib is
             not the pinned version, or the raw file does not exist, or bcftools
-            rejects the input, or ``test.toml`` is not valid TOML, or the test
-            directory cannot be written.
+            rejects the input, or the normalised input has no records, or
+            ``test.toml`` is not valid TOML, or the test directory cannot be
+            written.
     """
     if not raw.is_file():
         raise NormalizeError(f"no such raw VCF: {raw}")
@@ -567,6 +596,7 @@ def normalize(raw: Path, test_dir: Path) -> Path:
             # Both documents are settled -- bcftools has run and test.toml has
             # been read and validated -- before either final path is touched.
             body = _strip_stamps(staged.read_text(encoding="utf-8"))
+            _require_records(body, raw=raw)
             toml_text = render_input_table(toml_path, version=version)
             _publish(scratch_dir, {out: body, toml_path: toml_text})
     except OSError as exc:
