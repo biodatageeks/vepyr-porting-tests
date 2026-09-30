@@ -706,24 +706,19 @@ def engine_line(repo: Path) -> str:
             f"{hashlib.sha256(text.encode()).hexdigest()}); cite this sha, never a vepyr version")
 
 
-def check_idempotent(cfg: Config, repo: Path, d: Path) -> Check:
-    """Re-normalising ``input.vcf`` reproduces it byte for byte and keeps ``[input]``.
+def check_normalised(repo: Path, d: Path) -> Check:
+    """``./check_normalised_input <d>`` (#89, #166): ``input.vcf`` and ``test.toml`` are a fixed point.
 
-    The copy's ``input.vcf`` is deleted first, so a normaliser that writes nothing fails
-    instead of ``cmp`` comparing the file with its own copy.
+    The tool's ``OK <d>`` / ``MISMATCH <d>`` line (a normaliser that writes nothing is a
+    MISMATCH) becomes the PASS/FAIL detail. Tool exit 0/1 maps to PASS/FAIL; any other
+    exit, or a tool that cannot start, is a :class:`ToolError` (dt exit 3).
     """
-    with scratch(cfg, "idem") as s:
-        dst = copy_test(d, s)
-        (dst / "input.vcf").unlink()
-        proc = run([repo / "tools" / "normalize_input", d / "input.vcf", dst], cwd=repo)
-        if proc.returncode:
-            return Check("idempotent", False, f"normalize_input exit {proc.returncode}")
-        if not (dst / "input.vcf").is_file():
-            return Check("idempotent", False, "normalize_input exited 0 but wrote no input.vcf")
-        cmp = run(["cmp", d / "input.vcf", dst / "input.vcf"])
-        same_input = toml(dst).get("input") == toml(d).get("input")
-        return Check("idempotent", cmp.returncode == 0 and same_input,
-                     f"cmp exit {cmp.returncode}, [input] unchanged={same_input}")
+    proc = run([repo / "check_normalised_input", d], cwd=repo)
+    if proc.returncode not in (0, 1):
+        raise ToolError(f"check_normalised_input exited {proc.returncode}: {proc.stderr.strip()[-300:]}")
+    verdict = next((ln for ln in proc.stdout.splitlines() if ln.startswith(("OK ", "MISMATCH "))),
+                   proc.stderr.strip()[-300:] or f"check_normalised_input exit {proc.returncode}")
+    return Check("idempotent", proc.returncode == 0, verdict)
 
 
 def check_md5(d: Path) -> Check:
@@ -949,15 +944,15 @@ def cmd_raw2input(cfg: Config, a: argparse.Namespace) -> Exit:
     if not raw.is_file():
         raise DtError(f"--raw {raw}: no such file")
     raw_text = read_vcf_text(raw)
-    if not parse_records(raw_text, str(raw)):
-        # Fail before guard_write/normalize_input, like `dt refcheck` (exit 1, nothing written).
-        return report([Check("raw records", False, f"{raw}: VCF has no records")])
     repo = guard_write(cfg, d)
     print(f"# repo {repo}\n# raw  {raw}\n# dir  {d}")
-    if (d / "input.vcf").exists():
+    old = (d / "input.vcf").read_bytes() if (d / "input.vcf").exists() else None
+    if old is not None:
         (d / "input.vcf").unlink()  # so "input.vcf written" proves this run wrote it
         print(f"# removed pre-existing {d / 'input.vcf'}")
     proc = run([repo / "tools" / "normalize_input", raw, d], cwd=repo)
+    if proc.returncode != 0 and old is not None:
+        (d / "input.vcf").write_bytes(old)  # a refused run (e.g. no records) keeps the old file
     checks = [Check("normalize_input", proc.returncode == 0, f"exit {proc.returncode}")]
     if proc.returncode == 0:
         written = (d / "input.vcf").is_file()
@@ -969,12 +964,7 @@ def cmd_raw2input(cfg: Config, a: argparse.Namespace) -> Exit:
                                             str(raw), str(d / "input.vcf")))
         print(f"$ diff -u {shlex.quote(str(raw))} {shlex.quote(str(d / 'input.vcf'))}  # in Python, gzip-aware")
         print(diff or "    | (raw and input.vcf identical)", end="" if diff else "\n")
-        with scratch(cfg, "idem") as s:
-            (s / d.name).mkdir()
-            again = run([repo / "tools" / "normalize_input", d / "input.vcf", s / d.name], cwd=repo)
-            cmp = run(["cmp", d / "input.vcf", s / d.name / "input.vcf"])
-            checks.append(Check("idempotent", again.returncode == 0 and cmp.returncode == 0,
-                                f"normalize_input exit {again.returncode}, cmp exit {cmp.returncode}"))
+        checks.append(check_normalised(repo, d))
     return report(checks)
 
 
@@ -1039,7 +1029,7 @@ def cmd_verify(cfg: Config, a: argparse.Namespace) -> Exit:
     print(f"# repo {repo} ({why})\n# dir  {d}\n{engine_line(repo)}")
     steps: list[Callable[[], Check | list[Check]]] = [
         lambda: check_structure(repo, d), lambda: check_mode(repo, d),
-        lambda: check_idempotent(cfg, repo, d), lambda: check_md5(d),
+        lambda: check_normalised(repo, d), lambda: check_md5(d),
         lambda: refcheck_summary(cfg, d),
     ]
     steps.append(lambda: check_bless(cfg, repo, d))

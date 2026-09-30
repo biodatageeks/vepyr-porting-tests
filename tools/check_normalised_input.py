@@ -8,12 +8,16 @@ compares the result with what is committed::
 
     ./check_normalised_input [DATA_DIR]        # DATA_DIR defaults to tests/data
 
-For every immediate subdirectory of ``DATA_DIR`` that holds a ``test.toml``,
+``DATA_DIR`` may also be one data-test directory (it holds a ``test.toml``
+itself); then only that test is checked (#166). Otherwise, for every
+immediate subdirectory of ``DATA_DIR`` that holds a ``test.toml``,
 the committed ``test.toml`` is copied into a fresh temporary directory, the
 normaliser writes ``input.vcf`` and rewrites ``[input]`` there, and both files
 are compared with the committed ones: ``input.vcf`` byte for byte,
 ``test.toml`` as a whole. One ``OK <dir>`` or ``MISMATCH <dir>`` line is
-printed per test, followed by a unified diff for each mismatch. CI runs this in
+printed per test, followed by a unified diff for each mismatch. A normaliser
+that exits 0 but writes no ``input.vcf`` is a ``MISMATCH`` too, never an
+exception. CI runs this in
 the ``input-normalised-check`` workflow
 (``.github/workflows/input-normalised-check.yml``).
 
@@ -110,14 +114,19 @@ def run_normalize_input(raw: Path, test_dir: Path) -> subprocess.CompletedProces
 
 
 def discover(data_dir: Path) -> list[Path]:
-    """List the data-test directories directly under ``data_dir``.
+    """List the data-test directories selected by ``data_dir``.
 
     Args:
-        data_dir: Root of the data-tests, e.g. ``tests/data``.
+        data_dir: Root of the data-tests, e.g. ``tests/data``, or one
+            data-test directory.
 
     Returns:
-        Every immediate subdirectory holding a ``test.toml``, sorted by name.
+        ``[data_dir]`` when ``data_dir`` itself holds a ``test.toml`` (single
+        directory mode, #166); otherwise every immediate subdirectory holding
+        a ``test.toml``, sorted by name.
     """
+    if (data_dir / TEST_TOML).is_file():
+        return [data_dir]
     return sorted(p.parent for p in data_dir.glob(f"*/{TEST_TOML}") if p.is_file())
 
 
@@ -172,6 +181,12 @@ def check_test(
                     f"{done.stderr.rstrip()}\n"
                 ),
             )
+        if not (scratch / INPUT_VCF).is_file():
+            return CheckResult(
+                test_dir=test_dir,
+                status=Status.MISMATCH,
+                details=f"tools/normalize_input exited 0 but wrote no {INPUT_VCF}\n",
+            )
         diffs = [
             _unified(want, got, name=name)
             for name in (INPUT_VCF, TEST_TOML)
@@ -223,7 +238,10 @@ def _parse_args(argv: Sequence[str] | None) -> Path:
         nargs="?",
         type=Path,
         default=DEFAULT_DATA_DIR,
-        help=f"directory of data-tests (default: {DEFAULT_DATA_DIR})",
+        help=(
+            f"directory of data-tests, or one data-test directory "
+            f"(default: {DEFAULT_DATA_DIR})"
+        ),
     )
     return parser.parse_args(argv).data_dir
 

@@ -54,7 +54,7 @@ Every negative control must run only after its positive passed (`dt` marks it FA
 |---|---|
 | `dt env` | config, repo = cwd checkout (not main), base; then `./check_env` with the configured paths: `UV_PROJECT_ENVIRONMENT` outside checkouts, uv/cargo/git, bcftools pin, docker daemon, vepyr cache (provenance, pinned revisions, FASTA, dataset directory per recorded flavour), VEP cache, VEP FASTA (+ `.fai`) |
 | `dt refcheck <vcf\|dir> [--negative-control]` | every REF = GRCh38 base(s) at POS |
-| `dt raw2input --raw R --dir D` | `tools/normalize_input`, raw->input diff, `cmp` idempotence |
+| `dt raw2input --raw R --dir D` | `tools/normalize_input`, raw->input diff, idempotence via `./check_normalised_input D` |
 | `dt fixture-match --input I --fixture F --records N [--by-pos] [--rust-const NAME]` | first N records = fixture; F = path, URL or `git:<repo>:<rev>:<path>` |
 | `dt bless D` | `./bless` in a temporary Docker-shared dir |
 | `dt verify D [--reproduce] [--no-cargo]` | `./check_test_dir` (files, input-records, order, oracle-meta, one-to-one; no opt-out), mode, idempotence, md5, REF, `bless --check` (+tamper), runner (+flip) |
