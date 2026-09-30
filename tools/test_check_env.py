@@ -139,6 +139,26 @@ def test_docker_daemon_down_fails(
     assert code == 1 and "daemon does not answer" in lines["docker daemon"]
 
 
+def test_docker_exit0_empty_stdout_fails(
+    healthy: Stub, capsys: pytest.CaptureFixture[str]
+) -> None:
+    """docker 27: unreachable daemon exits 0, error on stderr only (#170 AC 12)."""
+    healthy("docker", "echo 'Cannot connect to the Docker daemon' >&2; exit 0")
+    code, lines = run(capsys)
+    assert code == 1 and lines["docker daemon"].startswith("FAIL docker daemon:")
+    assert "daemon does not answer" in lines["docker daemon"]
+    assert "Cannot connect to the Docker daemon" in lines["docker daemon"]
+
+
+def test_docker_printing_version_passes(
+    healthy: Stub, capsys: pytest.CaptureFixture[str]
+) -> None:
+    """A daemon that reports a server version passes."""
+    healthy("docker", "echo 27.4.0")
+    code, lines = run(capsys)
+    assert code == 0 and lines["docker daemon"].startswith("PASS docker daemon:")
+
+
 def test_hung_docker_times_out_quickly(
     healthy: Stub, capsys: pytest.CaptureFixture[str]
 ) -> None:

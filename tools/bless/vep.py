@@ -310,10 +310,12 @@ def require_docker(timeout: float | None = None) -> str:
             "docker daemon did not answer: `docker info` timed out after "
             f"{exc.timeout:g}s"
         ) from exc
-    if probe.returncode != 0:
+    # docker 27 exits 0 with an empty stdout when the daemon is unreachable
+    # (the error goes to stderr only), so an empty server version is a failure.
+    if probe.returncode != 0 or not probe.stdout.strip():
         raise BlessError(
             "docker is installed but its daemon does not answer: "
-            f"{probe.stderr.strip()[:200]}"
+            f"{probe.stderr.strip()[:200] or 'empty server version'}"
         )
     return exe
 
