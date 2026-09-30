@@ -118,6 +118,7 @@ read of `README.md` at the head. It never changes a label, a comment or a review
 
 ```bash
 ./pr_status 158                                                   # real mode
+./pr_status --handover 158                                        # hand-over stage
 ./pr_status --from-json tools/fixtures/pr_status/ready.json       # READY, exit 0
 ./pr_status --from-json tools/fixtures/pr_status/probes.json      # FAIL probes: ..., exit 1
 ```
@@ -133,17 +134,23 @@ whose exit differs from `expected`), `superreview-missing`, `superreview-model`,
 `superreview-blocking` (the super-review tier, computed from the changed paths, the
 README diff and the closing issues' severity labels; the list is the
 `Super-review tier:` line of `AGENTS.md`), and `state-label` (exactly one `state:*`
-label, `state:manual-reviewing` or `state:awaiting-merge`). Checks that need the sticky
+label, `state:manual-reviewing` or `state:awaiting-merge`; with `--handover`, the
+hand-over stage run before the move, `state:auto-reviewing` or
+`state:auto-superreviewing`, every other check unchanged). Checks that need the sticky
 data are skipped when it is missing or duplicated, the review-verdict checks when there
 is no review verdict, the super-review checks when there is no super-review, so a
 failure never cascades.
+Known limits of the tier: a tier file renamed out of the tier shows only its new path in `gh pr view --json files` (moving `tests/data/x` elsewhere skips the super-review), and `gh pr view --json files` is limited to 100 files; the reviewer checks
+`git diff --name-status -M origin/master...HEAD` and requests the super-review by hand.
 
 Exit codes: `0` ready, `1` not ready, `2` usage or tool error (no argument, non-numeric
 `N`, unreadable or non-JSON input, `gh` missing or failing, `README.md` changed but no
-README diff in the input, or malformed input: every field the gate reads is
+README diff in the input, JSON nested too deeply to parse, or malformed input: every field the gate reads is
 type-checked, so a missing key, a wrong type, `null`, a string where a boolean
 belongs or a boolean where an integer belongs is one `pr_status: malformed input:`
-line, never a pass). A verdict other than exactly `APPROVE` fails its check.
+line, never a pass). A sticky or verdict `json` block nested too deeply to parse
+(`RecursionError`) counts as invalid, like a broken one: `FAIL sticky-missing` or a
+tool error, never a traceback. A verdict other than exactly `APPROVE` fails its check.
 `--help` exits 0. Fixture mode reads one JSON document: the
 `gh pr view` output plus `issues` (closing issues with labels) and, when `README.md`
 changed, `readme_diff` and `readme`. Fixtures: `tools/fixtures/pr_status/` (two valid,
@@ -155,8 +162,10 @@ offline `gh` that serves one fixture from `$GH_STUB_STATE` and logs every call t
 
 `./set_state` is the only tool that writes the `state:*` labels (#158). It reads the
 current labels, refuses any move that is not one of the 18 legal transitions (the same
-table is in `AGENTS.md`), and for `state:awaiting-merge` runs the `./pr_status` gate and
-refuses unless it is READY. Then it makes exactly one `gh <kind> edit` call and reads the
+table is in `AGENTS.md`), and runs the `./pr_status` gate and refuses unless it is READY
+before two PR moves: `state:manual-reviewing` (the hand-over stage,
+`./pr_status --handover N`) and `state:awaiting-merge` (the owner's stage,
+`./pr_status N`). Then it makes exactly one `gh <kind> edit` call and reads the
 labels back.
 
 ```bash

@@ -164,3 +164,67 @@ def test_repo_flag_is_passed_to_gh() -> None:
         "--add-label",
         "state:implementing",
     ]
+
+
+# --- the hand-over gate on state:manual-reviewing (#177) ---
+
+
+@pytest.mark.parametrize(
+    ("current", "fixture"),
+    [
+        ("state:auto-reviewing", "ready"),
+        ("state:auto-superreviewing", "ready-superreviewed"),
+    ],
+)
+def test_handover_move_passes_the_gate_with_one_edit(
+    tmp_path: Path, current: str, fixture: str
+) -> None:
+    state = make_state(tmp_path, [current], fixture=fixture)
+    done = run_cli(state, "pr", str(PR), "manual-reviewing")
+    assert done.returncode == writer.DONE, done.stderr
+    assert [c for c in log(state) if c.startswith("pr edit ")] == [
+        f"pr edit {PR} --add-label state:manual-reviewing --remove-label {current}"
+    ]
+    assert state_labels(state, Kind.PR) == ["state:manual-reviewing"]
+
+
+@pytest.mark.parametrize("fixture", ["sha-mismatch", "superreview-missing", "probes"])
+def test_handover_move_refused_when_gate_fails(tmp_path: Path, fixture: str) -> None:
+    state = make_state(tmp_path, ["state:auto-reviewing"], fixture=fixture)
+    done = run_cli(state, "pr", str(PR), "manual-reviewing")
+    assert done.returncode == writer.REFUSED
+    assert f"FAIL {fixture}:" in done.stdout
+    assert "./pr_status --handover 7 is not READY" in done.stderr
+    assert not [c for c in log(state) if " edit " in f" {c}"]
+    assert state_labels(state, Kind.PR) == ["state:auto-reviewing"]
+
+
+def test_handover_gate_leaves_other_moves_ungated(tmp_path: Path) -> None:
+    state = make_state(tmp_path, ["state:auto-reviewing"], fixture="sha-mismatch")
+    assert run_cli(state, "pr", str(PR), "fixing").returncode == writer.DONE
+    assert state_labels(state, Kind.PR) == ["state:fixing"]
+
+
+def test_handover_illegal_transition_is_refused_before_the_gate(
+    tmp_path: Path,
+) -> None:
+    state = make_state(tmp_path, ["state:implementing"])
+    done = run_cli(state, "pr", str(PR), "manual-reviewing")
+    assert done.returncode == writer.REFUSED
+    assert "illegal transition" in done.stderr
+    assert log(state) == [f"pr view {PR} --json labels"]
+
+
+def test_handover_then_owner_stage_walk(tmp_path: Path) -> None:
+    state = make_state(tmp_path, ["state:auto-reviewing"])
+    assert run_cli(state, "pr", str(PR), "manual-reviewing").returncode == 0
+    assert run_cli(state, "pr", str(PR), "awaiting-merge").returncode == 0
+    assert state_labels(state, Kind.PR) == ["state:awaiting-merge"]
+    assert len([c for c in log(state) if c.startswith("pr edit ")]) == 2
+
+
+def test_handover_stages_map_gated_states() -> None:
+    assert writer.GATE_STAGES == {
+        "state:manual-reviewing": "handover",
+        "state:awaiting-merge": "owner",
+    }

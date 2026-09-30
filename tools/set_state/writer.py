@@ -2,8 +2,10 @@
 
 Reads the current labels with ``gh <kind> view N --json labels``, refuses any
 move that is not in :data:`TRANSITIONS` (or that starts from more than one
-``state:*`` label), runs the ``./pr_status`` gate before ``state:awaiting-merge``,
-then makes exactly one ``gh <kind> edit`` call and reads the labels back.
+``state:*`` label), runs the ``./pr_status`` gate before a gated state (the
+hand-over stage before ``state:manual-reviewing``, #177; the owner's stage before
+``state:awaiting-merge``), then makes exactly one ``gh <kind> edit`` call and
+reads the labels back.
 
 Exit codes: 0 done (or dry-run ok); 1 refused; 2 usage or tool error.
 """
@@ -98,6 +100,9 @@ TRANSITIONS: Final[tuple[Transition, ...]] = (
     *_edges(Kind.ISSUE, "manual-reviewing>-"),
 )
 GATED: Final = f"{PREFIX}awaiting-merge"
+HANDOVER: Final = f"{PREFIX}manual-reviewing"
+#: The gated PR states and the ``./pr_status`` stage each one runs first.
+GATE_STAGES: Final[dict[str, gate.Stage]] = {HANDOVER: "handover", GATED: "owner"}
 
 
 class ToolError(Exception):
@@ -178,10 +183,12 @@ def state_labels(kind: Kind, number: int, repo: str | None) -> list[str]:
     ]
 
 
-def run_gate(number: int, repo: str | None) -> list[gate.Failure]:
-    """The ``./pr_status`` gate on the live PR; tool errors become ToolError."""
+def run_gate(
+    number: int, repo: str | None, stage: gate.Stage = "owner"
+) -> list[gate.Failure]:
+    """The ``./pr_status`` gate at ``stage`` on the live PR; errors are ToolError."""
     try:
-        return gate.evaluate(gate.fetch(number, repo))
+        return gate.evaluate(gate.fetch(number, repo), stage=stage)
     except gate.GateError as exc:
         raise ToolError(str(exc)) from exc
 
@@ -191,10 +198,15 @@ def apply(
 ) -> int:
     """Check and perform one move; prints what it did."""
     move = plan(kind, state_labels(kind, number, repo), new)
-    if move.new == GATED and (failures := run_gate(number, repo)):
+    if (
+        move.kind is Kind.PR
+        and (stage := GATE_STAGES.get(move.new or "")) is not None
+        and (failures := run_gate(number, repo, stage))
+    ):
         for failure in failures:
             print(failure)
-        raise Refusal(f"./pr_status {number} is not READY")
+        flag = " --handover" if stage == "handover" else ""
+        raise Refusal(f"./pr_status{flag} {number} is not READY")
     args = edit_args(number, move, repo)
     if dry_run:
         print("DRY-RUN gh " + " ".join(args))
@@ -224,7 +236,8 @@ def build_parser() -> argparse.ArgumentParser:
         "       %(prog)s --print-transitions",
         description="Move an issue or PR to STATE (with or without the 'state:' "
         "prefix) along the legal transitions; "
-        "state:awaiting-merge also needs ./pr_status READY. "
+        "state:manual-reviewing needs ./pr_status --handover READY, "
+        "state:awaiting-merge needs ./pr_status READY. "
         "Exit 0 done, 1 refused, 2 usage or tool error.",
     )
     parser.add_argument("kind", nargs="?", help="pr or issue")
