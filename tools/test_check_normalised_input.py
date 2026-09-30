@@ -75,7 +75,6 @@ def test_discover_takes_only_dirs_with_test_toml(tmp_path: Path) -> None:
     _make(tmp_path, "b")
     _make(tmp_path, "a")
     (tmp_path / "no_toml").mkdir()
-    (tmp_path / "test.toml").write_text("", encoding="utf-8")
     assert discover(tmp_path) == [tmp_path / "a", tmp_path / "b"]
 
 
@@ -118,6 +117,68 @@ def test_main_exit_codes_and_output(
 def test_main_fails_when_nothing_found(tmp_path: Path) -> None:
     assert main([str(tmp_path)], normalize=_identity) == 1
     assert main([str(tmp_path / "missing")], normalize=_identity) == 1
+
+
+def _silent(raw: Path, test_dir: Path) -> subprocess.CompletedProcess[str]:
+    """Fake normaliser that exits 0 but writes nothing."""
+    return subprocess.CompletedProcess([], 0, "", "")
+
+
+def test_single_dir_ok(tmp_path: Path, capsys: pytest.CaptureFixture[str]) -> None:
+    d = _make(tmp_path, "t")
+    assert discover(d) == [d]
+    assert main([str(d)], normalize=_identity) == 0
+    assert capsys.readouterr().out == f"OK {d}\n"
+
+
+def test_single_dir_mismatch(
+    tmp_path: Path, capsys: pytest.CaptureFixture[str]
+) -> None:
+    d = _make(tmp_path, "t")
+
+    def rewrite(raw: Path, test_dir: Path) -> subprocess.CompletedProcess[str]:
+        shutil.copyfile(raw, test_dir / "input.vcf")
+        (test_dir / "test.toml").write_text(TOML.replace("1.23", "1.22"), "utf-8")
+        return subprocess.CompletedProcess([], 0, "", "")
+
+    assert main([str(d)], normalize=rewrite) == 1
+    out = capsys.readouterr().out
+    assert out.startswith(f"MISMATCH {d}\n")
+    assert '+bcftools_version = "bcftools 1.22"' in out
+
+
+def test_single_dir_exit_codes(tmp_path: Path) -> None:
+    d = _make(tmp_path, "t")
+    assert main([str(d)], normalize=_identity) == 0
+    assert main([str(d)], normalize=_failing) == 1
+    empty = tmp_path / "empty"
+    empty.mkdir()
+    assert main([str(empty)], normalize=_identity) == 1
+
+
+def test_parent_mode_unchanged(
+    tmp_path: Path, capsys: pytest.CaptureFixture[str]
+) -> None:
+    a, b = _make(tmp_path, "a"), _make(tmp_path, "b")
+    assert discover(tmp_path) == [a, b]
+    assert main([str(tmp_path)], normalize=_identity) == 0
+    assert capsys.readouterr().out == f"OK {a}\nOK {b}\n"
+
+
+def test_normaliser_wrote_nothing_is_mismatch(tmp_path: Path) -> None:
+    result = check_test(_make(tmp_path, "t"), normalize=_silent)
+    assert result.status is Status.MISMATCH
+    assert result.details == "tools/normalize_input exited 0 but wrote no input.vcf\n"
+
+
+def test_normaliser_wrote_nothing_no_traceback(
+    tmp_path: Path, capsys: pytest.CaptureFixture[str]
+) -> None:
+    d = _make(tmp_path, "t")
+    assert main([str(tmp_path)], normalize=_silent) == 1
+    assert capsys.readouterr().out == (
+        f"MISMATCH {d}\ntools/normalize_input exited 0 but wrote no input.vcf\n"
+    )
 
 
 def test_main_rejects_extra_arguments() -> None:
