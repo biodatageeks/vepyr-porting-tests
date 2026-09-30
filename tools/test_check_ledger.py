@@ -426,6 +426,67 @@ def test_untracked_ignored_file_is_extra(
     assert code == 2 and "extra 1 (t/C.t)" in err, err
 
 
+@pytest.mark.parametrize(
+    "mode",
+    [pytest.param((), id="default"), pytest.param(("--list",), id="list"),
+     pytest.param(("--sweep",), id="sweep")],
+)  # fmt: skip
+def test_subdirectory_upstream_cannot_be_measured(
+    upstream: Path,
+    tmp_path: Path,
+    capsys: pytest.CaptureFixture[str],
+    mode: tuple[str, ...],
+) -> None:
+    """``--upstream root/t`` passes the pin and clean checks; it must still refuse."""
+    csv_path = _write(tmp_path / "hdr.csv", [list(cl.COLUMNS)])
+    csv_args = () if mode else ("--csv", str(csv_path))
+    code = cl.main(["--upstream", str(upstream / "t"), *csv_args, *mode])
+    out, err = capsys.readouterr()
+    assert code == 2, (out, err)
+    assert "not the top level of the work tree (prefix 't/')" in err, err
+
+
+def test_file_set_reads_the_tree_from_its_top_level(upstream: Path) -> None:
+    """Without ``--full-tree`` a subdirectory would see a tree with no ``t/*.t``."""
+    with pytest.raises(cl.CannotMeasure, match=r"missing 2 \(t/A\.t, t/B\.t\)"):
+        cl.verify_file_set(upstream / "t", cl.DEFAULT_GLOB)
+
+
+def test_header_only_csv_on_the_root_is_a_violation(
+    upstream: Path, tmp_path: Path, capsys: pytest.CaptureFixture[str]
+) -> None:
+    csv_path = _write(tmp_path / "hdr.csv", [list(cl.COLUMNS)])
+    code, out, _ = _check(csv_path, upstream, capsys)
+    assert code == 1 and out.endswith("rows 0, files 0, missing 7, orphan 0\n"), out
+
+
+@pytest.mark.parametrize(
+    "mode",
+    [pytest.param((), id="default"), pytest.param(("--list",), id="list"),
+     pytest.param(("--sweep",), id="sweep")],
+)  # fmt: skip
+def test_pinned_tree_without_matching_files_cannot_be_measured(
+    tmp_path: Path,
+    monkeypatch: pytest.MonkeyPatch,
+    capsys: pytest.CaptureFixture[str],
+    mode: tuple[str, ...],
+) -> None:
+    """A clean pinned root whose tree has no ``t/*.t`` must not pass vacuously."""
+    root = tmp_path / "empty"
+    (root / "lib").mkdir(parents=True)
+    (root / "lib" / "X.pm").write_text("1;\n")
+    _git(root, "init", "-q")
+    _git(root, "add", ".")
+    _git(root, "commit", "-q", "-m", "no tests")
+    monkeypatch.setattr(cl, "PINNED_COMMIT", _git(root, "rev-parse", "HEAD"))
+    csv_path = _write(tmp_path / "hdr.csv", [list(cl.COLUMNS)])
+    csv_args = () if mode else ("--csv", str(csv_path))
+    code = cl.main(["--upstream", str(root), *csv_args, *mode])
+    out, err = capsys.readouterr()
+    assert code == 2, (out, err)
+    assert "the pinned tree has no file matching 't/*.t'" in err, err
+
+
 def test_glob_matches_like_path_glob() -> None:
     assert cl.glob_matches("t/A.t", "t/*.t")
     assert not cl.glob_matches("t/sub/A.t", "t/*.t")

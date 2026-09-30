@@ -48,8 +48,9 @@ without the pin check (for fixtures only; the summary says ``unpinned``).
 
 Exit codes: ``0`` ok; ``1`` violations (one ``file:n: reason`` line each on stdout);
 ``2`` cannot measure (CSV unreadable or a field over 131072 bytes, upstream
-unavailable, not the pinned commit, dirty upstream tree, file set differs from the
-pinned tree, git missing). The check summary
+unavailable, not the pinned commit, dirty upstream tree, ``--upstream`` is a
+subdirectory rather than the work-tree top level, the glob selects no file of the
+pinned tree, file set differs from the pinned tree, git missing). The check summary
 ``rows R, files F, missing M, orphan O`` is the last stdout line of the default mode.
 """
 
@@ -258,13 +259,20 @@ def verify_checkout(root: Path) -> None:
 
     Raises:
         CannotMeasure: Not a directory, not a git checkout, HEAD is not
-            ``PINNED_COMMIT``, or the tree is dirty.
+            ``PINNED_COMMIT``, the tree is dirty, or ``root`` is a
+            subdirectory of the work tree rather than its top level.
     """
     if not root.is_dir():
         raise CannotMeasure(f"upstream {root}: not a git checkout (no such directory)")
     head = _git("-C", str(root), "rev-parse", "HEAD")
     if head.returncode != 0:
         raise CannotMeasure(f"upstream {root}: not a git checkout")
+    prefix = _git("-C", str(root), "rev-parse", "--show-prefix")
+    if prefix.returncode != 0 or prefix.stdout.strip():
+        raise CannotMeasure(
+            f"upstream {root}: not the top level of the work tree (prefix "
+            f"{prefix.stdout.strip()!r}); pass the checkout root, not a subdirectory"
+        )
     sha = head.stdout.strip()
     if sha != PINNED_COMMIT:
         raise CannotMeasure(f"upstream HEAD {sha} != pinned {PINNED_COMMIT}")
@@ -346,13 +354,19 @@ def verify_file_set(root: Path, glob: str) -> None:
         glob: The file selection (for example ``t/*.t``).
 
     Raises:
-        CannotMeasure: ``git ls-tree`` failed, or any file is missing on disk or
-            not in the pinned tree.
+        CannotMeasure: ``git ls-tree`` failed, the pinned tree has no file
+            matching ``glob``, or any file is missing on disk or not in the
+            pinned tree.
     """
-    tree = _git("-C", str(root), "ls-tree", "-r", "--name-only", "HEAD")
+    tree = _git("-C", str(root), "ls-tree", "-r", "--full-tree", "--name-only", "HEAD")
     if tree.returncode != 0:
         raise CannotMeasure(f"upstream {root}: git ls-tree failed")
     pinned = {rel for rel in tree.stdout.splitlines() if glob_matches(rel, glob)}
+    if not pinned:
+        raise CannotMeasure(
+            f"upstream {root}: the pinned tree has no file matching {glob!r}; "
+            "an empty selection cannot be measured"
+        )
     on_disk = {p.relative_to(root).as_posix() for p in upstream_files(root, glob)}
     if pinned == on_disk:
         return

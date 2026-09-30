@@ -198,7 +198,11 @@ Without `--upstream` it makes a partial sparse clone of the tag into a temp dir
 `--ref` only picks the tag to clone, the pin does not move. The files the glob
 selects on disk must also equal those in `git ls-tree -r HEAD` at the pin: a clean,
 pinned but sparse checkout that omits or adds a file exits 2 (`files matching ...
-differ from the pinned tree`), so a missing file cannot pass as covered.
+differ from the pinned tree`), so a missing file cannot pass as covered. `DIR` must
+be the top level of the work tree (`git rev-parse --show-prefix` empty): a
+subdirectory such as `ensembl-vep/t` exits 2 (`not the top level of the work tree`),
+and so does a glob that selects no file of the pinned tree (`the pinned tree has no
+file matching ...`), so an empty enumeration cannot pass as covered.
 
 The default mode checks the schema (the 13 columns of #109, optionally followed by
 `data_test_verdict`; field counts, enums, integer `n`/`perl_line`, conditional
