@@ -178,6 +178,7 @@ body:
         today's code — if every criterion passes before the fix, they are decoration. Keep the
         standing regression gate (`pytest tools/` and/or `cargo check --tests` green) as the
         last item, as the existing issues do.
+        State what the command returns on the current master; a criterion that already passes on master gates nothing, unless it is labelled a regression guard.
       placeholder: |
         1. `grep -rn "FASTA_NAME" tools/` → exit 1 (the constant is gone, not merely bypassed).
         2. `pytest tools/test_precheck.py -k renamed_fasta` → exit 0: with a fixture whose

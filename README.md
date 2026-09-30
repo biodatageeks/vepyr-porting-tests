@@ -108,6 +108,74 @@ semi-manual. `.github/workflows/issue-check.yml` runs it on `issues`
 (opened/edited/labeled) and on `workflow_dispatch`; it blocks nothing, the result is
 visible in Actions only.
 
+## ./pr_status (read-only PR readiness gate)
+
+`./pr_status N` answers whether PR `N` is ready for the owner (#158; the rules are in
+`AGENTS.md`, "Issue and pull request lifecycle"). It only reads: `gh pr view N --json
+headRefOid,labels,comments,reviews,files,closingIssuesReferences`, one `gh issue view`
+per closing issue, and, only when `README.md` changed, `gh pr diff N` and one `gh api`
+read of `README.md` at the head. It never changes a label, a comment or a review.
+
+```bash
+./pr_status 158                                                   # real mode
+./pr_status --from-json tools/fixtures/pr_status/ready.json       # READY, exit 0
+./pr_status --from-json tools/fixtures/pr_status/probes.json      # FAIL probes: ..., exit 1
+```
+
+It prints one `FAIL <check>: <reason>` line per failed check (all of them) or `READY`.
+The checks: `sticky-missing`, `sticky-duplicate` (exactly one issue comment starting
+with `### pr-status:v1`, with a valid fenced `json` block), `sticky-stale`,
+`sha-mismatch` (sticky `head` and every AC row `sha` = the PR head), `ac-exit` (every
+non-manual AC row has `exit` = `expected`), `verdict-missing`, `verdict-changes`,
+`probes` (the latest `### pr-review:v1` verdict with `"role":"review"` for the head:
+`APPROVE`, at least 2 own probes), `mutation` (every non-manual AC row has a mutation
+whose exit differs from `expected`), `superreview-missing`, `superreview-model`,
+`superreview-blocking` (the super-review tier, computed from the changed paths, the
+README diff and the closing issues' severity labels; the list is the
+`Super-review tier:` line of `AGENTS.md`), and `state-label` (exactly one `state:*`
+label, `state:manual-reviewing` or `state:awaiting-merge`). Checks that need the sticky
+data are skipped when it is missing or duplicated, the review-verdict checks when there
+is no review verdict, the super-review checks when there is no super-review, so a
+failure never cascades.
+
+Exit codes: `0` ready, `1` not ready, `2` usage or tool error (no argument, non-numeric
+`N`, unreadable or non-JSON input, `gh` missing or failing, `README.md` changed but no
+README diff in the input, or malformed input: every field the gate reads is
+type-checked, so a missing key, a wrong type, `null`, a string where a boolean
+belongs or a boolean where an integer belongs is one `pr_status: malformed input:`
+line, never a pass). A verdict other than exactly `APPROVE` fails its check.
+`--help` exits 0. Fixture mode reads one JSON document: the
+`gh pr view` output plus `issues` (closing issues with labels) and, when `README.md`
+changed, `readme_diff` and `readme`. Fixtures: `tools/fixtures/pr_status/` (two valid,
+one failing fixture per check id, `not-json.txt`); `tools/fixtures/gh_stub/gh` is an
+offline `gh` that serves one fixture from `$GH_STUB_STATE` and logs every call to
+`$GH_STUB_STATE.log`. Tests: `tools/test_pr_status.py`.
+
+## ./set_state (state-label writer)
+
+`./set_state` is the only tool that writes the `state:*` labels (#158). It reads the
+current labels, refuses any move that is not one of the 18 legal transitions (the same
+table is in `AGENTS.md`), and for `state:awaiting-merge` runs the `./pr_status` gate and
+refuses unless it is READY. Then it makes exactly one `gh <kind> edit` call and reads the
+labels back.
+
+```bash
+./set_state pr 158 auto-reviewing                 # STATE with or without the state: prefix
+./set_state issue 158 manual-reviewing-issue
+./set_state issue 158 --clear                     # owner approved the issue by hand
+./set_state pr 158 fixing --dry-run               # prints DRY-RUN gh pr edit ..., edits nothing
+./set_state --print-transitions                   # the 18 legal moves
+```
+
+A PR takes the six PR states (`implementing`, `auto-reviewing`, `fixing`,
+`auto-superreviewing`, `manual-reviewing`, `awaiting-merge`), an issue the four `-issue`
+states. `--repo OWNER/REPO` is passed to `gh`; without it `gh` resolves the repository
+from the clone. Exit codes: `0` done (or dry-run ok), `1` refused (illegal transition,
+more than one state label, a current label of the other kind, gate not READY), `2` usage
+or tool error (no argument, unknown kind, non-numeric `N`, unknown state or one of the
+other kind, `gh` failing, read-back mismatch). Tests: `tools/test_set_state.py`, against
+the offline `gh` stub.
+
 ## ./bless
 
 `./bless` makes and checks the oracle of a data-test directory `tests/data/<name>/`:
