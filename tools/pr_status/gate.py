@@ -23,7 +23,7 @@ from collections.abc import Iterable, Mapping, Sequence
 from dataclasses import dataclass
 from enum import StrEnum
 from pathlib import Path
-from typing import Any, Final
+from typing import Any, Final, NoReturn
 
 READY: Final = 0
 NOT_READY: Final = 1
@@ -93,7 +93,7 @@ class Verdict:
     model: str | None
     verdict: str
     sha: str
-    probes: object
+    probes: int
     mutations: tuple[Mapping[str, Any], ...]
     at: str
 
@@ -124,6 +124,134 @@ def _names(labels: Iterable[Mapping[str, Any]] | None) -> list[str]:
     return [str(label.get("name", "")) for label in labels or ()]
 
 
+# --- input schema: every field the gate reads is type-checked (fail closed) ---
+# Wrong shape anywhere (missing key, wrong type, bool where an int belongs, a
+# string where a bool belongs, null) is a tool error, exit 2: the gate never
+# guesses what malformed data meant.
+
+
+def _fail(where: str, what: str) -> NoReturn:
+    raise GateError(f"malformed input: {where}: {what}")
+
+
+def _is_int(value: object) -> bool:
+    return isinstance(value, int) and not isinstance(value, bool)
+
+
+def _req(obj: Mapping[str, Any], key: str, where: str) -> Any:
+    if key not in obj:
+        _fail(where, f"missing key {key!r}")
+    return obj[key]
+
+
+def _want_int(obj: Mapping[str, Any], key: str, where: str) -> int:
+    value = _req(obj, key, where)
+    if not _is_int(value):
+        _fail(where, f"{key!r} must be an integer, got {value!r}")
+    return value
+
+
+def _want_bool(obj: Mapping[str, Any], key: str, where: str) -> bool:
+    value = _req(obj, key, where)
+    if not isinstance(value, bool):
+        _fail(where, f"{key!r} must be true or false, got {value!r}")
+    return value
+
+
+def _want_str(obj: Mapping[str, Any], key: str, where: str) -> str:
+    value = _req(obj, key, where)
+    if not isinstance(value, str) or not value:
+        _fail(where, f"{key!r} must be a non-empty string, got {value!r}")
+    return value
+
+
+def _want_list(obj: Mapping[str, Any], key: str, where: str) -> list[Any]:
+    value = _req(obj, key, where)
+    if not isinstance(value, list):
+        _fail(where, f"{key!r} must be a list, got {value!r}")
+    return value
+
+
+def _want_dicts(obj: Mapping[str, Any], key: str, where: str) -> list[dict[str, Any]]:
+    items = _want_list(obj, key, where)
+    for i, item in enumerate(items):
+        if not isinstance(item, dict):
+            _fail(f"{where}.{key}[{i}]", f"must be an object, got {item!r}")
+    return items
+
+
+def validate_doc(doc: Mapping[str, Any]) -> None:
+    """Type-check the PR document (the ``gh pr view`` part plus ``issues``)."""
+    _want_str(doc, "headRefOid", "document")
+    for i, label in enumerate(_want_dicts(doc, "labels", "document")):
+        _want_str(label, "name", f"labels[{i}]")
+    for key, stamp in (("comments", "createdAt"), ("reviews", "submittedAt")):
+        for i, item in enumerate(_want_dicts(doc, key, "document")):
+            where = f"{key}[{i}]"
+            if not isinstance(item.get("body"), str):
+                _fail(where, f"'body' must be a string, got {item.get('body')!r}")
+            _want_str(item, stamp, where)
+    for i, f in enumerate(_want_dicts(doc, "files", "document")):
+        _want_str(f, "path", f"files[{i}]")
+    for i, issue in enumerate(_want_dicts(doc, "issues", "document")):
+        _want_int(issue, "number", f"issues[{i}]")
+        for j, label in enumerate(_want_dicts(issue, "labels", f"issues[{i}]")):
+            _want_str(label, "name", f"issues[{i}].labels[{j}]")
+    for key in ("readme_diff", "readme"):
+        if key in doc and not isinstance(doc[key], str):
+            _fail("document", f"{key!r} must be a string")
+
+
+EVIDENCE_LEVELS: Final = frozenset({"scaffold", "full"})
+ROLES: Final = frozenset({"review", "superreview"})
+
+
+def validate_sticky(data: Mapping[str, Any]) -> None:
+    """Type-check the sticky json block (``v``, ``head``, ``stale``, ``ac`` rows)."""
+    where = STICKY_MARKER
+    if _want_int(data, "v", where) != 1:
+        _fail(where, f"unsupported version {data['v']}")
+    _want_str(data, "head", where)
+    _want_bool(data, "stale", where)
+    seen: set[int] = set()
+    for i, row in enumerate(_want_dicts(data, "ac", where)):
+        at = f"{where} ac[{i}]"
+        row_id = _want_int(row, "id", at)
+        if row_id in seen:
+            _fail(at, f"duplicate AC id {row_id}")
+        seen.add(row_id)
+        _want_str(row, "cmd", at)
+        _want_str(row, "sha", at)
+        if _want_str(row, "evidence", at) not in EVIDENCE_LEVELS:
+            _fail(at, f"'evidence' must be one of {sorted(EVIDENCE_LEVELS)}")
+        if _want_bool(row, "manual", at):
+            if (
+                _req(row, "exit", at) is not None
+                or _req(row, "expected", at) is not None
+            ):
+                _fail(at, "a manual row has 'exit' and 'expected' null")
+            _want_str(row, "reviewer", at)
+        else:
+            _want_int(row, "exit", at)
+            _want_int(row, "expected", at)
+
+
+def validate_verdict(data: Mapping[str, Any], where: str) -> None:
+    """Type-check one verdict json block; a missing ``verdict`` is not APPROVE."""
+    if _want_int(data, "v", where) != 1:
+        _fail(where, f"unsupported version {data['v']}")
+    if _want_str(data, "role", where) not in ROLES:
+        _fail(where, f"'role' must be one of {sorted(ROLES)}")
+    _want_str(data, "model", where)
+    _want_str(data, "sha", where)
+    if "verdict" in data and not isinstance(data["verdict"], str):
+        _fail(where, f"'verdict' must be a string, got {data['verdict']!r}")
+    _want_int(data, "probes", where)
+    for i, m in enumerate(_want_dicts(data, "mutations", where)):
+        _want_int(m, "ac", f"{where} mutations[{i}]")
+        _want_int(m, "exit", f"{where} mutations[{i}]")
+
+
 def collect_verdicts(doc: Mapping[str, Any]) -> list[Verdict]:
     """All well-formed verdicts from issue comments and review bodies, oldest first."""
     sources = [(c, c.get("createdAt") or "") for c in doc.get("comments") or ()]
@@ -135,17 +263,16 @@ def collect_verdicts(doc: Mapping[str, Any]) -> list[Verdict]:
             continue
         data = json_block(body)
         if not isinstance(data, dict):
-            continue
+            _fail(f"verdict posted {at}", "no valid json object block")
+        validate_verdict(data, f"verdict posted {at}")
         verdicts.append(
             Verdict(
                 role=str(data.get("role")),
                 model=data.get("model"),
                 verdict=str(data.get("verdict", "<missing>")),
                 sha=str(data.get("sha")),
-                probes=data.get("probes"),
-                mutations=tuple(
-                    m for m in data.get("mutations") or () if isinstance(m, dict)
-                ),
+                probes=data["probes"],
+                mutations=tuple(data["mutations"]),
                 at=str(at),
             )
         )
@@ -244,6 +371,7 @@ def _sticky(doc: Mapping[str, Any]) -> tuple[list[Failure], dict[str, Any] | Non
         return [
             Failure(Check.STICKY_MISSING, "the sticky comment has no valid json block")
         ], None
+    validate_sticky(data)
     return [], data
 
 
@@ -300,9 +428,8 @@ def evaluate(doc: Mapping[str, Any]) -> list[Failure]:
 
     Raises :class:`GateError` for input the gate cannot judge.
     """
-    head = doc.get("headRefOid")
-    if not isinstance(head, str) or not head:
-        raise GateError("input has no headRefOid")
+    validate_doc(doc)
+    head: str = doc["headRefOid"]
     failures, sticky = _sticky(doc)
     rows = [r for r in (sticky or {}).get("ac") or () if isinstance(r, dict)]
     if sticky is not None:
@@ -320,7 +447,7 @@ def evaluate(doc: Mapping[str, Any]) -> list[Failure]:
                     f"the latest review verdict is {review.verdict!r}, not APPROVE",
                 )
             )
-        if not isinstance(review.probes, int) or review.probes < 2:
+        if review.probes < 2:
             failures.append(
                 Failure(
                     Check.PROBES,

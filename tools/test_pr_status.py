@@ -7,6 +7,7 @@ import json
 import os
 import subprocess
 import sys
+from collections.abc import Callable
 from pathlib import Path
 from typing import Any, Final
 
@@ -271,3 +272,115 @@ def test_null_comment_is_a_tool_error(tmp_path: Path) -> None:
     assert done.returncode == gate.TOOL_ERROR
     assert "Traceback" not in done.stderr
     assert run_cli("--from-json", _write(tmp_path, fixture("ready"))).returncode == 0
+
+
+def _edit_json(body: str, edit: Callable[[dict[str, Any]], None]) -> str:
+    """Apply ``edit`` to the json block of ``body`` and re-render it."""
+    data = gate.json_block(body)
+    assert isinstance(data, dict)
+    edit(data)
+    head, _, _ = body.partition("```json")
+    return f"{head}```json\n{json.dumps(data, indent=2)}\n```\n"
+
+
+def _sticky_edit(edit: Callable[[dict[str, Any]], None]) -> dict[str, Any]:
+    doc = fixture("ready")
+    doc["comments"][0]["body"] = _edit_json(doc["comments"][0]["body"], edit)
+    return doc
+
+
+def _verdict_edit(edit: Callable[[dict[str, Any]], None]) -> dict[str, Any]:
+    doc = fixture("ready")
+    doc["comments"][1]["body"] = _edit_json(doc["comments"][1]["body"], edit)
+    return doc
+
+
+def _row(i: int, **kw: object) -> Callable[[dict[str, Any]], None]:
+    def edit(d: dict[str, Any]) -> None:
+        for k, v in kw.items():
+            if v is _DROP:
+                d["ac"][i].pop(k)
+            else:
+                d["ac"][i][k] = v
+
+    return edit
+
+
+_DROP: Final = object()
+
+MALFORMED: Final[dict[str, Callable[[], dict[str, Any]]]] = {
+    # sticky rows (review 5364175079 finding 1 and the self-audit)
+    "row-no-exit-no-expected": lambda: _sticky_edit(
+        _row(0, exit=_DROP, expected=_DROP)
+    ),
+    "row-exit-null": lambda: _sticky_edit(_row(0, exit=None, expected=None)),
+    "row-exit-str": lambda: _sticky_edit(_row(0, exit="0")),
+    "row-expected-bool": lambda: _sticky_edit(_row(0, expected=False)),
+    "row-manual-str": lambda: _sticky_edit(_row(0, manual="false")),
+    "row-manual-missing": lambda: _sticky_edit(_row(0, manual=_DROP)),
+    "row-id-bool": lambda: _sticky_edit(_row(0, id=True)),
+    "row-id-duplicate": lambda: _sticky_edit(_row(1, id=1)),
+    "row-sha-null": lambda: _sticky_edit(_row(0, sha=None)),
+    "row-evidence-bogus": lambda: _sticky_edit(_row(0, evidence="partial")),
+    "row-manual-with-exit": lambda: _sticky_edit(_row(2, exit=0)),
+    "row-manual-no-reviewer": lambda: _sticky_edit(_row(2, reviewer=_DROP)),
+    "row-not-object": lambda: _sticky_edit(lambda d: d["ac"].append(5)),
+    "sticky-stale-str": lambda: _sticky_edit(lambda d: d.update(stale="true")),
+    "sticky-stale-missing": lambda: _sticky_edit(lambda d: d.pop("stale")),
+    "sticky-ac-not-list": lambda: _sticky_edit(lambda d: d.update(ac=5)),
+    "sticky-head-missing": lambda: _sticky_edit(lambda d: d.pop("head")),
+    "sticky-version": lambda: _sticky_edit(lambda d: d.update(v=2)),
+    # verdicts (finding 2 and the self-audit)
+    "mutation-no-exit": lambda: _verdict_edit(lambda d: d["mutations"][0].pop("exit")),
+    "mutation-exit-str": lambda: _verdict_edit(
+        lambda d: d["mutations"][0].update(exit="0")
+    ),
+    "mutation-ac-str": lambda: _verdict_edit(
+        lambda d: d["mutations"][0].update(ac="1")
+    ),
+    "mutations-missing": lambda: _verdict_edit(lambda d: d.pop("mutations")),
+    "mutations-not-list": lambda: _verdict_edit(lambda d: d.update(mutations={})),
+    "probes-str": lambda: _verdict_edit(lambda d: d.update(probes="3")),
+    "probes-bool": lambda: _verdict_edit(lambda d: d.update(probes=True)),
+    "probes-missing": lambda: _verdict_edit(lambda d: d.pop("probes")),
+    "verdict-not-str": lambda: _verdict_edit(lambda d: d.update(verdict=True)),
+    "role-unknown": lambda: _verdict_edit(lambda d: d.update(role="reviewer")),
+    "model-missing": lambda: _verdict_edit(lambda d: d.pop("model")),
+    "verdict-sha-null": lambda: _verdict_edit(lambda d: d.update(sha=None)),
+    # the PR document
+    "labels-null": lambda: {**fixture("ready"), "labels": None},
+    "label-name-int": lambda: {**fixture("ready"), "labels": [{"name": 1}]},
+    "comment-body-null": lambda: {
+        **fixture("ready"),
+        "comments": [*fixture("ready")["comments"], {"body": None, "createdAt": "t"}],
+    },
+    "comment-no-createdAt": lambda: {
+        **fixture("ready"),
+        "comments": [*fixture("ready")["comments"], {"body": "x"}],
+    },
+    "files-missing": lambda: {
+        k: v for k, v in fixture("ready").items() if k != "files"
+    },
+    "file-path-null": lambda: {**fixture("ready"), "files": [{"path": None}]},
+    "issues-missing": lambda: {
+        k: v for k, v in fixture("ready").items() if k != "issues"
+    },
+    "issue-number-str": lambda: {
+        **fixture("ready"),
+        "issues": [{"number": "158", "labels": []}],
+    },
+    "head-empty": lambda: {**fixture("ready"), "headRefOid": ""},
+}
+
+
+@pytest.mark.parametrize("case", sorted(MALFORMED))
+def test_malformed_field_is_a_tool_error(case: str) -> None:
+    with pytest.raises(gate.GateError, match="malformed input"):
+        gate.evaluate(MALFORMED[case]())
+    assert ids(fixture("ready")) == []  # control: the unmodified fixture is READY
+
+
+def test_malformed_field_exits_2_on_the_cli(tmp_path: Path) -> None:
+    done = run_cli("--from-json", _write(tmp_path, MALFORMED["row-manual-str"]()))
+    assert done.returncode == gate.TOOL_ERROR
+    assert "Traceback" not in done.stderr and "'manual'" in done.stderr
