@@ -55,7 +55,6 @@ SKILL_DIR: Final[Path] = Path(__file__).resolve().parents[1]
 FILES: Final[tuple[str, ...]] = ("input.vcf", "expected_output.vcf", "test.toml")
 RUNNER: Final[tuple[str, ...]] = ("cargo", "test", "--test", "data_dirs", "data_dirs", "--", "--nocapture")
 ENGINE_CRATE: Final[str] = "datafusion-bio-function-vep"
-FLAVOUR: Final[str] = "ensembl"
 VEPYR_FASTA: Final[str] = "fasta/Homo_sapiens.GRCh38.dna.primary_assembly.fa"
 VEPYR_CACHE_DIR: Final[str] = "116_GRCh38_ensembl"
 
@@ -600,9 +599,8 @@ def check_structure(repo: Path, d: Path) -> list[Check]:
 def check_mode(repo: Path, d: Path) -> Check:
     """``[vepyr]`` and every ``[[vepyr_run]]`` are in the one mode of ``tools/vep_flags.toml``.
 
-    Each mapped ``vepyr_key`` holds its ``vepyr_value``, no table has ``fields``, the
-    effective ``flavour`` is ``ensembl``, and a present ``[vep] command`` carries every
-    mapped VEP flag.
+    Each mapped ``vepyr_key`` holds its ``vepyr_value``, no table has ``fields``, and a
+    present ``[vep] command`` carries every mapped VEP flag.
     """
     rows = load_toml(repo / "tools" / "vep_flags.toml").get("mapping", [])
     if not rows:
@@ -623,8 +621,6 @@ def check_mode(repo: Path, d: Path) -> Check:
         eff = base | t
         if "fields" in t:
             problems.append(f"{where} has `fields` (unsupported since #149)")
-        if eff.get("flavour") != FLAVOUR:
-            problems.append(f"{where} flavour = {eff.get('flavour')!r}, want {FLAVOUR!r}")
         for row in rows:
             if eff.get(row["vepyr_key"]) is not row["vepyr_value"]:
                 problems.append(f"{where} {row['vepyr_key']} = {eff.get(row['vepyr_key'])!r}, "
@@ -638,8 +634,7 @@ def check_mode(repo: Path, d: Path) -> Check:
     # tests/data_dirs.rs runs each [[vepyr_run]] (merged over [vepyr]); [vepyr] alone only when there is none.
     how = f"[vepyr] + {len(runs)} [[vepyr_run]] override(s)" if runs else "[vepyr] alone"
     return Check("mode", not problems, "; ".join(problems) or
-                 f"{len(rows)} tools/vep_flags.toml keys hold in {len(runs) or 1} run(s) ({how}), "
-                 f"flavour {FLAVOUR}, no fields")
+                 f"{len(rows)} tools/vep_flags.toml keys hold in {len(runs) or 1} run(s) ({how}), no fields")
 
 
 def engine_line(repo: Path) -> str:

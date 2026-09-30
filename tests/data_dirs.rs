@@ -316,6 +316,12 @@ impl VepyrSettings {
         let flavour = Flavour::from_key(flavour_key).unwrap_or_else(|| {
             panic!("[{name}] [vepyr] flavour = {flavour_key:?} is not ensembl, refseq or merged")
         });
+        if !matches!(flavour, Flavour::Ensembl) {
+            panic!(
+                "[{name}] [vepyr] flavour = {flavour_key:?}: the oracle is always VEP on the \
+                 Ensembl cache, so only \"ensembl\" is supported"
+            );
+        }
         let required_contigs = str_list(&table["required_contigs"]);
         if required_contigs.is_empty() {
             panic!("[{name}] [vepyr] required_contigs must not be empty");
@@ -900,6 +906,30 @@ fn vepyr_run_override_to_old_mode_is_rejected() {
 #[should_panic(expected = "unsupported mode: [vep] command lacks --everything")]
 fn old_vep_command_is_rejected() {
     load_fixture_edited(" --everything", "");
+}
+
+#[test]
+#[should_panic(expected = "only \"ensembl\" is supported")]
+fn refseq_flavour_is_rejected() {
+    load_fixture_edited("flavour = \"ensembl\"", "flavour = \"refseq\"");
+}
+
+#[test]
+#[should_panic(expected = "only \"ensembl\" is supported")]
+fn merged_flavour_is_rejected() {
+    load_fixture_edited("flavour = \"ensembl\"", "flavour = \"merged\"");
+}
+
+#[test]
+#[should_panic(expected = "only \"ensembl\" is supported")]
+fn vepyr_run_flavour_override_is_rejected() {
+    load_fixture_edited("[vep]\n", "[[vepyr_run]]\nflavour = \"refseq\"\n\n[vep]\n");
+}
+
+#[test]
+fn ensembl_flavour_is_accepted() {
+    // A whitespace-only edit: `load_fixture_edited` requires the text to change.
+    load_fixture_edited("flavour = \"ensembl\"", "flavour  = \"ensembl\"");
 }
 
 #[test]

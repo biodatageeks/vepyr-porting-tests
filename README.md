@@ -359,6 +359,8 @@ loader rejects `fields` as an unknown key. The other VEP flags of the fixed comm
 (`--offline`, `--cache`, `--dir_cache`, `--species`, `--cache_version`,
 `--assembly`, input/output names) select the cache and files, not annotation, and
 have no `[vepyr]` counterpart; `flavour` and `required_contigs` pick vepyr's cache.
+`flavour` must be `"ensembl"` (the oracle is VEP on the Ensembl cache): the loader
+accepts only "ensembl", in `[vepyr]` and in every `[[vepyr_run]]` override.
 Before each run the runner checks that every cache entity vepyr reads in
 `--everything` mode (all seven; `motif` and `regulatory` excepted on `chrMT`) has a
 shard for each `required_contigs` entry.
