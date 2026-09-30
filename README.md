@@ -140,8 +140,11 @@ hand-over stage run before the move, `state:auto-reviewing` or
 data are skipped when it is missing or duplicated, the review-verdict checks when there
 is no review verdict, the super-review checks when there is no super-review, so a
 failure never cascades.
-Known limits of the tier: a tier file renamed out of the tier shows only its new path in `gh pr view --json files` (moving `tests/data/x` elsewhere skips the super-review), and `gh pr view --json files` is limited to 100 files; the reviewer checks
-`git diff --name-status -M origin/master...HEAD` and requests the super-review by hand.
+Known limits of the tier: a file renamed out of it, and a list capped at 100 files.
+`gh pr view --json files` shows only the new path of a renamed file (moving
+`tests/data/x` elsewhere skips the super-review) and is limited to 100 files; the
+reviewer checks `git diff --name-status -M origin/master...HEAD` and requests the
+super-review by hand.
 
 Exit codes: `0` ready, `1` not ready, `2` usage or tool error (no argument, non-numeric
 `N`, unreadable or non-JSON input, `gh` missing or failing, `README.md` changed but no
@@ -161,28 +164,41 @@ offline `gh` that serves one fixture from `$GH_STUB_STATE` and logs every call t
 ## ./set_state (state-label writer)
 
 `./set_state` is the only tool that writes the `state:*` labels (#158). It reads the
-current labels, refuses any move that is not one of the 18 legal transitions (the same
+current labels, refuses any move that is not one of the 20 legal transitions (the same
 table is in `AGENTS.md`), and runs the `./pr_status` gate and refuses unless it is READY
 before two PR moves: `state:manual-reviewing` (the hand-over stage,
 `./pr_status --handover N`) and `state:awaiting-merge` (the owner's stage,
-`./pr_status N`). Then it makes exactly one `gh <kind> edit` call and reads the
+`./pr_status N`). Then it makes one `gh <kind> edit` call per moved item and reads the
 labels back.
+
+A PR move is mirrored to each closing issue (#177): the PR's
+`closingIssuesReferences` (closing keywords and manual links only; none for a PR whose
+base is not the default branch). A closing issue carrying the PR's old state gets the
+same move; one already at the new state is left as is; a closed issue, or one with no
+`state:*` or an `-issue` label, is skipped with a `note:` line on stderr; any other
+label is out of sync and refuses the whole move. Everything is checked before the first
+edit; the issues are edited first, the PR last, and a failed edit undoes the ones
+already made (`nothing changed`, exit 2). `--no-mirror` moves the PR only. An issue
+enters the PR family only by `./set_state issue N implementing`.
 
 ```bash
 ./set_state pr 158 auto-reviewing                 # STATE with or without the state: prefix
 ./set_state issue 158 manual-reviewing-issue
-./set_state issue 158 --clear                     # owner approved the issue by hand
-./set_state pr 158 fixing --dry-run               # prints DRY-RUN gh pr edit ..., edits nothing
-./set_state --print-transitions                   # the 18 legal moves
+./set_state issue 158 implementing                # "implement issue #158": follows its PR from now on
+./set_state issue 158 --clear                     # owner approved the issue, not implemented now
+./set_state pr 158 fixing --dry-run               # prints every DRY-RUN gh ... edit, edits nothing
+./set_state pr 158 fixing --no-mirror             # the PR only, closing issues untouched
+./set_state --print-transitions                   # the 20 legal moves
 ```
 
 A PR takes the six PR states (`implementing`, `auto-reviewing`, `fixing`,
 `auto-superreviewing`, `manual-reviewing`, `awaiting-merge`), an issue the four `-issue`
-states. `--repo OWNER/REPO` is passed to `gh`; without it `gh` resolves the repository
+states and, through `implementing` and the mirror, the PR states. `--repo OWNER/REPO` is passed to `gh`; without it `gh` resolves the repository
 from the clone. Exit codes: `0` done (or dry-run ok), `1` refused (illegal transition,
 more than one state label, a current label of the other kind, gate not READY), `2` usage
 or tool error (no argument, unknown kind, non-numeric `N`, unknown state or one of the
-other kind, `gh` failing, read-back mismatch). Tests: `tools/test_set_state.py`, against
+other kind, `gh` failing or printing JSON nested too deeply, read-back mismatch, a
+failed edit undone: `nothing changed`). Tests: `tools/test_set_state.py`, against
 the offline `gh` stub.
 
 ## ./check_env (local prerequisites)

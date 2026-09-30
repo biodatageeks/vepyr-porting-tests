@@ -12,7 +12,9 @@ arguments (without ``gh``, space-joined) are appended to ``$GH_STUB_STATE.log``.
 - ``issue view N --json ...``: the ``issues[]`` entry numbered N;
 - ``pr edit N`` / ``issue edit N`` with ``--add-label``/``--remove-label``: edits the state file.
 
-Anything else, or a missing state file, exits 2. Kept runnable on any python3.
+Anything else, or a missing state file, exits 2. ``$GH_STUB_FAIL`` (optional): a
+call whose space-joined arguments start with its value is logged, changes nothing
+and exits 2 (a failing ``gh``; #177 AC 19). Kept runnable on any python3.
 """
 
 from __future__ import annotations
@@ -32,6 +34,9 @@ def main() -> None:
     state = os.environ.get("GH_STUB_STATE") or fail("GH_STUB_STATE unset")
     with open(str(state) + ".log", "a", encoding="utf-8") as log:
         log.write(" ".join(raw) + "\n")
+    failing = os.environ.get("GH_STUB_FAIL")
+    if failing and " ".join(raw).startswith(failing):
+        fail("GH_STUB_FAIL matched: " + " ".join(raw))
     args: list[str] = []
     skip = False
     for a in raw:
