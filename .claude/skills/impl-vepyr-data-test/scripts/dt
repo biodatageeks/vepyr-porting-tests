@@ -691,8 +691,9 @@ def check_index(cfg: Config, repo: Path) -> list[Check]:
         proc = run([tool, "--check", "--out", out], cwd=repo, quiet=name.endswith("negative"))
         if proc.returncode not in (0, 1, 2):
             raise ToolError(f"build_test_index exited {proc.returncode}: {proc.stderr.strip()[-300:]}")
-        said = (proc.stdout + proc.stderr).strip().splitlines()
-        return proc.returncode, said[-1] if said else ""
+        said = (proc.stdout + proc.stderr).splitlines()
+        return proc.returncode, next((ln for ln in said if ln.startswith("build_test_index:")),
+                                     said[-1].strip() if said else "")
 
     code, said = checked(index, "build_test_index")
     pos = Check("build_test_index", code == 0, f"exit {code}; {said}")
