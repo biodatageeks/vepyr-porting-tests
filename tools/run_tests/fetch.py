@@ -872,7 +872,8 @@ def fetch(
     Trimming is driven by the directory, not by the download: a per-contig run
     re-fetches and trims whenever a manifest names an absent shard or misses a
     requested one on disk (:func:`_manifests_stale`), so it is idempotent and repairs
-    a root left untrimmed by an interrupted or ``--no-trim-manifests`` run, or left stale by a top-up.
+    a root left untrimmed by an interrupted or ``--no-trim-manifests`` run, or left
+    stale by a top-up.
 
     Returns:
         The outcome (always :attr:`Exit.OK`) with the shard counters; every failure is
