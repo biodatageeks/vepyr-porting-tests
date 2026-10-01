@@ -277,11 +277,12 @@ class Lister(Protocol):
 class Downloader(Protocol):
     """Materialises the files matching ``allow_patterns`` under ``local_dir``.
 
-    Contract: files already present are left alone, EXCEPT the ``chrom_manifest.json``
-    files, which are always re-materialised from the Hub — trimming is lossy, and a
-    later top-up with another contig must start from the full manifest again.
-    :func:`fetch` calls it a second time with only ``*/chrom_manifest.json`` under the
-    lock, immediately before trimming.
+    Contract: files already present are left alone, a trimmed ``chrom_manifest.json``
+    included (``snapshot_download`` skips a present file whose download metadata names
+    the same commit). Only the manifests-only call, with exactly
+    ``["*/chrom_manifest.json"]``, forces the full manifests back from the Hub:
+    :func:`fetch` makes it under the lock, immediately before trimming, whenever
+    :func:`_manifests_stale` finds a manifest that does not list exactly its shards.
     """
 
     def __call__(
@@ -363,11 +364,11 @@ def hub_downloader(
 
     manifests_only = allow_patterns == [f"*/{MANIFEST}"]
     try:
-        # The Downloader contract: manifests are always re-materialised from the Hub
-        # (they may be trimmed copies from an earlier run), everything else only when
-        # absent. fetch() asks for the manifests alone, under the lock, right before it
-        # trims them — so a full manifest can never be overwritten by another run's
-        # stale trim between its re-fetch and its own trim.
+        # The Downloader contract: present files, trimmed manifests included, are left
+        # alone; only the manifests-only call forces them back. fetch() asks for the
+        # manifests alone, under the lock, right before it trims them — so a full
+        # manifest can never be overwritten by another run's stale trim between its
+        # re-fetch and its own trim.
         snapshot_download(
             repo_id,
             repo_type="dataset",
@@ -636,14 +637,19 @@ def trim_manifest(path: Path) -> bool:
     return True
 
 
-def _manifests_untrimmed(flavour_dir: Path) -> bool:
-    """True when some manifest of ``flavour_dir`` names a shard that is not beside it.
+def _manifests_stale(flavour_dir: Path) -> bool:
+    """True when some manifest of ``flavour_dir`` does not list exactly its shards.
 
-    The trim gate: it answers "is there work for :func:`trim_manifest` here?" from the
+    The trim gate: it answers "must the manifests be re-fetched and trimmed?" from the
     directory alone, so a run trims whenever the root needs it and not only when it
-    downloaded something (an interrupted run, or ``--no-trim-manifests`` followed by a
-    plain one, leaves full manifests beside a partial set of shards). An unreadable
-    manifest counts as untrimmed: re-materialising it from the Hub is the repair.
+    downloaded something. A manifest is stale when it names a shard that is not beside
+    it (an interrupted run, or ``--no-trim-manifests`` followed by a plain one), when a
+    ``*.parquet`` shard beside it is not listed (a top-up with another contig: the
+    downloader leaves the present, already trimmed manifest alone, #206), or when it
+    is unreadable. Re-materialising from the Hub and trimming repairs all three and
+    leaves each manifest listing exactly the shards on disk: the union of every
+    ``--add-contigs`` so far, since shards are never removed. A consistent root is
+    left untouched, so a run that changes nothing rewrites no manifest.
     """
     for entity in ENTITIES:
         manifest = flavour_dir / entity / MANIFEST
@@ -655,11 +661,14 @@ def _manifests_untrimmed(flavour_dir: Path) -> bool:
             return True
         if not isinstance(entries, list):
             return True
-        if any(
-            not (manifest.parent / str(entry["dataset"])).is_file()
+        listed = {
+            str(entry["dataset"])
             for entry in entries
             if isinstance(entry, dict) and "dataset" in entry
-        ):
+        }
+        if any(not (manifest.parent / name).is_file() for name in listed):
+            return True
+        if {shard.name for shard in manifest.parent.glob("*.parquet")} - listed:
             return True
     return False
 
@@ -847,10 +856,10 @@ def fetch(
     The downloader is called only for a flavour with at least one requested file
     absent: a complete directory downloads nothing, a partial one only what is missing —
     presence is by path; ``--verify`` is what checks digests.
-    Trimming is driven by the directory, not by the download: a per-contig run trims
-    whenever a manifest still names a shard that is not on disk
-    (:func:`_manifests_untrimmed`), so it is idempotent and repairs a root left
-    untrimmed by an interrupted or ``--no-trim-manifests`` run.
+    Trimming is driven by the directory, not by the download: a per-contig run
+    re-fetches and trims whenever a manifest does not list exactly the shards on disk
+    (:func:`_manifests_stale`), so it is idempotent and repairs a root left untrimmed
+    by an interrupted or ``--no-trim-manifests`` run, or left stale by a top-up.
 
     Returns:
         The outcome (always :attr:`Exit.OK`) with the shard counters; every failure is
@@ -902,7 +911,7 @@ def fetch(
         if (
             selection.contigs is not None
             and selection.trim_manifests
-            and _manifests_untrimmed(flavour_dir)
+            and _manifests_stale(flavour_dir)
         ):
             with provenance_lock(root):
                 # Re-fetch the full manifests INSIDE the lock, then trim to the shards
