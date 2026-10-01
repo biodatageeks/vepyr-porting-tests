@@ -35,7 +35,9 @@ checkout that omits a file is refused), none may be flagged assume-unchanged or
 skip-worktree in the index, and the bytes the tool reads must hash (in Python, not
 through git) to the pinned blob ids, raw or after the ``core.autocrlf=true`` CRLF to
 LF conversion (#184): a checkout whose own config (``core.worktree``,
-``core.fsmonitor``) or index flags hide an edit from ``git status`` is refused. ``--ref`` only selects the tag to clone;
+``core.fsmonitor``) or index flags hide an edit from ``git status`` is refused;
+every git call runs with ``--no-replace-objects``, so a replace ref cannot swap
+the pinned tree. ``--ref`` only selects the tag to clone;
 the pin never changes.
 
 ``--list`` prints the enumeration as ``vep_file<TAB>n<TAB>perl_line<TAB>perl_kind``.
@@ -246,7 +248,11 @@ def _git(*args: str) -> subprocess.CompletedProcess[str]:
     """Run ``git`` with ``args``, capturing text output (never raises on exit code).
 
     The child gets :func:`_git_env`, so no inherited ``GIT_*`` variable can
-    redirect it away from the checkout being measured.
+    redirect it away from the checkout being measured, and runs with
+    ``--no-replace-objects``, so ``refs/replace/*`` stored in the checkout cannot
+    swap the pinned commit's tree (and with it the blob ids the bytes are
+    compared with) behind an unchanged ``rev-parse HEAD`` (#184, PR #191 F1).
+    Grafts and ``.git/shallow`` change only parents, never the tree of HEAD.
 
     Raises:
         CannotMeasure: ``git`` is not on ``PATH``.
@@ -254,7 +260,11 @@ def _git(*args: str) -> subprocess.CompletedProcess[str]:
     if shutil.which("git") is None:
         raise CannotMeasure("git not found on PATH")
     return subprocess.run(
-        ["git", *args], capture_output=True, text=True, check=False, env=_git_env()
+        ["git", "--no-replace-objects", *args],
+        capture_output=True,
+        text=True,
+        check=False,
+        env=_git_env(),
     )
 
 
