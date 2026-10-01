@@ -4,7 +4,8 @@
 (``--cache-dir`` or ``$VEPYR_CACHE_ROOT``), discovered ``tests/data/<name>/`` test
 directories run under a path-patched engine ladder: ``--vepyr REF`` pins the
 revision, and omitting it resolves ``biodatageeks/vepyr``'s current ``master`` HEAD
-(issue #30).
+(issue #30). ``--only DIR`` (repeatable) runs just the named data-test directories,
+which may live outside ``tests/data``, from a temporary copy (issue #168).
 """
 
 from __future__ import annotations
@@ -14,6 +15,7 @@ import os
 import subprocess
 import sys
 from collections.abc import Callable, Mapping, Sequence
+from contextlib import ExitStack
 from dataclasses import dataclass
 from pathlib import Path
 from typing import Final
@@ -64,6 +66,8 @@ class Invocation:
     verify: bool
     fast: bool
     trim_manifests: bool
+    only: tuple[Path, ...] = ()
+    """``--only`` directories, absolute and validated; empty = all of ``tests/data``."""
 
     @property
     def vepyr_ref(self) -> str:
@@ -153,6 +157,17 @@ def _parser() -> argparse.ArgumentParser:
         action="store_true",
         help="print data-test directories (tests/data/<name>/) and exit 0.",
     )
+    run.add_argument(
+        "--only",
+        action="append",
+        type=Path,
+        default=[],
+        metavar="DIR",
+        help="run only this data-test directory (holds test.toml; may be outside "
+        "tests/data, e.g. a scratch copy); repeatable. The directories are copied "
+        f"into a temporary ${tests.ROOT_ENV} root, deleted afterwards; tests/data is "
+        "never touched. The engine is still --vepyr REF (or its default).",
+    )
     return parser
 
 
@@ -187,6 +202,7 @@ def parse_args(argv: Sequence[str]) -> Invocation:
         verify=args.verify,
         fast=args.fast,
         trim_manifests=fetch.TRIM_DEFAULT and not args.no_trim_manifests,
+        only=tests.only_dirs(args.only),
     )
 
 
@@ -334,16 +350,23 @@ def _run_data_tests(
     cargo_runner: CargoRunner,
     gh_api: engine.GhApi | None,
 ) -> tuple[Exit, str | None, str | None]:
-    """Precheck + engine + cargo. Returns ``(code, detail, vepyr_resolved)``."""
+    """Precheck + engine + cargo. Returns ``(code, detail, vepyr_resolved)``.
+
+    With ``--only`` the directories are copied into a temporary root that cargo
+    walks via ``$DATA_DIRS_ROOT``, and only the exact ``data_dirs`` test runs.
+    """
     repo = _repo_root()
     pins_toml = repo / "PINS.toml"
     tests.precheck_cache(cache_root, pins_toml=pins_toml)
     plan, config_path = engine.materialise(
         inv.vepyr_ref, repo_root=repo, api=gh_api
     )
-    argv = tests.cargo_argv(targets, config=config_path)
+    argv = tests.cargo_argv(targets, config=config_path, exact=bool(inv.only))
     env = {tests.CACHE_ENV: str(cache_root)}
-    with engine.LockGuard(repo).held():
+    with ExitStack() as stack:
+        if inv.only:
+            env[tests.ROOT_ENV] = str(stack.enter_context(tests.only_root(inv.only)))
+        stack.enter_context(engine.LockGuard(repo).held())
         # No `cargo update -p …` pre-step (issue #21): cargo re-locks the patched
         # packages by itself when `--config` carries the `[patch]` path tables, and
         # bare `-p <crate>` specs were ambiguous whenever the lockfile held the same
@@ -515,7 +538,11 @@ def main(
     fetchers = _Fetchers(
         lister=lister, downloader=downloader, fasta_fetcher=fasta_fetcher
     )
-    targets = tests.data_targets(_repo_root())
+    targets = (
+        tuple(path.name for path in inv.only)
+        if inv.only
+        else tests.data_targets(_repo_root())
+    )
 
     if inv.list_only:
         print(tests.list_table(targets), end="")
