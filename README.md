@@ -201,6 +201,54 @@ other kind, `gh` failing or printing JSON nested too deeply, read-back mismatch,
 failed edit undone: `nothing changed`). Tests: `tools/test_set_state.py`, against
 the offline `gh` stub.
 
+## tools/check_ledger (assertion ledger coverage)
+
+`tools/check_ledger` checks that the assertion ledger CSV (`ledger/assertions.csv`,
+schema of #109; the file itself lands with #109, until then pass `--csv PATH`) has
+exactly one row per assertion of the 49 upstream `t/*.t` files of Ensembl VEP
+`release/116.0` (#110), and nothing else.
+
+```bash
+tools/check_ledger --csv ledger/assertions.csv               # schema + coverage, clones upstream
+tools/check_ledger --csv ledger/assertions.csv --upstream UP  # offline, an existing checkout
+tools/check_ledger --upstream UP --list                       # vep_file<TAB>n<TAB>perl_line<TAB>perl_kind
+tools/check_ledger --upstream UP --sweep                      # names the enumerator did not count
+tools/check_ledger --upstream UP --sweep --glob 't/*.pm'      # the 8 support modules
+```
+
+Without `--upstream` it makes a partial sparse clone of the tag into a temp dir
+(`t/*.t`, `t/*.pm` and `modules/Bio/EnsEMBL/VEP/Config.pm`, about 1 MB); with
+`--upstream DIR` it uses that checkout. Either way `git rev-parse HEAD` must be
+`57ea5c52340acc1f156267f810ad162e26597082` and `git status --porcelain` empty;
+`--ref` only picks the tag to clone, the pin does not move. The files the glob
+selects on disk must also equal those in `git ls-tree -r HEAD` at the pin: a clean,
+pinned but sparse checkout that omits or adds a file exits 2 (`files matching ...
+differ from the pinned tree`), so a missing file cannot pass as covered. `DIR` must
+be the top level of the work tree (`git rev-parse --show-prefix` empty): a
+subdirectory such as `ensembl-vep/t` exits 2 (`not the top level of the work tree`),
+and so does a glob that selects no file of the pinned tree (`the pinned tree has no
+file matching ...`), so an empty enumeration cannot pass as covered.
+
+The default mode checks the schema (the 13 columns of #109, optionally followed by
+`data_test_verdict`; field counts, enums, integer `n`/`perl_line`, conditional
+columns, `issue` empty or `https://`, no newline in a field, rows sorted by
+`vep_file` bytes then `n`, unique `(vep_file, n)`, bytes equal to their canonical
+RFC 4180 form with LF and no BOM), then compares the CSV keys with the upstream
+enumeration both ways: `missing row`, `orphan row`, `perl_line` and `perl_kind`
+mismatches. The last stdout line is `rows R, files F, missing M, orphan O`.
+`--sweep` prints ``file:line: uncounted `name`: text`` for every documented Test::*
+function name the enumerator did not count and no fixed rule explains, and a tally
+of the explained ones on stderr; `--sweep-dir DIR` does the same on a plain
+directory without the pin check (for fixtures; its summary says `unpinned`).
+
+Exit codes: `0` ok, `1` violations (one `file:n: reason` line each), `2` cannot
+measure (CSV missing, unreadable or not UTF-8, a CSV field over 131072 bytes (the
+Python `csv` field size limit; fails closed), upstream unavailable, another commit,
+dirty tree, file set differing from the pinned tree, no `git`). `.github/workflows/ledger-check.yml` runs the unit tests, the
+two sweeps and, once `ledger/assertions.csv` exists, the CSV check (Actions is
+disabled, see `AGENTS.md`). Tests: `tools/test_check_ledger.py` (offline, against a
+synthetic upstream repository).
+
 ## ./check_env (local prerequisites)
 
 `./check_env` (issue #170) answers "can the repo tools run on this machine" with
@@ -598,6 +646,49 @@ synthetic one-contig reference FASTA, with no downloaded data.
 
 Corpus dataset pins (`PINS.toml`) are documented in
 [docs/dataset-pins.md](docs/dataset-pins.md).
+
+### How do we know there are no more assertions in the Perl files?
+
+**How they are enumerated.** The upstream test files are the 49 `t/*.t` of Ensembl
+VEP at tag `release/116.0` = `57ea5c52340acc1f156267f810ad162e26597082`. A line is
+one assertion if it matches a line-start regex over 22 function names:
+`ok is isnt like unlike is_deeply cmp_ok isa_ok can_ok new_ok pass fail use_ok
+require_ok` (Test::More), `throws_ok dies_ok lives_ok lives_and` (Test::Exception)
+and `cmp_deeply cmp_bag cmp_set cmp_methods` (Test::Deep). All 22 are assertion
+functions. The Test::Warnings functions `warning` / `warnings` are capture functions,
+not assertions (they run a block and return its warnings), and are deliberately not
+in the rule, so the 5 bare `warning { ... };` statements are not rows. `n` is the
+ordinal of the assertion in its file, `perl_line` the line it starts on.
+`tools/check_ledger --list` prints the enumeration.
+
+**Why it is trusted.** The rule gives 1965 assertions (is 841, is_deeply 588, ok 272,
+use_ok 148, throws_ok 99, like 11, cmp_deeply 3, dies_ok 2, isa_ok 1). An earlier
+independent Rust lexer from the deprecated porting repository found the same
+`(file, line, kind)` rows, with 0 differences in 49 files apart from its 5 `warning`
+capture rows. `tools/check_ledger --sweep` searches the same files for every function
+name documented by Test::More, Test::Exception, Test::Deep and Test::Warnings as a
+bare word, at line start or mid-line, after removing comments, strings, regex
+literals, sigiled names, every `{ word }` and every `word =>`, and reports every
+occurrence the rule did not count; on the pinned files the only ones are explained
+non-assertions (`use`/`no warnings`, `done_testing`, `skip`, `diag`, Test::Deep
+comparators as arguments, import lists and the 6 `warning {` captures), and nothing
+unexplained. The CSV is compared with the enumeration in both directions (missing
+and orphan rows, `perl_line`, `perl_kind`), and the tool refuses any other commit,
+so a moved tag or an edited file cannot pass silently.
+
+**Limits.** It is not a general Perl parser and is correct for
+these 49 files at this ref only: a line-start scan does not see assertions reached through helper subs or
+names outside the documented lists, and a line run many times in a loop is counted
+once; support files such as `t/VEPTestingConfig.pm` are not test files and are not
+read for rows (none of the 8 top-level `t/*.pm` contains an assertion). The sweep
+does not see three forms, none of which occurs in the pinned files: an assertion
+alone in a block, `if (1) { fail }`, and `eval { pass };` (every `{ word }` is
+blanked as a hash key), and a call with the `&` sigil, `&ok(1, "x");` (blanked as
+a variable).
+The tool trusts the checkout's bytes and `git status`: it ignores inherited
+`GIT_*` variables, but it does not check assume-unchanged or skip-worktree flags
+or git attributes against the pinned blobs (a known limit, tracked in a follow-up
+issue).
 
 ## Agent setup (per machine)
 
