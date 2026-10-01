@@ -207,7 +207,7 @@ the offline `gh` stub.
 ## tools/check_ledger (assertion ledger coverage)
 
 `tools/check_ledger` checks that the assertion ledger CSV (`ledger/assertions.csv`,
-schema of #109; the file itself lands with #109, until then pass `--csv PATH`) has
+schema of #109; committed by #109: 1965 assertions of 49 files, one row each) has
 exactly one row per assertion of the 49 upstream `t/*.t` files of Ensembl VEP
 `release/116.0` (#110), and nothing else.
 
