@@ -14,7 +14,7 @@ description: Use when implementing, re-blessing, verifying or reviewing a data-t
 - One mode (#143/#149). `[vepyr]` has `everything = true`, `reference_fasta = true`, `preserve_record_layout = true`, `flavour = "ensembl"`, **no `fields`**; the runner derives the cache entities itself; `required_contigs`, optional `buffer_size` and `[[vepyr_run]]` come from the issue. Who enforces what:
   - the 3 keys mapped in `tools/vep_flags.toml`: `./bless` (`require_vepyr_mode`) and the loader reject another value (`unsupported mode`);
   - `fields`: only the loader rejects it (`unknown key`); bless accepts it;
-  - `flavour = "ensembl"`: owner policy (README: the oracle is always Ensembl; #156). Bless and the loader accept `refseq`/`merged`; **`dt verify` (mode check) is the only gate**, so it must PASS.
+  - `flavour = "ensembl"`: owner policy (README: the oracle is always Ensembl; #156). Bless is flavour-blind; the loader (`tests/data_dirs.rs`) refuses any other flavour, and `dt verify` no longer checks it.
   - Schema: `tests/data_dirs.rs` header, README "Porting method".
 - `[origin] ledger` = README short form `"<Stem>.ledger.toml n=<N>"` (e.g. `"Runner.ledger.toml n=16"`); never a URL to a former source repository, even if older rows have one.
 - Extra VEP flags: none. `--check_existing` is the only allowlisted one (`ALLOWED_VEP_FLAGS`, `tools/bless/vep.py`). `--everything` already enables it in VEP 116 (`Config.pm` `@OPTION_SETS`: everything -> af/pubmed -> check_existing), so adding it leaves the body and `body_md5` unchanged. It changes only the `##VEP-command-line` header and `[vep] command`/`extra_flags`. `dt` has no pass-through.
