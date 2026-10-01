@@ -711,10 +711,16 @@ does not see three forms, none of which occurs in the pinned files: an assertion
 alone in a block, `if (1) { fail }`, and `eval { pass };` (every `{ word }` is
 blanked as a hash key), and a call with the `&` sigil, `&ok(1, "x");` (blanked as
 a variable).
-The tool trusts the checkout's bytes and `git status`: it ignores inherited
-`GIT_*` variables, but it does not check assume-unchanged or skip-worktree flags
-or git attributes against the pinned blobs (a known limit, tracked in a follow-up
-issue).
+The tool ignores inherited `GIT_*` variables and compares the bytes it reads with
+the pinned tree: every selected file's content is hashed in Python and must equal
+its blob id in `git ls-tree -r HEAD`, so an edit that `git status` does not show
+(through the checkout's own `core.worktree` or `core.fsmonitor`) is refused; a file
+flagged assume-unchanged or skip-worktree in the index is refused by name. Git
+runs with `--no-replace-objects`, so a `refs/replace/*` ref in the checkout cannot
+swap the pinned tree that the blob ids are read from. A
+`core.autocrlf=true` checkout is accepted: a file also passes when its bytes after
+git's autocrlf CRLF-to-LF conversion hash to the blob id, which changes no line
+number or assertion kind.
 
 ## Agent setup (per machine)
 

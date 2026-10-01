@@ -11,6 +11,8 @@ from __future__ import annotations
 
 import csv
 import io
+import os
+import shutil
 import subprocess
 import sys
 from collections.abc import Callable
@@ -322,6 +324,173 @@ def test_dirty_tree_cannot_be_measured(
         fh.write("x")
     code, _, err = _check(csv_path, upstream, capsys)
     assert code == 2 and "dirty" in err
+
+
+# --- Checkout integrity: bytes vs pinned blobs (#184) ---------------------------------
+
+EDIT: Final[bytes] = b"1;\n"
+"""The edit of the #184 reproductions: the file then has no assertion."""
+
+
+def _modes(root: Path, capsys: pytest.CaptureFixture[str]) -> list[tuple[int, str]]:
+    """Run ``--list`` and ``--sweep`` on ``root``; return (exit, stderr) of each."""
+    results: list[tuple[int, str]] = []
+    for mode in ("--list", "--sweep"):
+        code = cl.main(["--upstream", str(root), mode])
+        results.append((code, capsys.readouterr().err))
+    return results
+
+
+def _git_status_lines(root: Path) -> int:
+    """Number of ``git status --porcelain`` lines of ``root``."""
+    return len(_git(root, "status", "--porcelain").splitlines())
+
+
+def test_assume_unchanged_edit_is_refused(
+    upstream: Path, capsys: pytest.CaptureFixture[str]
+) -> None:
+    _git(upstream, "update-index", "--assume-unchanged", "t/A.t")
+    (upstream / "t" / "A.t").write_bytes(EDIT)
+    assert _git_status_lines(upstream) == 0  # git status is blind to the edit
+    for code, err in _modes(upstream, capsys):
+        assert code == 2 and "t/A.t is marked assume-unchanged" in err
+
+
+def test_default_mode_refuses_assume_unchanged(
+    upstream: Path, tmp_path: Path, capsys: pytest.CaptureFixture[str]
+) -> None:
+    records = [r for r in _records(upstream) if r[0] != "t/A.t"]
+    csv_path = _write(tmp_path / "noA.csv", records)
+    _git(upstream, "update-index", "--assume-unchanged", "t/A.t")
+    (upstream / "t" / "A.t").write_bytes(EDIT)
+    code, out, err = _check(csv_path, upstream, capsys)
+    assert code == 2 and "t/A.t is marked assume-unchanged" in err and not out
+
+
+def test_skip_worktree_flag_is_refused(
+    upstream: Path, capsys: pytest.CaptureFixture[str]
+) -> None:
+    _git(upstream, "update-index", "--skip-worktree", "t/B.t")
+    assert _git_status_lines(upstream) == 0
+    for code, err in _modes(upstream, capsys):
+        assert code == 2 and "t/B.t is marked skip-worktree" in err
+
+
+def test_content_differs_from_pinned_blob_is_refused(
+    upstream: Path, capsys: pytest.CaptureFixture[str]
+) -> None:
+    """Hide an edit with assume-unchanged, then check the hash alone catches it."""
+    _git(upstream, "update-index", "--assume-unchanged", "t/A.t")
+    (upstream / "t" / "A.t").write_bytes(EDIT)
+    with pytest.raises(cl.CannotMeasure, match=r"pinned tree \(1: t/A.t\)"):
+        cl.verify_blobs(upstream, cl.pinned_blobs(upstream, "t/*.t"))
+    cl.verify_blobs(upstream, cl.pinned_blobs(upstream, "t/B.t"))  # B is untouched
+
+
+def test_pinned_blob_id_matches_git() -> None:
+    for data in (b"", A_T.encode(), b"x\r\ny\n"):
+        done = subprocess.run(
+            ["git", "hash-object", "--no-filters", "--stdin"],
+            input=data, capture_output=True, check=True,
+        )  # fmt: skip
+        assert cl.blob_id(data, 40) == done.stdout.decode().strip()
+
+
+def test_autocrlf_checkout(
+    upstream: Path, tmp_path: Path, capsys: pytest.CaptureFixture[str]
+) -> None:
+    """#184 Q1 = (b): a ``core.autocrlf=true`` clone passes with the same rows."""
+    crlf = tmp_path / "crlf"
+    subprocess.run(
+        ["git", "clone", "-q", "-c", "core.autocrlf=true", str(upstream), str(crlf)],
+        check=True,
+    )
+    assert b"\r\n" in (crlf / "t" / "A.t").read_bytes()
+    assert cl.main(["--upstream", str(crlf), "--list"]) == 0
+    assert capsys.readouterr().out == EXPECTED_LIST
+    # A lone CR is not what autocrlf produces: the content is refused.
+    (crlf / "t" / "A.t").write_bytes(A_T.encode().replace(b"\n", b"\r\n") + b"\r")
+    with pytest.raises(cl.CannotMeasure, match="differs from the pinned tree"):
+        cl.verify_blobs(crlf, cl.pinned_blobs(crlf, "t/*.t"))
+
+
+def test_lone_cr_is_not_autocrlf_converted(
+    upstream: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    """A lone CR makes git skip the CRLF conversion, so the candidate is refused.
+
+    The pinned file itself holds a lone CR; on disk every LF becomes CRLF. The
+    CRLF-to-LF candidate then equals the pinned bytes, but git's clean filter
+    would leave such a file unchanged, so the content differs from the pin.
+    """
+    pinned = b"ok(1);\rx\n"
+    (upstream / "t" / "CR.pm").write_bytes(pinned)
+    _git(upstream, "add", "t/CR.pm")
+    _git(upstream, "commit", "-q", "-m", "lone CR")
+    monkeypatch.setattr(cl, "PINNED_COMMIT", _git(upstream, "rev-parse", "HEAD"))
+    cl.verify_blobs(upstream, cl.pinned_blobs(upstream, "t/CR.pm"))  # control
+    on_disk = pinned.replace(b"\n", b"\r\n")
+    assert on_disk.replace(b"\r\n", b"\n") == pinned
+    (upstream / "t" / "CR.pm").write_bytes(on_disk)
+    with pytest.raises(cl.CannotMeasure, match=r"pinned tree \(1: t/CR.pm\)"):
+        cl.verify_blobs(upstream, cl.pinned_blobs(upstream, "t/CR.pm"))
+
+
+def test_replace_ref_is_refused(
+    upstream: Path, capsys: pytest.CaptureFixture[str]
+) -> None:
+    """F1 of the PR #191 review: a replace ref swaps HEAD's tree for an edited one.
+
+    ``rev-parse HEAD`` still prints the pin and ``git status`` compares with the
+    replaced tree, so it is clean; only ``--no-replace-objects`` exposes the edit.
+    """
+    assert all(code == 0 for code, _ in _modes(upstream, capsys))  # control
+    pin = _git(upstream, "rev-parse", "HEAD")
+    (upstream / "t" / "A.t").write_bytes(EDIT)
+    _git(upstream, "add", "t/A.t")
+    fake = _git(upstream, "commit-tree", _git(upstream, "write-tree"), "-m", "x")
+    _git(upstream, "replace", pin, fake)
+    _git(upstream, "reset", "-q")
+    assert _git(upstream, "rev-parse", "HEAD") == pin
+    assert _git_status_lines(upstream) == 0  # git (with replace refs) sees no edit
+    for code, err in _modes(upstream, capsys):
+        assert code == 2 and "upstream tree is dirty" in err and "t/A.t" in err, err
+
+
+def test_core_worktree_redirect_is_refused(
+    upstream: Path, tmp_path: Path, capsys: pytest.CaptureFixture[str]
+) -> None:
+    """F: the checkout's own ``core.worktree`` points git at a clean copy."""
+    clean = tmp_path / "clean"
+    shutil.copytree(upstream, clean)
+    (upstream / "t" / "A.t").write_bytes(EDIT)
+    _git(upstream, "config", "core.worktree", str(clean))
+    assert _git_status_lines(upstream) == 0
+    for code, err in _modes(upstream, capsys):
+        assert code == 2 and "differs from the pinned tree (1: t/A.t)" in err
+    _git(upstream, "config", "--unset", "core.worktree")  # control: git sees it now
+    assert all(code == 2 and "dirty" in err for code, err in _modes(upstream, capsys))
+
+
+def test_fsmonitor_hook_is_refused(
+    upstream: Path, tmp_path: Path, capsys: pytest.CaptureFixture[str]
+) -> None:
+    """I: a ``core.fsmonitor`` hook reporting nothing, edit keeps the mtime."""
+    hook = tmp_path / "fsm.sh"
+    hook.write_text("#!/bin/sh\nprintf 'tok\\0'\n")
+    hook.chmod(0o755)
+    _git(upstream, "config", "core.fsmonitor", str(hook))
+    _git(upstream, "config", "core.fsmonitorHookVersion", "2")
+    _git(upstream, "status")
+    _git(upstream, "status")
+    target = upstream / "t" / "A.t"
+    stat = target.stat()
+    target.write_bytes(EDIT)
+    os.utime(target, ns=(stat.st_atime_ns, stat.st_mtime_ns))
+    if _git_status_lines(upstream) != 0:
+        pytest.skip("this git does not honour the fsmonitor hook here")
+    for code, err in _modes(upstream, capsys):
+        assert code == 2 and "differs from the pinned tree (1: t/A.t)" in err
 
 
 @pytest.mark.parametrize("var", ["GIT_WORK_TREE", "GIT_DIR", "GIT_INDEX_FILE"])

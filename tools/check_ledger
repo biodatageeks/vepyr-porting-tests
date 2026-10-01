@@ -31,7 +31,13 @@ The upstream checkout (#110 Q1 = B) is a partial sparse clone of the pinned tag
 into a temp dir, or ``--upstream DIR``; either way ``git rev-parse HEAD`` must be
 the pinned commit, ``git status --porcelain`` must be empty, and the files the
 glob selects on disk must equal those in ``git ls-tree -r HEAD`` (a sparse
-checkout that omits a file is refused). ``--ref`` only selects the tag to clone;
+checkout that omits a file is refused), none may be flagged assume-unchanged or
+skip-worktree in the index, and the bytes the tool reads must hash (in Python, not
+through git) to the pinned blob ids, raw or after the ``core.autocrlf=true`` CRLF to
+LF conversion (#184): a checkout whose own config (``core.worktree``,
+``core.fsmonitor``) or index flags hide an edit from ``git status`` is refused;
+every git call runs with ``--no-replace-objects``, so a replace ref cannot swap
+the pinned tree. ``--ref`` only selects the tag to clone;
 the pin never changes.
 
 ``--list`` prints the enumeration as ``vep_file<TAB>n<TAB>perl_line<TAB>perl_kind``.
@@ -50,7 +56,9 @@ Exit codes: ``0`` ok; ``1`` violations (one ``file:n: reason`` line each on stdo
 ``2`` cannot measure (CSV unreadable or a field over 131072 bytes, upstream
 unavailable, not the pinned commit, dirty upstream tree, ``--upstream`` is a
 subdirectory rather than the work-tree top level, the glob selects no file of the
-pinned tree, file set differs from the pinned tree, git missing). The check summary
+pinned tree, file set differs from the pinned tree, a selected file is flagged
+assume-unchanged or skip-worktree, file content differs from the pinned blobs, git
+missing). The check summary
 ``rows R, files F, missing M, orphan O`` is the last stdout line of the default mode.
 """
 
@@ -58,6 +66,7 @@ from __future__ import annotations
 
 import argparse
 import csv
+import hashlib
 import io
 import os
 import re
@@ -66,7 +75,7 @@ import subprocess
 import sys
 import tempfile
 from collections import Counter
-from collections.abc import Iterator, Sequence
+from collections.abc import Iterable, Iterator, Mapping, Sequence
 from contextlib import contextmanager
 from dataclasses import dataclass, field
 from enum import StrEnum
@@ -239,7 +248,11 @@ def _git(*args: str) -> subprocess.CompletedProcess[str]:
     """Run ``git`` with ``args``, capturing text output (never raises on exit code).
 
     The child gets :func:`_git_env`, so no inherited ``GIT_*`` variable can
-    redirect it away from the checkout being measured.
+    redirect it away from the checkout being measured, and runs with
+    ``--no-replace-objects``, so ``refs/replace/*`` stored in the checkout cannot
+    swap the pinned commit's tree (and with it the blob ids the bytes are
+    compared with) behind an unchanged ``rev-parse HEAD`` (#184, PR #191 F1).
+    Grafts and ``.git/shallow`` change only parents, never the tree of HEAD.
 
     Raises:
         CannotMeasure: ``git`` is not on ``PATH``.
@@ -247,7 +260,11 @@ def _git(*args: str) -> subprocess.CompletedProcess[str]:
     if shutil.which("git") is None:
         raise CannotMeasure("git not found on PATH")
     return subprocess.run(
-        ["git", *args], capture_output=True, text=True, check=False, env=_git_env()
+        ["git", "--no-replace-objects", *args],
+        capture_output=True,
+        text=True,
+        check=False,
+        env=_git_env(),
     )
 
 
@@ -343,11 +360,148 @@ def glob_matches(rel: str, glob: str) -> bool:
     return len(parts) == len(pattern) and all(map(fnmatchcase, parts, pattern))
 
 
+def pinned_blobs(root: Path, glob: str) -> dict[str, str]:
+    """Map each file of HEAD's tree matching ``glob`` to its object id.
+
+    Args:
+        root: A checkout already verified by :func:`verify_checkout`.
+        glob: The file selection.
+
+    Returns:
+        ``{relative POSIX path: oid}`` for every tree entry matching ``glob``
+        (any mode: a symlink or submodule entry then fails :func:`verify_blobs`).
+
+    Raises:
+        CannotMeasure: ``git ls-tree`` failed or printed an unexpected line.
+    """
+    tree = _git("-C", str(root), "ls-tree", "-r", "-z", "--full-tree", "HEAD")
+    if tree.returncode != 0:
+        raise CannotMeasure(f"upstream {root}: git ls-tree failed")
+    blobs: dict[str, str] = {}
+    for entry in filter(None, tree.stdout.split("\0")):
+        match entry.split("\t", 1):
+            case [meta, rel] if len(meta.split()) == 3:
+                if glob_matches(rel, glob):
+                    blobs[rel] = meta.split()[2]
+            case _:
+                raise CannotMeasure(
+                    f"upstream {root}: unexpected ls-tree line {entry!r}"
+                )
+    return blobs
+
+
+def blob_id(data: bytes, oid_hex_len: int) -> str:
+    """The git blob id of ``data``: hash of ``b"blob <len>\\0" + data``.
+
+    Args:
+        data: The file content.
+        oid_hex_len: Length of the repository's object ids (40 for SHA-1,
+            64 for SHA-256), which selects the hash function.
+
+    Raises:
+        CannotMeasure: An object-id length git does not use.
+    """
+    match oid_hex_len:
+        case 40:
+            digest = hashlib.sha1(usedforsecurity=False)
+        case 64:
+            digest = hashlib.sha256()
+        case _:
+            raise CannotMeasure(f"unknown object id length {oid_hex_len}")
+    digest.update(b"blob %d\0" % len(data))
+    digest.update(data)
+    return digest.hexdigest()
+
+
+def autocrlf_clean(data: bytes) -> bytes | None:
+    """``data`` as git's ``core.autocrlf=true`` clean filter stores it, if it changes.
+
+    The filter turns every CRLF into LF when the file has no lone CR (otherwise
+    git leaves it unchanged). Returns ``None`` when the conversion is a no-op.
+    """
+    if b"\r\n" not in data:
+        return None
+    converted = data.replace(b"\r\n", b"\n")
+    return None if b"\r" in converted else converted
+
+
+def verify_index_flags(root: Path, rels: Iterable[str]) -> None:
+    """Refuse any selected file the index marks assume-unchanged or skip-worktree.
+
+    Such a flag makes ``git status`` skip the file, so an edit of it stays
+    invisible to :func:`verify_checkout` (#184). ``git ls-files -v`` prints a
+    lowercase tag for assume-unchanged and ``S`` (or ``s``) for skip-worktree.
+
+    Args:
+        root: A checkout already verified by :func:`verify_checkout`.
+        rels: The selected files (relative POSIX paths).
+
+    Raises:
+        CannotMeasure: ``git ls-files`` failed, or a selected file is flagged.
+    """
+    listed = _git("-C", str(root), "ls-files", "-v", "-z", "--full-name")
+    if listed.returncode != 0:
+        detail = listed.stderr.strip().splitlines()[-1:] or ["no stderr"]
+        raise CannotMeasure(f"upstream {root}: git ls-files failed ({detail[0]})")
+    selected = set(rels)
+    flagged: list[str] = []
+    for entry in filter(None, listed.stdout.split("\0")):
+        tag, _, rel = entry.partition(" ")
+        if rel not in selected:
+            continue
+        if tag.islower():
+            flagged.append(f"{rel} is marked assume-unchanged")
+        elif tag == "S":
+            flagged.append(f"{rel} is marked skip-worktree")
+    if flagged:
+        flagged.sort()
+        raise CannotMeasure(
+            f"upstream {root}: {'; '.join(flagged[:5])}"
+            f"{' ...' * (len(flagged) > 5)}; git status does not see edits of a "
+            "flagged file (git update-index --no-assume-unchanged / "
+            "--no-skip-worktree, or re-clone)"
+        )
+
+
+def verify_blobs(root: Path, pinned: Mapping[str, str]) -> None:
+    """Refuse a checkout whose bytes differ from the pinned blobs (#184).
+
+    The bytes hashed are the ones the tool reads, ``root / rel``, hashed in
+    Python: nothing goes through ``git -C root``, whose view follows the
+    checkout's own ``core.worktree``, ``core.fsmonitor``, index flags and
+    attribute/filter configuration. A file passes when its raw bytes hash to the
+    pinned blob id or, for a ``core.autocrlf=true`` checkout (#184 Q1 = b), when
+    the bytes after git's autocrlf clean conversion (CRLF to LF) do: line numbers
+    and assertion kinds are the same either way.
+
+    Args:
+        root: A checkout already verified by :func:`verify_checkout`.
+        pinned: ``{relative POSIX path: pinned oid}`` of the selected files.
+
+    Raises:
+        CannotMeasure: Any selected file's content differs from its pinned blob.
+    """
+    bad: list[str] = []
+    for rel, oid in sorted(pinned.items()):
+        data = (root / rel).read_bytes()
+        candidates = (data, autocrlf_clean(data))
+        if not any(c is not None and blob_id(c, len(oid)) == oid for c in candidates):
+            bad.append(rel)
+    if bad:
+        raise CannotMeasure(
+            f"upstream {root}: file content differs from the pinned tree "
+            f"({len(bad)}: {', '.join(bad[:5])}{', ...' * (len(bad) > 5)})"
+        )
+
+
 def verify_file_set(root: Path, glob: str) -> None:
     """Refuse a checkout whose files matching ``glob`` differ from the pinned tree.
 
     A sparse or partial checkout is clean and at the pinned commit, yet can lack
     files; the set read from disk must equal the set in ``git ls-tree`` of HEAD.
+    Then no selected file may carry an assume-unchanged or skip-worktree flag
+    (:func:`verify_index_flags`), and every selected file's bytes must hash to
+    its pinned blob id (:func:`verify_blobs`).
 
     Args:
         root: A checkout already verified by :func:`verify_checkout`.
@@ -355,13 +509,12 @@ def verify_file_set(root: Path, glob: str) -> None:
 
     Raises:
         CannotMeasure: ``git ls-tree`` failed, the pinned tree has no file
-            matching ``glob``, or any file is missing on disk or not in the
-            pinned tree.
+            matching ``glob``, any file is missing on disk or not in the
+            pinned tree, a selected file is flagged in the index, or its
+            content differs from the pinned blob.
     """
-    tree = _git("-C", str(root), "ls-tree", "-r", "--full-tree", "--name-only", "HEAD")
-    if tree.returncode != 0:
-        raise CannotMeasure(f"upstream {root}: git ls-tree failed")
-    pinned = {rel for rel in tree.stdout.splitlines() if glob_matches(rel, glob)}
+    pinned_ids = pinned_blobs(root, glob)
+    pinned = set(pinned_ids)
     if not pinned:
         raise CannotMeasure(
             f"upstream {root}: the pinned tree has no file matching {glob!r}; "
@@ -369,6 +522,8 @@ def verify_file_set(root: Path, glob: str) -> None:
         )
     on_disk = {p.relative_to(root).as_posix() for p in upstream_files(root, glob)}
     if pinned == on_disk:
+        verify_index_flags(root, pinned)
+        verify_blobs(root, pinned_ids)
         return
     missing, extra = sorted(pinned - on_disk), sorted(on_disk - pinned)
     detail = "; ".join(
