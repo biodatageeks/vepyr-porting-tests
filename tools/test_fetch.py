@@ -548,6 +548,33 @@ def test_a_run_on_a_consistent_root_rewrites_no_manifest(
     assert [c[2] for c in remote.calls].count([f"*/{MANIFEST}"]) == 1
 
 
+def test_a_shard_the_hub_manifest_omits_never_forces_a_manifest_refetch(
+    remote: FakeHub, pins: Path, tmp_path: Path
+) -> None:
+    """#216 F1: only requested shards open the gate, so the root settles.
+
+    A whole-flavour root holds shards the Hub's own manifest omits (the shared cache
+    has GL*/HG*_PATCH exon shards). Re-fetching cannot list them, so a gate over every
+    ``*.parquet`` stayed open and each per-contig run made a forced manifests-only call.
+    """
+    exon = remote.root / "ensembl" / "exon"
+    (exon / "GL000009.2.parquet").write_bytes(b"ensembl:exon:GL000009.2")
+    root = tmp_path / "root"
+    _run(remote, pins, root, flavours=(Flavour.ENSEMBL,))
+    flavour_dir = root / "116_GRCh38_ensembl"
+    assert (flavour_dir / "exon" / "GL000009.2.parquet").is_file()
+    manifests = {e: (flavour_dir / e / MANIFEST).read_bytes() for e in ENTITIES}
+    remote.calls.clear()
+    for _ in range(3):
+        code, _ = _run(
+            remote, pins, root, contigs=("chr21",), flavours=(Flavour.ENSEMBL,)
+        )
+        assert code is Exit.OK
+    assert [c[2] for c in remote.calls].count([f"*/{MANIFEST}"]) == 0
+    assert read_provenance(root).runs[-1].refreshed_manifests == 0  # type: ignore[union-attr]
+    assert {e: (flavour_dir / e / MANIFEST).read_bytes() for e in ENTITIES} == manifests
+
+
 def test_flavour_subset_fetches_only_those(
     remote: FakeHub, pins: Path, tmp_path: Path
 ) -> None:

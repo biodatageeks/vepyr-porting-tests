@@ -282,7 +282,7 @@ class Downloader(Protocol):
     the same commit). Only the manifests-only call, with exactly
     ``["*/chrom_manifest.json"]``, forces the full manifests back from the Hub:
     :func:`fetch` makes it under the lock, immediately before trimming, whenever
-    :func:`_manifests_stale` finds a manifest that does not list exactly its shards.
+    :func:`_manifests_stale` finds a manifest that misses a requested shard on disk.
     """
 
     def __call__(
@@ -637,19 +637,24 @@ def trim_manifest(path: Path) -> bool:
     return True
 
 
-def _manifests_stale(flavour_dir: Path) -> bool:
-    """True when some manifest of ``flavour_dir`` does not list exactly its shards.
+def _manifests_stale(flavour_dir: Path, requested: frozenset[str]) -> bool:
+    """True when some manifest of ``flavour_dir`` misses a requested shard or a file.
 
     The trim gate: it answers "must the manifests be re-fetched and trimmed?" from the
     directory alone, so a run trims whenever the root needs it and not only when it
     downloaded something. A manifest is stale when it names a shard that is not beside
     it (an interrupted run, or ``--no-trim-manifests`` followed by a plain one), when a
-    ``*.parquet`` shard beside it is not listed (a top-up with another contig: the
-    downloader leaves the present, already trimmed manifest alone, #206), or when it
-    is unreadable. Re-materialising from the Hub and trimming repairs all three and
-    leaves each manifest listing exactly the shards on disk: the union of every
-    ``--add-contigs`` so far, since shards are never removed. A consistent root is
-    left untouched, so a run that changes nothing rewrites no manifest.
+    shard THIS run requested (``requested``, paths relative to ``flavour_dir``) is on
+    disk beside it but not listed (a top-up with another contig: the downloader leaves
+    the present, already trimmed manifest alone, #206), or when it is unreadable.
+    Re-materialising from the Hub and trimming repairs all three.
+
+    Only requested shards are checked in that direction: a shard the Hub's own
+    manifest omits (e.g. ``exon/GL000009.2.parquet`` of a whole-flavour download)
+    can never become listed, so checking every ``*.parquet`` would keep the gate
+    open and force a manifests-only Hub call on every run. A root consistent for the
+    requested shards is left untouched, so a run that changes nothing rewrites no
+    manifest.
     """
     for entity in ENTITIES:
         manifest = flavour_dir / entity / MANIFEST
@@ -668,7 +673,15 @@ def _manifests_stale(flavour_dir: Path) -> bool:
         }
         if any(not (manifest.parent / name).is_file() for name in listed):
             return True
-        if {shard.name for shard in manifest.parent.glob("*.parquet")} - listed:
+        unlisted = {
+            name
+            for path in requested
+            if (parts := path.split("/"))[0] == entity
+            and len(parts) == 2
+            and (name := parts[1]).endswith(".parquet")
+            and (manifest.parent / name).is_file()
+        } - listed
+        if unlisted:
             return True
     return False
 
@@ -857,9 +870,9 @@ def fetch(
     absent: a complete directory downloads nothing, a partial one only what is missing —
     presence is by path; ``--verify`` is what checks digests.
     Trimming is driven by the directory, not by the download: a per-contig run
-    re-fetches and trims whenever a manifest does not list exactly the shards on disk
-    (:func:`_manifests_stale`), so it is idempotent and repairs a root left untrimmed
-    by an interrupted or ``--no-trim-manifests`` run, or left stale by a top-up.
+    re-fetches and trims whenever a manifest names an absent shard or misses a
+    requested one on disk (:func:`_manifests_stale`), so it is idempotent and repairs
+    a root left untrimmed by an interrupted or ``--no-trim-manifests`` run, or left stale by a top-up.
 
     Returns:
         The outcome (always :attr:`Exit.OK`) with the shard counters; every failure is
@@ -911,7 +924,7 @@ def fetch(
         if (
             selection.contigs is not None
             and selection.trim_manifests
-            and _manifests_stale(flavour_dir)
+            and _manifests_stale(flavour_dir, frozenset(wanted_paths))
         ):
             with provenance_lock(root):
                 # Re-fetch the full manifests INSIDE the lock, then trim to the shards

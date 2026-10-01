@@ -580,13 +580,16 @@ config; `UV_PROJECT_ENVIRONMENT` is checked by `./check_env`.
 PowerShell cannot execute it directly.
 
 **Accumulation.** `--add-contigs` only adds shards; it never removes earlier
-ones. `chr21,chr22` then `chr15,chrY` leaves all four on disk. After every
-per-contig run each `<entity>/chrom_manifest.json` lists exactly the shards on
-disk (the union of all `--add-contigs` so far, here all four): a manifest that
-misses a shard on disk, or names one that is absent, is re-fetched from the Hub
-and trimmed again, and a consistent one is left untouched. An older root whose
-manifests are stale (shards of a later contig, manifests trimmed to the first
-set) is repaired by rerunning `--add-contigs` with the declared list. For a
+ones. `chr21,chr22` then `chr15,chrY` leaves all four on disk. A per-contig
+run checks each `<entity>/chrom_manifest.json` against the shards it requests:
+a manifest that names a shard absent from disk, or misses a requested shard
+that is on disk, is re-fetched from the Hub and trimmed to the shards on disk
+(here all four). Otherwise it is left untouched. Shards on disk that the run
+does not request are not checked, so a shard the Hub manifest itself omits
+(e.g. `exon/GL000009.2.parquet` of a whole-flavour download) stays unlisted and
+forces no Hub call. An older root whose manifests are stale (shards of a later
+contig, manifests trimmed to the first set) is repaired by rerunning
+`--add-contigs` with the declared list. For a
 wholly different set, use a fresh `--cache-dir` or clean the directory yourself.
 
 **Illegal / incomplete contig sets.** Every cache entity must get at least one
