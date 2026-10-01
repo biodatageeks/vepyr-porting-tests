@@ -16,6 +16,8 @@ from __future__ import annotations
 
 import importlib.machinery
 import importlib.util
+import os
+import shutil
 import subprocess
 import sys
 from pathlib import Path
@@ -126,6 +128,126 @@ def test_fixture_match_exit3(
     assert fixture_match(dt, inp, "http://127.0.0.1:9/x.vcf") == 3
 
 
+# ---------------------------------------------------------------- verify runner (#168)
+
+VERIFY_DIR: Final[Path] = REPO / "tests" / "data" / "intergenic_variant_single_record"
+PASSING_STEPS: Final[tuple[str, ...]] = (
+    "check_structure",
+    "check_mode",
+    "check_normalised",
+    "check_md5",
+    "refcheck_summary",
+    "check_bless",
+)
+
+
+@pytest.fixture
+def runner_calls(
+    dt: ModuleType, monkeypatch: pytest.MonkeyPatch, tmp_path: Path
+) -> list[list[str]]:
+    """``dt verify`` with all but the runner step passing; ``run_tests`` argv recorded.
+
+    The config is a ``DT_CONFIG`` tmp file and the cwd is this checkout. The
+    non-runner steps need the machine config, the FASTA and Docker, so they are
+    stubbed to pass; ``subprocess.run`` is faked only for ``run_tests`` (dt's
+    ``git`` calls stay real).
+    """
+    config = tmp_path / "dt.toml"
+    config.write_text(
+        f'vepyr_cache_root = "{tmp_path / "cache"}"\n'
+        f'cargo_target_root = "{tmp_path / "targets"}"\n'
+        f'scratch_root = "{tmp_path / "scratch"}"\n'
+        f'main_checkout = "{tmp_path / "main"}"\n',
+        encoding="utf-8",
+    )
+    monkeypatch.setenv("DT_CONFIG", str(config))
+    monkeypatch.chdir(REPO)
+    for name in PASSING_STEPS:
+        monkeypatch.setattr(dt, name, lambda *_a, _n=name: dt.Check(_n, True))
+    return []
+
+
+def fake_run_tests(
+    dt: ModuleType,
+    monkeypatch: pytest.MonkeyPatch,
+    calls: list[list[str]],
+    results: list[int | OSError],
+) -> None:
+    """Answer successive ``run_tests`` calls with ``results`` (exit code or error)."""
+    real = subprocess.run
+    slug = VERIFY_DIR.name
+
+    def fake(args: list[str], *a: Any, **kw: Any) -> subprocess.CompletedProcess[str]:
+        if not (args and args[0].endswith("run_tests")):
+            return real(args, *a, **kw)
+        calls.append(list(args))
+        match results[len(calls) - 1]:
+            case OSError() as err:
+                raise err
+            case 0:
+                out = "vepyr sha        : " + "a" * 40 + "\n"
+                return subprocess.CompletedProcess(args, 0, out, "")
+            case code:
+                out = f"[{slug}] body md5 mismatch\n"
+                return subprocess.CompletedProcess(args, code, out, "")
+
+    monkeypatch.setattr(dt.subprocess, "run", fake)
+
+
+def verify(dt: ModuleType, *extra: str) -> int:
+    """``dt verify <intergenic_variant_single_record> <extra>``."""
+    return dt.main(["verify", str(VERIFY_DIR), *extra])
+
+
+def test_verify_runner_exit0(
+    dt: ModuleType,
+    monkeypatch: pytest.MonkeyPatch,
+    runner_calls: list[list[str]],
+    capsys: pytest.CaptureFixture[str],
+) -> None:
+    fake_run_tests(dt, monkeypatch, runner_calls, [0, 1])
+    assert verify(dt, "--vepyr", "master") == 0
+    out = capsys.readouterr().out
+    assert len(runner_calls) == 2
+    for argv, copy in zip(runner_calls, ("pos", "neg"), strict=True):
+        assert argv[0] == str(REPO / "run_tests")
+        assert argv[1] == "--only" and argv[3:] == ["--vepyr", "master"]
+        only = Path(argv[2])
+        assert only.name == VERIFY_DIR.name and only.parent.name == copy
+        assert not only.is_relative_to(REPO)
+    assert "PASS runner: exit 0; vepyr sha : " + "a" * 40 in out
+    assert "PASS runner-negative: exit 1, 1 'body md5 mismatch' block(s)" in out
+    assert "PASS summary: 8/8 checks passed" in out
+
+
+def test_verify_runner_exit1(
+    dt: ModuleType, monkeypatch: pytest.MonkeyPatch, runner_calls: list[list[str]]
+) -> None:
+    fake_run_tests(dt, monkeypatch, runner_calls, [1])
+    assert verify(dt, "--vepyr", "master") == 1
+    assert len(runner_calls) == 1  # negative control not run after a failed positive
+
+
+def test_verify_runner_exit2(
+    dt: ModuleType,
+    monkeypatch: pytest.MonkeyPatch,
+    runner_calls: list[list[str]],
+    capsys: pytest.CaptureFixture[str],
+) -> None:
+    fake_run_tests(dt, monkeypatch, runner_calls, [])
+    assert verify(dt) == 2
+    assert "--vepyr" in capsys.readouterr().err
+    assert runner_calls == []
+    assert verify(dt, "--no-cargo") == 0  # --no-cargo needs no --vepyr
+
+
+def test_verify_runner_exit3(
+    dt: ModuleType, monkeypatch: pytest.MonkeyPatch, runner_calls: list[list[str]]
+) -> None:
+    fake_run_tests(dt, monkeypatch, runner_calls, [OSError("cannot start")])
+    assert verify(dt, "--vepyr", "master") == 3
+
+
 def _git(cwd: Path, *args: str) -> None:
     """Run git quietly in ``cwd`` with a fixed identity."""
     subprocess.run(
@@ -152,6 +274,7 @@ def checkout(dt: ModuleType, tmp_path: Path, monkeypatch: pytest.MonkeyPatch) ->
         'echo "PASS stub: ok"\nexit "${CHECK_ENV_EXIT:-0}"\n'
     )
     stub.chmod(0o755)
+    shutil.copy2(REPO / "tools" / "workspace_guard", repo / "tools")  # dt env runs it
     _git(repo, "init", "-q")
     _git(repo, "add", "-A")
     _git(repo, "commit", "-q", "-m", "init")
@@ -228,3 +351,100 @@ def test_dt_owns_no_prerequisite_checks(dt: ModuleType) -> None:
     """The checks moved to ``./check_env``; dt keeps no copy (nor the pin)."""
     for name in ("tool_version_check", "docker_check", "uv_env_check", "VEPYR_FASTA"):
         assert not hasattr(dt, name)
+
+
+# ---------------------------------------------------------------- write_target (#163)
+
+STUB_NORMALIZE: Final[str] = (
+    '#!/bin/sh\n[ -n "$STUB_FAIL" ] && exit 1\n'
+    'mkdir -p "$2" && cp "$1" "$2/input.vcf"\n'
+)
+STUB_CHECK: Final[str] = '#!/bin/sh\necho "OK $1"\n'
+
+
+@pytest.fixture
+def fake_repo(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> Path:
+    """A checkout dt takes for vepyr-porting-tests: the real guard, a stub normaliser.
+
+    The cwd and ``DT_REPO`` are this checkout; ``DT_CONFIG`` is a tmp ``local.toml``
+    whose ``main_checkout`` is another existing directory (a test overrides it with
+    ``DT_MAIN_CHECKOUT``).
+    """
+    root = Path(os.path.realpath(tmp_path))
+    repo = root / "repo"
+    (repo / "tools").mkdir(parents=True)
+    (repo / "tests" / "data").mkdir(parents=True)
+    (repo / "tests" / "data_dirs.rs").write_text("", encoding="utf-8")
+    shutil.copy2(REPO / "tools" / "workspace_guard", repo / "tools" / "workspace_guard")
+    for rel, text in (
+        ("bless", "#!/bin/sh\nexit 3\n"),
+        ("tools/normalize_input", STUB_NORMALIZE),
+        ("check_normalised_input", STUB_CHECK),
+    ):
+        (repo / rel).write_text(text, encoding="utf-8")
+        (repo / rel).chmod(0o755)
+    subprocess.run(["git", "init", "-q", str(repo)], check=True)
+    (main := root / "main").mkdir()
+    (cfg := root / "local.toml").write_text(
+        f'main_checkout = "{main}"\n', encoding="utf-8"
+    )
+    (root / "raw.vcf").write_text(HEADER + ROW, encoding="utf-8")
+    for var in ("DT_ALLOW_MAIN", "DT_MAIN_CHECKOUT", "STUB_FAIL"):
+        monkeypatch.delenv(var, raising=False)
+    monkeypatch.setenv("DT_CONFIG", str(cfg))
+    monkeypatch.setenv("DT_REPO", str(repo))
+    monkeypatch.chdir(repo)
+    return repo
+
+
+def raw2input(dt: ModuleType, repo: Path, slug: str = "zz") -> int:
+    """``dt raw2input --raw <tmp>/raw.vcf --dir <repo>/tests/data/<slug>``."""
+    raw = repo.parent / "raw.vcf"
+    return dt.main(
+        ["raw2input", "--raw", str(raw), "--dir", str(repo / "tests/data" / slug)]
+    )
+
+
+def test_write_target_exit0(
+    dt: ModuleType, fake_repo: Path, capsys: pytest.CaptureFixture[str]
+) -> None:
+    assert raw2input(dt, fake_repo) == 0
+    assert "workspace_guard write-target" in capsys.readouterr().out  # dt runs the tool
+    assert (fake_repo / "tests/data/zz/input.vcf").is_file()
+
+
+def test_write_target_exit1(
+    dt: ModuleType, fake_repo: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    monkeypatch.setenv("STUB_FAIL", "1")  # write allowed, the normaliser check fails
+    assert raw2input(dt, fake_repo) == 1
+
+
+def test_write_target_exit2(
+    dt: ModuleType,
+    fake_repo: Path,
+    monkeypatch: pytest.MonkeyPatch,
+    capsys: pytest.CaptureFixture[str],
+) -> None:
+    assert raw2input(dt, fake_repo, "a/b") == 2  # nested target
+    monkeypatch.setenv("DT_MAIN_CHECKOUT", str(fake_repo))  # the protected checkout
+    assert raw2input(dt, fake_repo) == 2
+    assert "REFUSED write-target" in capsys.readouterr().err
+    assert not (fake_repo / "tests/data/zz").exists()
+    monkeypatch.setenv("DT_ALLOW_MAIN", "1")
+    assert raw2input(dt, fake_repo) == 0
+
+
+def test_write_target_exit3(
+    dt: ModuleType, fake_repo: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    real = subprocess.run
+
+    def fake(args: list[str], *a: Any, **kw: Any) -> subprocess.CompletedProcess[str]:
+        if args and str(args[0]).endswith("workspace_guard"):
+            raise OSError("tool cannot start")
+        return real(args, *a, **kw)
+
+    monkeypatch.setattr(dt.subprocess, "run", fake)
+    assert raw2input(dt, fake_repo) == 3
+    assert not (fake_repo / "tests/data/zz").exists()

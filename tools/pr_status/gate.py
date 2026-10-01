@@ -9,6 +9,12 @@ from a file. Both feed :func:`evaluate`, which returns one :class:`Failure` per
 failed check. The tool only reads: it never changes a label, a comment or a
 review.
 
+Two stages differ only in the ``state-label`` check (#177): the owner's stage
+(``./pr_status N``) wants ``state:manual-reviewing`` or ``state:awaiting-merge``;
+the hand-over stage (``./pr_status --handover N``) wants the state a PR is in
+just before it is handed over, ``state:auto-reviewing`` or
+``state:auto-superreviewing``.
+
 Exit codes: 0 ready, 1 not ready, 2 usage or tool error.
 """
 
@@ -23,7 +29,7 @@ from collections.abc import Iterable, Mapping, Sequence
 from dataclasses import dataclass
 from enum import StrEnum
 from pathlib import Path
-from typing import Any, Final, NoReturn
+from typing import Any, Final, Literal, NoReturn
 
 READY: Final = 0
 NOT_READY: Final = 1
@@ -36,6 +42,17 @@ PR_VIEW_FIELDS: Final = (
 )
 APPROVE: Final = "APPROVE"
 GATE_STATES: Final = frozenset({"state:manual-reviewing", "state:awaiting-merge"})
+#: The source states of the only two edges into ``state:manual-reviewing``.
+HANDOVER_STATES: Final = frozenset(
+    {"state:auto-reviewing", "state:auto-superreviewing"}
+)
+
+type Stage = Literal["owner", "handover"]
+#: The ``state:*`` labels each stage accepts.
+STAGE_STATES: Final[dict[Stage, frozenset[str]]] = {
+    "owner": GATE_STATES,
+    "handover": HANDOVER_STATES,
+}
 
 #: Paths that need a super-review: exact files and directory prefixes.
 TIER_FILES: Final = frozenset(
@@ -104,7 +121,11 @@ def first_line(body: str) -> str:
 
 
 def json_block(body: str) -> object | None:
-    """Parse the first fenced ``json`` block of ``body``; ``None`` if absent/invalid."""
+    """Parse the first fenced ``json`` block of ``body``; ``None`` if absent/invalid.
+
+    A block nested too deeply for the parser (``RecursionError``) is invalid
+    like any other: never a traceback (#177).
+    """
     lines = body.splitlines()
     start = next((i for i, line in enumerate(lines) if _FENCE_OPEN.match(line)), None)
     if start is None:
@@ -116,7 +137,7 @@ def json_block(body: str) -> object | None:
         return None
     try:
         return json.loads("\n".join(lines[start + 1 : end]))
-    except json.JSONDecodeError:
+    except (json.JSONDecodeError, RecursionError):
         return None
 
 
@@ -423,8 +444,11 @@ def _mutation_check(
     return [Failure(Check.MUTATION, "; ".join(problems))] if problems else []
 
 
-def evaluate(doc: Mapping[str, Any]) -> list[Failure]:
+def evaluate(doc: Mapping[str, Any], *, stage: Stage = "owner") -> list[Failure]:
     """Run every check on one PR document; an empty list means READY.
+
+    ``stage`` picks the states the ``state-label`` check accepts
+    (:data:`STAGE_STATES`); every other check is the same in both stages.
 
     Raises :class:`GateError` for input the gate cannot judge.
     """
@@ -481,12 +505,13 @@ def evaluate(doc: Mapping[str, Any]) -> list[Failure]:
                 )
             )
 
+    allowed = STAGE_STATES[stage]
     states = [n for n in _names(doc.get("labels")) if n.startswith("state:")]
-    if len(states) != 1 or states[0] not in GATE_STATES:
+    if len(states) != 1 or states[0] not in allowed:
         failures.append(
             Failure(
                 Check.STATE_LABEL,
-                f"state labels {states}; need exactly one of {sorted(GATE_STATES)}",
+                f"state labels {states}; need exactly one of {sorted(allowed)}",
             )
         )
     return failures
@@ -512,6 +537,8 @@ def _gh_json(args: Sequence[str]) -> Any:
         return json.loads(_gh(args))
     except json.JSONDecodeError as exc:
         raise GateError(f"gh {' '.join(args)} printed no JSON") from exc
+    except RecursionError as exc:
+        raise GateError(f"gh {' '.join(args)} printed JSON nested too deeply") from exc
 
 
 def readme_part(diff: str) -> str:
@@ -559,6 +586,8 @@ def load(path: Path) -> dict[str, Any]:
         doc = json.loads(path.read_text(encoding="utf-8"))
     except (OSError, UnicodeDecodeError, json.JSONDecodeError) as exc:
         raise GateError(f"cannot read {path}: {exc}") from exc
+    except RecursionError as exc:
+        raise GateError(f"cannot read {path}: JSON nested too deeply") from exc
     if not isinstance(doc, dict):
         raise GateError(f"{path}: top level is not an object")
     return doc
@@ -582,7 +611,7 @@ class _Parser(argparse.ArgumentParser):
 
 
 def build_parser() -> argparse.ArgumentParser:
-    """The CLI: ``./pr_status N`` or ``./pr_status --from-json FILE``."""
+    """The CLI: ``./pr_status [--handover] (N | --from-json FILE)``."""
     parser = _Parser(
         prog="pr_status",
         description="Read-only gate: is PR N ready for the owner? Prints one FAIL "
@@ -598,6 +627,13 @@ def build_parser() -> argparse.ArgumentParser:
         type=Path,
         metavar="FILE",
         help="gate input document (fixture mode)",
+    )
+    parser.add_argument(
+        "--handover",
+        action="store_true",
+        help="hand-over stage: the state-label check wants state:auto-reviewing or "
+        "state:auto-superreviewing (default, the owner's stage: "
+        "state:manual-reviewing or state:awaiting-merge)",
     )
     parser.add_argument(
         "--repo", metavar="OWNER/REPO", help="passed to gh; default: the clone's repo"
@@ -620,7 +656,7 @@ def main(argv: Sequence[str] | None = None) -> int:
             )
             return TOOL_ERROR
         try:
-            failures = evaluate(doc)
+            failures = evaluate(doc, stage="handover" if args.handover else "owner")
         except (TypeError, AttributeError, ValueError, KeyError) as exc:
             raise GateError(f"malformed input: {type(exc).__name__}: {exc}") from exc
         return report(failures)
