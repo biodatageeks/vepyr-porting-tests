@@ -138,6 +138,7 @@ PASSING_STEPS: Final[tuple[str, ...]] = (
     "check_md5",
     "refcheck_summary",
     "check_bless",
+    "check_index",
 )
 
 
@@ -217,7 +218,7 @@ def test_verify_runner_exit0(
         assert not only.is_relative_to(REPO)
     assert "PASS runner: exit 0; vepyr sha : " + "a" * 40 in out
     assert "PASS runner-negative: exit 1, 1 'body md5 mismatch' block(s)" in out
-    assert "PASS summary: 8/8 checks passed" in out
+    assert "PASS summary: 9/9 checks passed" in out
 
 
 def test_verify_runner_exit1(
@@ -246,6 +247,54 @@ def test_verify_runner_exit3(
 ) -> None:
     fake_run_tests(dt, monkeypatch, runner_calls, [OSError("cannot start")])
     assert verify(dt, "--vepyr", "master") == 3
+
+
+# ---------------------------------------------------------------- index check (#151)
+
+
+@pytest.fixture
+def index_repo(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> Path:
+    """A throwaway repo: the real ``tools/build_test_index``, one data-test, its index."""
+    repo = tmp_path / "repo"
+    (repo / "tools").mkdir(parents=True)
+    shutil.copy2(REPO / "tools" / "build_test_index", repo / "tools")
+    (repo / "tests" / "data" / VERIFY_DIR.name).mkdir(parents=True)
+    shutil.copy2(VERIFY_DIR / "test.toml", repo / "tests" / "data" / VERIFY_DIR.name)
+    subprocess.run([repo / "tools" / "build_test_index"], cwd=repo, check=True)
+    config = tmp_path / "dt.toml"
+    config.write_text(f'scratch_root = "{tmp_path / "scratch"}"\n', encoding="utf-8")
+    monkeypatch.setenv("DT_CONFIG", str(config))
+    return repo
+
+
+def index_lines(dt: ModuleType, repo: Path) -> list[str]:
+    """``check_index`` on ``repo`` as its PASS/FAIL lines."""
+    return [c.line() for c in dt.check_index(dt.Config(), repo)]
+
+
+def test_check_index_current(dt: ModuleType, index_repo: Path) -> None:
+    got = index_lines(dt, index_repo)
+    assert got[0].startswith("PASS build_test_index: exit 0;")
+    assert got[1] == "PASS build_test_index-negative: stale copy (last row dropped) exit 1 (want 1)"
+
+
+def test_check_index_stale(dt: ModuleType, index_repo: Path) -> None:
+    index = index_repo / "tests" / "INDEX.csv"
+    index.write_text("".join(index.read_text().splitlines(keepends=True)[:-1]))
+    got = index_lines(dt, index_repo)
+    assert got[0].startswith("FAIL build_test_index: exit 1;")
+    assert got[1].startswith("FAIL build_test_index-negative: not run")
+
+
+def test_check_index_bad_toml(dt: ModuleType, index_repo: Path) -> None:
+    (index_repo / "tests" / "data" / VERIFY_DIR.name / "test.toml").write_text("name = 1\n")
+    assert index_lines(dt, index_repo)[0].startswith("FAIL build_test_index: exit 2;")
+
+
+def test_check_index_tool_missing_exit3(dt: ModuleType, index_repo: Path) -> None:
+    (index_repo / "tools" / "build_test_index").unlink()
+    with pytest.raises(dt.ToolError):
+        dt.check_index(dt.Config(), index_repo)
 
 
 def _git(cwd: Path, *args: str) -> None:
