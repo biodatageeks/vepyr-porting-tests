@@ -24,6 +24,8 @@ export VEPYR_CACHE_ROOT=/mnt/hf-cache
 ./run_tests --vepyr 0.7.0
 # omit --vepyr to run against biodatageeks/vepyr master HEAD as it stands now:
 ./run_tests
+# run only chosen data-test directories (repeatable; may be scratch copies):
+./run_tests --only tests/data/intergenic_variant_single_record --vepyr master
 ```
 
 | Flag | Status in this commit |
@@ -38,6 +40,7 @@ export VEPYR_CACHE_ROOT=/mnt/hf-cache
 | `--fast` | Sets `HF_XET_HIGH_PERFORMANCE=1` for the download (see below) |
 | `--no-trim-manifests` | Leaves `chrom_manifest.json` naming shards that were not fetched |
 | `--vepyr REF` | Resolves `REF` on biodatageeks/vepyr and path-patches that revision's dfbf/formats ladder. **Optional:** omitted, data-tests run against `master`'s current HEAD; the summary prints the full 40-char resolved sha either way. Pass `REF` whenever a pinned, reproducible run is wanted (CI, bisecting, ledger evidence) |
+| `--only DIR` | Repeatable. Runs only the named data-test directories (each holds `test.toml`; may be outside `tests/data`, e.g. a scratch copy): they are copied into a fresh temporary root that `DATA_DIRS_ROOT` names, cargo runs only the exact `data_dirs` test, and the root is deleted afterwards; `tests/data` is never touched. The summary's `targets` line lists exactly these names. A missing directory, one without `test.toml`, or two with the same basename is a usage error (exit 2, `not a data-test directory`). The engine is still `--vepyr REF` (or its default) |
 
 **"Targets" means data-test directories** — `tests/data/<name>/` holding a
 `test.toml` (see [Porting method](#porting-method)). `--list` prints their names.
