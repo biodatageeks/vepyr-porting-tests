@@ -384,3 +384,133 @@ def test_malformed_field_exits_2_on_the_cli(tmp_path: Path) -> None:
     done = run_cli("--from-json", _write(tmp_path, MALFORMED["row-manual-str"]()))
     assert done.returncode == gate.TOOL_ERROR
     assert "Traceback" not in done.stderr and "'manual'" in done.stderr
+
+
+# --- the hand-over stage (#177) ---
+
+
+def _relabel(doc: dict[str, Any], *states: str) -> dict[str, Any]:
+    doc["labels"] = [{"name": "tooling"}, *({"name": s} for s in states)]
+    return doc
+
+
+def handover_ids(doc: dict[str, Any]) -> list[str]:
+    """The failed check ids for ``doc`` in the hand-over stage."""
+    return [str(f.check) for f in gate.evaluate(doc, stage="handover")]
+
+
+@pytest.mark.parametrize(
+    ("name", "state"),
+    [
+        ("ready", "state:auto-reviewing"),
+        ("ready", "state:auto-superreviewing"),
+        ("ready-superreviewed", "state:auto-superreviewing"),
+    ],
+)
+def test_handover_stage_is_ready_before_the_move(name: str, state: str) -> None:
+    assert handover_ids(_relabel(fixture(name), state)) == []
+    assert ids(_relabel(fixture(name), state)) == ["state-label"]  # owner's stage
+
+
+@pytest.mark.parametrize(
+    "states",
+    [
+        (),
+        ("state:implementing",),
+        ("state:fixing",),
+        ("state:manual-reviewing",),
+        ("state:awaiting-merge",),
+        ("state:auto-reviewing-issue",),
+        ("state:auto-reviewing", "state:manual-reviewing"),
+    ],
+    ids=lambda s: ",".join(s) or "none",
+)
+def test_handover_stage_rejects_other_states(states: tuple[str, ...]) -> None:
+    assert handover_ids(_relabel(fixture("ready"), *states)) == ["state-label"]
+
+
+@pytest.mark.parametrize(
+    "check", [c.value for c in gate.Check if c is not gate.Check.STATE_LABEL]
+)
+def test_handover_stage_keeps_every_other_check(check: str) -> None:
+    doc = _relabel(fixture(check), "state:auto-reviewing")
+    assert handover_ids(doc) == [check]
+
+
+def test_handover_flag_on_the_cli(tmp_path: Path) -> None:
+    path = _write(tmp_path, _relabel(fixture("ready"), "state:auto-reviewing"))
+    assert run_cli("--handover", "--from-json", path).stdout == "READY\n"
+    owner = run_cli("--from-json", path)
+    assert owner.returncode == gate.NOT_READY
+    assert owner.stdout.startswith("FAIL state-label:")
+    assert "--handover" in run_cli("--help").stdout
+
+
+def test_handover_real_mode_reads_only(tmp_path: Path) -> None:
+    state = tmp_path / "state"
+    state.write_text(
+        json.dumps(_relabel(fixture("ready"), "state:auto-reviewing")),
+        encoding="utf-8",
+    )
+    env = {
+        "PATH": f"{STUB_DIR}{os.pathsep}{os.environ['PATH']}",
+        "GH_STUB_STATE": str(state),
+    }
+    done = run_cli("--handover", "7", env=env)
+    assert (done.returncode, done.stdout) == (0, "READY\n")
+    calls = (tmp_path / "state.log").read_text(encoding="utf-8").splitlines()
+    assert calls and all(c.startswith(("pr view ", "issue view ")) for c in calls)
+
+
+# --- deeply nested JSON (#177) ---
+
+DEEP: Final = "[" * 100_000
+
+
+def _deep_block(doc: dict[str, Any], marker: str) -> dict[str, Any]:
+    for item in doc["comments"]:
+        if gate.first_line(item["body"]) == marker:
+            item["body"] = f"{marker}\n```json\n{DEEP}\n```\n"
+            return doc
+    raise AssertionError(f"no {marker} comment")
+
+
+def test_recursion_in_json_block_is_invalid() -> None:
+    assert gate.json_block(f"```json\n{DEEP}\n```") is None
+
+
+def test_recursion_in_document_is_a_tool_error(tmp_path: Path) -> None:
+    path = tmp_path / "deep.json"
+    path.write_text(DEEP, encoding="utf-8")
+    with pytest.raises(gate.GateError, match="nested too deeply"):
+        gate.load(path)
+    done = run_cli("--from-json", str(path))
+    assert done.returncode == gate.TOOL_ERROR
+    assert done.stderr.startswith("pr_status: cannot read ")
+    assert "Traceback" not in done.stderr
+
+
+def test_recursion_in_sticky_block_is_sticky_missing(tmp_path: Path) -> None:
+    doc = _deep_block(fixture("ready"), gate.STICKY_MARKER)
+    assert ids(doc) == ["sticky-missing"]
+    done = run_cli("--from-json", _write(tmp_path, doc))
+    assert done.returncode == gate.NOT_READY
+    assert "Traceback" not in done.stderr
+
+
+def test_recursion_in_verdict_block_is_a_tool_error(tmp_path: Path) -> None:
+    doc = _deep_block(fixture("ready"), gate.VERDICT_MARKER)
+    with pytest.raises(gate.GateError, match="no valid json object block"):
+        gate.evaluate(doc)
+    done = run_cli("--from-json", _write(tmp_path, doc))
+    assert done.returncode == gate.TOOL_ERROR
+    assert done.stderr.startswith("pr_status: malformed input: verdict posted ")
+    assert "Traceback" not in done.stderr
+
+
+def test_recursion_in_gh_output_is_a_tool_error(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    monkeypatch.setattr(gate, "_gh", lambda args: DEEP)
+    with pytest.raises(gate.GateError, match="nested too deeply"):
+        gate.fetch(7)

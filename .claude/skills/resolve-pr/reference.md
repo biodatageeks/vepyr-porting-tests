@@ -77,10 +77,11 @@ gh pr comment N --repo OWNER/REPO --body "Fresh review of the current diff at <s
 ```bash
 ./set_state pr N auto-reviewing            # only legal moves; --dry-run prints the edit
 ./set_state --print-transitions            # the 18 legal moves (same table as AGENTS.md)
-./pr_status N                              # read-only gate: FAIL <check>: ... lines or READY; exit 0/1/2
+./pr_status --handover N                   # before manual-reviewing: PR in auto-reviewing/auto-superreviewing
+./pr_status N                              # read-only gate (owner's stage): FAIL <check>: ... lines or READY; exit 0/1/2
 ```
 
-Sticky status comment: exactly one issue comment per PR whose first line is `### pr-status:v1` (human AC table, then a fenced `json` block `{"v":1,"head":"<40 hex>","stale":false,"ac":[{"id":1,"cmd":"...","exit":0,"expected":0,"sha":"<40 hex>","evidence":"full","manual":false}]}`; the fence lines are not indented). Create it once with `gh pr comment N --body-file sticky.md`; afterwards edit it in place, never post a second one:
+Sticky status comment: exactly one issue comment per PR whose first line is `### pr-status:v1` (human AC table, then a fenced `json` block `{"v":1,"head":"<40 hex>","stale":false,"ac":[{"id":1,"cmd":"...","exit":0,"expected":0,"sha":"<40 hex>","evidence":"full","manual":false}]}`; the fence lines are not indented). Create it once with `gh pr comment N --body-file sticky.md`; afterwards edit it in place, never post a second one. An AC must not call ./pr_status on its own PR (#177): the gate is never a sticky row; run `./pr_status --handover N` before the hand-over and quote its output in a separate comment:
 
 ```bash
 id=$(gh api repos/OWNER/REPO/issues/N/comments --paginate \

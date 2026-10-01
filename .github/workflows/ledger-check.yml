@@ -1,0 +1,47 @@
+name: ledger-check
+
+# ledger/assertions.csv (#109) must cover every assertion of the 49 upstream VEP
+# test files at release/116.0 (57ea5c52...), both ways, and follow the #109 schema
+# (#110). tools/check_ledger fetches the pinned upstream files with a partial
+# sparse clone, refuses any other commit, and compares. The sweep searches the
+# same files for every documented Test::* function name the enumerator did not
+# count. The CSV step is skipped while ledger/assertions.csv does not exist yet
+# (it lands with #109, after this tool).
+# No path filter: the check always runs so it can be a required status.
+
+on:
+  pull_request:
+  push:
+    branches: [master]
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: ledger-check-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  check:
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+
+      - name: Set up uv
+        uses: astral-sh/setup-uv@c18668ad3cf93ea998bef934396af7bb5c839dc7 # v10.2.0
+        with:
+          enable-cache: true
+
+      - name: Unit tests of tools/check_ledger
+        run: uv run --frozen pytest tools/test_check_ledger.py
+
+      - name: Sweep the upstream test files and support modules
+        run: |
+          tools/check_ledger --sweep
+          tools/check_ledger --sweep --glob 't/*.pm'
+
+      - name: Check ledger/assertions.csv against upstream
+        if: hashFiles('ledger/assertions.csv') != ''
+        run: tools/check_ledger --csv ledger/assertions.csv
