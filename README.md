@@ -550,6 +550,27 @@ unreadable/invalid input, 3 network error or anything unexpected. Records are
 read with the shared `tools/vcf_records.py`. `dt fixture-match` of the
 data-test skill runs it with `--negative-control`.
 
+`tools/workspace_guard` (issue #163) holds the workspace safety rules for agents
+working in clones; it never writes or deletes anything and prints one
+`OK <what>` or `REFUSED <what>: <reason>` line. `write-target DIR --protect PATH
+[--protect PATH ...] [--expect-checkout PATH]` allows a write only if `DIR` is
+absolute and a direct child of `<toplevel>/tests/data` of the git checkout
+containing it (compared after `realpath`), the cwd is in that checkout, it is
+the `--expect-checkout` checkout if given, and it is none of the `--protect`
+paths, compared by inode (case-folded fallback, so symlink and APFS case
+variants are caught); `DT_ALLOW_MAIN=1` is the only override. At least one
+`--protect` is required, and a relative, empty or missing one is exit 2, never
+resolved against the cwd. `outside-checkouts PATH...` refuses a path whose
+nearest existing ancestor is inside any git checkout or worktree (e.g.
+`"$UV_PROJECT_ENVIRONMENT"` or a scratch root). `base [--ref origin/master]`
+checks that `HEAD` contains the ref; `upstream --not REF` refuses a current
+branch that tracks `REF` (no upstream or a detached `HEAD` is fine). Exit 0
+allowed/ok, 1 refused or check failed, 2 usage, unusable input or a git failure
+(e.g. a missing ref). The data-test skill's `dt` runs it for `raw2input`,
+`bless`, `verify` (scratch root) and `env` (repo, scratch root, base,
+upstream), supplying the policy (`main_checkout`, `scratch_root`) from its
+config; `UV_PROJECT_ENVIRONMENT` is checked by `./check_env`.
+
 ### Caveats
 
 **Windows.** `./run_tests` is a bash script (it bootstraps `uv` and then runs
