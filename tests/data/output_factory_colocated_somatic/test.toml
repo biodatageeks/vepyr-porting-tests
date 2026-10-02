@@ -1,0 +1,33 @@
+name = "output_factory_colocated_somatic"
+description = "vepyr annotates 21 25891785 G>A, where the VEP 116 cache holds three co-located variants (one somatic), to the same output body as native VEP 116 --everything."
+
+[origin]
+vep_test = "https://github.com/Ensembl/ensembl-vep/blob/release/116.0/t/OutputFactory.t#L157-L181"
+vep_test_pinned = "https://github.com/Ensembl/ensembl-vep/blob/57ea5c52340acc1f156267f810ad162e26597082/t/OutputFactory.t#L157-L181"
+vep_subject = "https://github.com/Ensembl/ensembl-vep/blob/57ea5c52340acc1f156267f810ad162e26597082/modules/Bio/EnsEMBL/VEP/OutputFactory.pm#L1040"
+ledger = "OutputFactory.ledger.toml n=12"
+issue = 197
+
+[input]
+command = "bcftools norm -m -both -o <out.vcf> <in.vcf.gz>"
+bcftools_version = "bcftools 1.23"
+
+[vepyr]
+flavour = "ensembl"
+# Names the cache shard (chr21.parquet), not the input spelling; the input uses "21".
+required_contigs = ["chr21"]
+everything = true
+preserve_record_layout = true
+reference_fasta = true
+
+[vep]
+image = "ensemblorg/ensembl-vep@sha256:f354dd8d09073e4d943acbbd02f5eb234a9d9e9d444371c1c349910f2123de11"
+command = "vep --offline --cache --dir_cache /opt/vep/.vep --species homo_sapiens --cache_version 116 --assembly GRCh38 --fasta /opt/vep/fasta/Homo_sapiens.GRCh38.dna.primary_assembly.fa --everything --vcf --input_file input.vcf --output_file expected_output.vcf --force_overwrite"
+date = "2026-10-02"
+cache_source = "https://ftp.ensembl.org/pub/release-116/variation/indexed_vep_cache/homo_sapiens_vep_116_GRCh38.tar.gz"
+cache_checksum = "sha256:014c7dd9bb5ad06665866d62eb80f31ca761197bcb9b59280300676f996e600d sum:56036 26996736"
+fasta_source = "https://ftp.ensembl.org/pub/release-116/fasta/homo_sapiens/dna/Homo_sapiens.GRCh38.dna.primary_assembly.fa.gz"
+fasta_checksum = "sha256:d8c3af0094a7bba6125763bad779ec18a81483c739c6ed122094bdf86c187b92 sum:22450 861294"
+
+[compare]
+body_md5 = "74aa012bfb2dad64b5e4e1abea1fddae"
