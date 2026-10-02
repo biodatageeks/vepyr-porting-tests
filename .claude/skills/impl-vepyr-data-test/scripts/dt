@@ -679,8 +679,8 @@ def check_bless(cfg: Config, repo: Path, d: Path) -> list[Check]:
 def check_index(cfg: Config, repo: Path) -> list[Check]:
     """``tools/build_test_index --check`` (#92, #151): the repo's ``tests/INDEX.csv`` is current.
 
-    Runs in the resolved checkout, so a branch whose index was not regenerated after a
-    rebase (or was hand-edited to resolve a conflict) fails here. Tool exit 0/1/2
+    Runs in the resolved checkout, so a branch whose index was not regenerated after
+    merging ``master`` (or was hand-edited to resolve a conflict) fails here. Tool exit 0/1/2
     (current / stale / bad ``test.toml``) maps to PASS/FAIL/FAIL; any other exit, or a
     tool that cannot start, is a :class:`ToolError` (dt exit 3). Negative control: a
     copy of the index without its last row, checked with ``--out``, must exit 1.

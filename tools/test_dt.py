@@ -254,7 +254,10 @@ def test_verify_runner_exit3(
 
 @pytest.fixture
 def index_repo(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> Path:
-    """A throwaway repo: the real ``tools/build_test_index``, one data-test, its index."""
+    """A throwaway repo: the real ``tools/build_test_index``, one data-test, its index.
+
+    The fixture copies the tool and one ``test.toml`` and generates the index.
+    """
     repo = tmp_path / "repo"
     (repo / "tools").mkdir(parents=True)
     shutil.copy2(REPO / "tools" / "build_test_index", repo / "tools")
@@ -275,7 +278,8 @@ def index_lines(dt: ModuleType, repo: Path) -> list[str]:
 def test_check_index_current(dt: ModuleType, index_repo: Path) -> None:
     got = index_lines(dt, index_repo)
     assert got[0].startswith("PASS build_test_index: exit 0;")
-    assert got[1] == "PASS build_test_index-negative: stale copy (last row dropped) exit 1 (want 1)"
+    negative = "stale copy (last row dropped) exit 1 (want 1)"
+    assert got[1] == f"PASS build_test_index-negative: {negative}"
 
 
 def test_check_index_stale(dt: ModuleType, index_repo: Path) -> None:
@@ -287,7 +291,8 @@ def test_check_index_stale(dt: ModuleType, index_repo: Path) -> None:
 
 
 def test_check_index_bad_toml(dt: ModuleType, index_repo: Path) -> None:
-    (index_repo / "tests" / "data" / VERIFY_DIR.name / "test.toml").write_text("name = 1\n")
+    toml = index_repo / "tests" / "data" / VERIFY_DIR.name / "test.toml"
+    toml.write_text("name = 1\n")
     assert index_lines(dt, index_repo)[0].startswith("FAIL build_test_index: exit 2;")
 
 
