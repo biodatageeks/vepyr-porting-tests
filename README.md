@@ -524,8 +524,12 @@ checks run on every directory, all of them every time: `files` (exactly
 else), `input-records` (`input.vcf` has at least one record), `order` (POS
 ascends within each contig and each contig is one contiguous block),
 `oracle-meta` (exactly one `##VEP=` line in the oracle and `[vep] image` pinned as
-`ensemblorg/ensembl-vep@sha256:<64 hex>`) and `one-to-one` (one oracle body line
-per input record; there is no option or `test.toml` key to skip it). It prints
+`ensemblorg/ensembl-vep@sha256:<64 hex>`) and `one-to-one` (#193: the oracle
+body is the input's records minus those whose every ALT allele is `.`, which VEP
+116 skips without `--allow_non_variant`, in input order, compared line by line
+on columns 1-5 verbatim; a lost, extra, reordered or substituted line fails, and
+so does an input whose every record has ALT `.`, since nothing would be compared;
+there is no option or `test.toml` key to skip it). It prints
 `OK <dir>`, or one `FAIL <dir> <check>: <detail>` line per failing check, and
 exits 0 only if every directory is OK and at least one was found; 1 on any
 failure, no test found, or `DIR` not a directory; 2 on bad usage. It never
