@@ -24,8 +24,15 @@ tool does::
     ``expected_output.vcf`` has exactly one ``##VEP=`` line and ``[vep] image``
     in ``test.toml`` is ``ensemblorg/ensembl-vep@sha256:<64 hex>``.
 ``one-to-one``
-    The oracle body has exactly one line per input record. Mandatory: there
-    is no option and no ``test.toml`` key to skip it (owner decision, #164).
+    The oracle body is the input's records minus those VEP 116 drops, in
+    input order, compared on columns 1-5 (CHROM, POS, ID, REF, ALT, verbatim).
+    The expectation is derived from the input (#193): a record whose every ALT
+    allele is ``.`` is dropped (VEP skips it without ``--allow_non_variant``,
+    ``Parser/VCF.pm`` L259 at the pin); every other record must appear exactly
+    once. A lost, extra, reordered or substituted line fails, and so does an
+    input whose records are all dropped (nothing would be compared). Mandatory:
+    there is no option and no ``test.toml`` key to skip it (owner decision,
+    #164).
 
 One ``OK <dir>`` line is printed per passing directory, or one
 ``FAIL <dir> <check>: <detail>`` line per failing check (all of them, never
@@ -181,19 +188,64 @@ def _check_oracle_meta(test_dir: Path) -> str | None:
     return "; ".join(problems) or None
 
 
+type RecordKey = tuple[str, int, str, str, str]
+"""Columns 1-5 of a record: CHROM, POS, ID, REF, ALT, verbatim."""
+
+
+def _droppable(r: VcfRecord) -> bool:
+    """Whether VEP 116 drops ``r``: every ALT allele is ``.``.
+
+    VEP skips such a record unless ``--allow_non_variant`` is given
+    (``Parser/VCF.pm`` L259 at the pin), and the one VEP command does not give
+    it. A record with any other ALT allele (``A,.``, ``*``, ``<DEL>``, REF==ALT)
+    is kept (measured against VEP 116, #193).
+    """
+    return all(a == "." for a in r.alt.split(","))
+
+
+def _key(r: VcfRecord) -> RecordKey:
+    """Columns 1-5 of ``r``."""
+    return (r.chrom, r.pos, r.id, r.ref, r.alt)
+
+
+def _show(k: RecordKey) -> str:
+    """Render a record key as ``CHROM:POS ID REF>ALT``."""
+    chrom, pos, rid, ref, alt = k
+    return f"{chrom}:{pos} {rid} {ref}>{alt}"
+
+
 def _check_one_to_one(
     records: Loaded[list[VcfRecord]], oracle: Loaded[list[VcfRecord]]
 ) -> str | None:
-    """One oracle body line per input record."""
-    match records, oracle:
-        case str(reason), _:
-            return reason
-        case _, str(reason):
-            return reason
-        case list(), list() if len(records) == len(oracle):
-            return None
-        case _:
-            return f"input {len(records)} records, oracle {len(oracle)} body lines"
+    """The oracle body is the input minus the ALT-``.`` records, in order.
+
+    Columns 1-5 are compared line by line; the first difference is reported.
+    An empty expectation fails: a test with nothing to compare passes vacuously.
+    """
+    if isinstance(records, str):
+        return records
+    if isinstance(oracle, str):
+        return oracle
+    want = [_key(r) for r in records if not _droppable(r)]
+    got = [_key(r) for r in oracle]
+    counts = (
+        f"(input {len(records)} records, ALT '.' dropped "
+        f"{len(records) - len(want)}, oracle {len(got)} body lines)"
+    )
+    if not records:
+        return f"input has no records; nothing to compare {counts}"
+    if not want:
+        return f"no input record survives the ALT '.' drop; nothing to compare {counts}"
+    if want == got:
+        return None
+    i = next(
+        (n for n, (w, g) in enumerate(zip(want, got, strict=False)) if w != g),
+        min(len(want), len(got)),
+    )
+    if i == len(got):
+        return f"oracle has no line for input {_show(want[i])} {counts}"
+    expected = _show(want[i]) if i < len(want) else "no more lines"
+    return f"oracle line {i + 1} is {_show(got[i])}, want {expected} {counts}"
 
 
 def check_dir(test_dir: Path) -> list[Failure]:

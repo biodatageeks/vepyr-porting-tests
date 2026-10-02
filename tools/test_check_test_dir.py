@@ -31,14 +31,24 @@ def rec(chrom: str, pos: int) -> str:
     return f"{chrom}\t{pos}\t.\tG\tT\t.\t.\t.\n"
 
 
-def oracle_vcf(n: int, *, vep_lines: int = 1) -> str:
-    """An oracle with ``vep_lines`` ``##VEP=`` header lines and ``n`` body lines."""
+def oracle_vcf(
+    n: int,
+    *,
+    vep_lines: int = 1,
+    records: tuple[tuple[str, int], ...] | None = None,
+) -> str:
+    """An oracle with ``vep_lines`` ``##VEP=`` lines and one body line per record.
+
+    ``records`` defaults to ``n`` records ``21:100``, ``21:101``, ...; the body
+    lines repeat the records' columns 1-5 as :func:`rec` writes them.
+    """
     vep = '##VEP="v116" API="v116"\n' * vep_lines
+    recs = records if records is not None else tuple(("21", 100 + i) for i in range(n))
     return (
         "##fileformat=VCFv4.2\n"
         + vep
         + HEADER.split("\n", 1)[1]
-        + "".join(f"21\t{100 + i}\t.\tG\tT\t.\t.\tCSQ=x\n" for i in range(n))
+        + "".join(f"{c}\t{p}\t.\tG\tT\t.\t.\tCSQ=x\n" for c, p in recs)
     )
 
 
@@ -55,7 +65,7 @@ def make_test(
     d.mkdir(parents=True)
     (d / "input.vcf").write_text(HEADER + "".join(rec(c, p) for c, p in records))
     (d / "expected_output.vcf").write_text(
-        oracle if oracle is not None else oracle_vcf(len(records))
+        oracle if oracle is not None else oracle_vcf(len(records), records=records)
     )
     (d / "test.toml").write_text(f'name = "{name}"\n\n[vep]\nimage = "{image}"\n')
     return d
@@ -135,9 +145,17 @@ def test_empty_file(tmp_path: Path) -> None:
 
 
 def test_zero_records(tmp_path: Path) -> None:
-    """Header-only input and oracle: ``input-records`` fails; ``one-to-one`` passes."""
+    """Header-only input and oracle: ``input-records`` and ``one-to-one`` both fail.
+
+    An empty expectation is a vacuous test, so ``one-to-one`` reports it too
+    (every failure is reported, never only the first; #193).
+    """
     d = make_test(tmp_path, records=())
-    assert failed(d) == {CheckId.INPUT_RECORDS: "input.vcf has no records"}
+    assert failed(d) == {
+        CheckId.INPUT_RECORDS: "input.vcf has no records",
+        CheckId.ONE_TO_ONE: "input has no records; nothing to compare "
+        "(input 0 records, ALT '.' dropped 0, oracle 0 body lines)",
+    }
 
 
 def test_descending_pos(tmp_path: Path) -> None:
@@ -222,13 +240,139 @@ def test_image_missing(tmp_path: Path) -> None:
 def test_line_count_mismatch(
     tmp_path: Path, capsys: pytest.CaptureFixture[str]
 ) -> None:
-    """Two input records, one oracle line: ``one-to-one`` fails with both counts."""
+    """Two input records, one oracle line: ``one-to-one`` names the lost record."""
     d = make_test(tmp_path, records=(("21", 100), ("21", 200)), oracle=oracle_vcf(1))
     code, out = run_main(capsys, str(d))
     assert (code, out) == (
         1,
-        [f"FAIL {d} one-to-one: input 2 records, oracle 1 body lines"],
+        [
+            (
+                f"FAIL {d} one-to-one: oracle has no line for input 21:200 . G>T "
+                "(input 2 records, ALT '.' dropped 0, oracle 1 body lines)"
+            )
+        ],
     )
+
+
+# The input of data-test #124: five records, three of them with ALT '.'.
+NV_RECORDS: Final[tuple[tuple[str, str, str], ...]] = (
+    ("25587759", "test", "G"),
+    ("25587759", "test1", "C"),
+    ("25587760", "test2", "C"),
+    ("25587761", "test3", "C"),
+    ("25587762", "test4", "C"),
+)
+NV_ALTS: Final[tuple[str, ...]] = (".", "A", ".", ".", "A")
+NV_COUNTS_3: Final[str] = "(input 5 records, ALT '.' dropped 3, oracle {} body lines)"
+
+
+def make_nv(
+    root: Path, alts: tuple[str, ...], oracle_ids: tuple[str, ...], name: str = "nv"
+) -> Path:
+    """#124's five records with ``alts``; the oracle holds ``oracle_ids`` in order."""
+    lines = {
+        rid: f"21\t{pos}\t{rid}\t{ref}\t{alt}\t.\t.\t.\n"
+        for (pos, rid, ref), alt in zip(NV_RECORDS, alts, strict=True)
+    }
+    d = make_test(root, name)
+    (d / "input.vcf").write_text(HEADER + "".join(lines.values()))
+    (d / "expected_output.vcf").write_text(
+        oracle_vcf(0) + "".join(lines[i] for i in oracle_ids)
+    )
+    return d
+
+
+def test_alt_dot_records_dropped(
+    tmp_path: Path, capsys: pytest.CaptureFixture[str]
+) -> None:
+    """#124's shape: VEP drops the three ALT-'.' records; the oracle holds the rest."""
+    d = make_nv(tmp_path, NV_ALTS, ("test1", "test4"))
+    assert run_main(capsys, str(d)) == (0, [f"OK {d}"])
+
+
+@pytest.mark.parametrize(
+    ("alts", "oracle_ids", "detail"),
+    [
+        pytest.param(
+            NV_ALTS,
+            ("test1",),
+            "oracle has no line for input 21:25587762 test4 C>A "
+            + NV_COUNTS_3.format(1),
+            id="missing",
+        ),
+        pytest.param(
+            NV_ALTS,
+            ("test", "test1", "test4"),
+            "oracle line 1 is 21:25587759 test G>., want 21:25587759 test1 C>A "
+            + NV_COUNTS_3.format(3),
+            id="dotkept",
+        ),
+        pytest.param(
+            NV_ALTS,
+            ("test4", "test1"),
+            "oracle line 1 is 21:25587762 test4 C>A, want 21:25587759 test1 C>A "
+            + NV_COUNTS_3.format(2),
+            id="order",
+        ),
+        pytest.param(
+            (".", "A", ".", ".", "A,."),
+            ("test1",),
+            "oracle has no line for input 21:25587762 test4 C>A,. "
+            + NV_COUNTS_3.format(1),
+            id="multi_alt_with_dot_kept",
+        ),
+        pytest.param(
+            (".",) * 5,
+            (),
+            "no input record survives the ALT '.' drop; nothing to compare "
+            "(input 5 records, ALT '.' dropped 5, oracle 0 body lines)",
+            id="alldot_vacuous",
+        ),
+        pytest.param(
+            NV_ALTS,
+            ("test1", "test4", "test4"),
+            "oracle line 3 is 21:25587762 test4 C>A, want no more lines "
+            + NV_COUNTS_3.format(3),
+            id="extra_duplicate",
+        ),
+    ],
+)
+def test_one_to_one_fails(
+    tmp_path: Path, alts: tuple[str, ...], oracle_ids: tuple[str, ...], detail: str
+) -> None:
+    """Lost, extra, reordered or wrongly kept lines and a vacuous input all fail."""
+    d = make_nv(tmp_path, alts, oracle_ids)
+    assert failed(d) == {CheckId.ONE_TO_ONE: detail}
+
+
+def test_swapped_oracle_lines_fail(tmp_path: Path) -> None:
+    """Right counts, two oracle lines swapped: the order is checked, not the count."""
+    recs = (("21", 100), ("21", 200), ("21", 300))
+    d = make_test(
+        tmp_path,
+        records=recs,
+        oracle=oracle_vcf(3, records=(recs[1], recs[0], recs[2])),
+    )
+    assert failed(d) == {
+        CheckId.ONE_TO_ONE: "oracle line 1 is 21:200 . G>T, want 21:100 . G>T "
+        "(input 3 records, ALT '.' dropped 0, oracle 3 body lines)"
+    }
+
+
+def test_substituted_oracle_column_fails(tmp_path: Path) -> None:
+    """Same count and order, one oracle POS changed: columns 1-5 are compared."""
+    d = make_test(
+        tmp_path, records=(("21", 100),), oracle=oracle_vcf(1, records=(("21", 101),))
+    )
+    assert set(failed(d)) == {CheckId.ONE_TO_ONE}
+
+
+def test_duplicate_input_records_expected_twice(tmp_path: Path) -> None:
+    """VEP keeps a duplicated record twice; the oracle must hold it twice."""
+    recs = (("21", 100), ("21", 100))
+    assert failed(make_test(tmp_path, "two", records=recs)) == {}
+    d = make_test(tmp_path, "one", records=recs, oracle=oracle_vcf(1))
+    assert set(failed(d)) == {CheckId.ONE_TO_ONE}
 
 
 def test_reports_all_failures(

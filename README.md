@@ -524,8 +524,12 @@ checks run on every directory, all of them every time: `files` (exactly
 else), `input-records` (`input.vcf` has at least one record), `order` (POS
 ascends within each contig and each contig is one contiguous block),
 `oracle-meta` (exactly one `##VEP=` line in the oracle and `[vep] image` pinned as
-`ensemblorg/ensembl-vep@sha256:<64 hex>`) and `one-to-one` (one oracle body line
-per input record; there is no option or `test.toml` key to skip it). It prints
+`ensemblorg/ensembl-vep@sha256:<64 hex>`) and `one-to-one` (#193: the oracle
+body is the input's records minus those whose every ALT allele is `.`, which VEP
+116 skips without `--allow_non_variant`, in input order, compared line by line
+on columns 1-5 verbatim; a lost, extra, reordered or substituted line fails, and
+so does an input whose every record has ALT `.`, since nothing would be compared;
+there is no option or `test.toml` key to skip it). It prints
 `OK <dir>`, or one `FAIL <dir> <check>: <detail>` line per failing check, and
 exits 0 only if every directory is OK and at least one was found; 1 on any
 failure, no test found, or `DIR` not a directory; 2 on bad usage. It never
@@ -580,8 +584,17 @@ config; `UV_PROJECT_ENVIRONMENT` is checked by `./check_env`.
 PowerShell cannot execute it directly.
 
 **Accumulation.** `--add-contigs` only adds shards; it never removes earlier
-ones. `chr21,chr22` then `chr15,chrY` leaves all four on disk. For a wholly
-different set, use a fresh `--cache-dir` or clean the directory yourself.
+ones. `chr21,chr22` then `chr15,chrY` leaves all four on disk. A per-contig
+run checks each `<entity>/chrom_manifest.json` against the shards it requests:
+a manifest that names a shard absent from disk, or misses a requested shard
+that is on disk, is re-fetched from the Hub and trimmed to the shards on disk
+(here all four). Otherwise it is left untouched. Shards on disk that the run
+does not request are not checked, so a shard the Hub manifest itself omits
+(e.g. `exon/GL000009.2.parquet` of a whole-flavour download) stays unlisted and
+forces no Hub call. An older root whose manifests are stale (shards of a later
+contig, manifests trimmed to the first set) is repaired by rerunning
+`--add-contigs` with the declared list. For a
+wholly different set, use a fresh `--cache-dir` or clean the directory yourself.
 
 **Illegal / incomplete contig sets.** Every cache entity must get at least one
 requested contig. `motif` and `regulatory` have no `chrMT`, so

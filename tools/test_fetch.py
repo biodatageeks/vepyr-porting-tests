@@ -99,9 +99,10 @@ class FakeHub:
         self.calls.append((repo_id, revision, patterns, local_dir))
         for remote in select_remote(self.lister(repo_id, revision), patterns):
             target = local_dir / remote.path
-            if target.exists() and not remote.path.endswith(MANIFEST):
+            if target.exists() and patterns != [f"*/{MANIFEST}"]:
                 continue  # snapshot_download's metadata short-circuit: present, skipped
-            # manifests are always re-materialised (Downloader contract)
+            # only the manifests-only call forces a present file (hub_downloader,
+            # force_download): a trimmed manifest survives every other call (#206)
             target.parent.mkdir(parents=True, exist_ok=True)
             # like snapshot_download: materialise into a temp name, then rename
             tmp = target.with_name(f".{target.name}.{os.getpid()}.incomplete")
@@ -490,6 +491,88 @@ def test_contig_runs_accumulate_into_a_list_never_all(
     _run(remote, pins, root, contigs=("chr21",), flavours=(Flavour.ENSEMBL,))
     _run(remote, pins, root, contigs=("chr22",), flavours=(Flavour.ENSEMBL,))
     assert read_provenance(root).datasets["ensembl"].contigs == ["chr21", "chr22"]  # type: ignore[union-attr]
+
+
+def _chroms(root: Path, entity: str) -> list[str]:
+    """The ``chrom`` column of one ensembl entity's manifest under ``root``."""
+    manifest = root / "116_GRCh38_ensembl" / entity / MANIFEST
+    return [e["chrom"] for e in json.loads(manifest.read_text())]
+
+
+def test_a_top_up_with_a_new_contig_refreshes_every_trimmed_manifest(
+    remote: FakeHub, pins: Path, tmp_path: Path
+) -> None:
+    """#206: the chr22 run must not leave chr21-only manifests beside chr22 shards."""
+    root = tmp_path / "root"
+    _run(remote, pins, root, contigs=("chr21",), flavours=(Flavour.ENSEMBL,))
+    _, out = _run(remote, pins, root, contigs=("chr22",), flavours=(Flavour.ENSEMBL,))
+    assert "7 manifest(s) trimmed" in out[-1]
+    assert read_provenance(root).runs[-1].refreshed_manifests == 7  # type: ignore[union-attr]
+    for entity in ENTITIES:
+        assert _chroms(root, entity) == ["chr21", "chr22"], entity
+
+
+def test_rerunning_the_declared_contigs_repairs_a_stale_root(
+    remote: FakeHub, pins: Path, tmp_path: Path
+) -> None:
+    """#206: the remedy ``tests/common/cache.rs`` prints repairs a root left stale.
+
+    The stale root is the one master left behind: chr21 and chr22 shards, manifests
+    trimmed to chr21. Every shard is present, so nothing is downloaded; only the gate
+    can notice the unlisted chr22 shard.
+    """
+    root = tmp_path / "root"
+    _run(remote, pins, root, contigs=("chr21",), flavours=(Flavour.ENSEMBL,))
+    for entity in ENTITIES:
+        shutil.copyfile(
+            remote.root / "ensembl" / entity / "chr22.parquet",
+            root / "116_GRCh38_ensembl" / entity / "chr22.parquet",
+        )
+    _run(remote, pins, root, contigs=("chr21", "chr22"), flavours=(Flavour.ENSEMBL,))
+    run = read_provenance(root).runs[-1]  # type: ignore[union-attr]
+    assert (run.added_files, run.refreshed_manifests) == (0, 7)
+    for entity in ENTITIES:
+        assert _chroms(root, entity) == ["chr21", "chr22"], entity
+
+
+def test_a_run_on_a_consistent_root_rewrites_no_manifest(
+    remote: FakeHub, pins: Path, tmp_path: Path
+) -> None:
+    """#206 regression guard: the fix is a sharper gate, not "always re-trim"."""
+    root = tmp_path / "root"
+    for _ in range(2):
+        _run(
+            remote, pins, root, contigs=("chr21", "chr22"), flavours=(Flavour.ENSEMBL,)
+        )
+    assert read_provenance(root).runs[-1].refreshed_manifests == 0  # type: ignore[union-attr]
+    assert [c[2] for c in remote.calls].count([f"*/{MANIFEST}"]) == 1
+
+
+def test_a_shard_the_hub_manifest_omits_never_forces_a_manifest_refetch(
+    remote: FakeHub, pins: Path, tmp_path: Path
+) -> None:
+    """#216 F1: only requested shards open the gate, so the root settles.
+
+    A whole-flavour root holds shards the Hub's own manifest omits (the shared cache
+    has GL*/HG*_PATCH exon shards). Re-fetching cannot list them, so a gate over every
+    ``*.parquet`` stayed open and each per-contig run made a forced manifests-only call.
+    """
+    exon = remote.root / "ensembl" / "exon"
+    (exon / "GL000009.2.parquet").write_bytes(b"ensembl:exon:GL000009.2")
+    root = tmp_path / "root"
+    _run(remote, pins, root, flavours=(Flavour.ENSEMBL,))
+    flavour_dir = root / "116_GRCh38_ensembl"
+    assert (flavour_dir / "exon" / "GL000009.2.parquet").is_file()
+    manifests = {e: (flavour_dir / e / MANIFEST).read_bytes() for e in ENTITIES}
+    remote.calls.clear()
+    for _ in range(3):
+        code, _ = _run(
+            remote, pins, root, contigs=("chr21",), flavours=(Flavour.ENSEMBL,)
+        )
+        assert code is Exit.OK
+    assert [c[2] for c in remote.calls].count([f"*/{MANIFEST}"]) == 0
+    assert read_provenance(root).runs[-1].refreshed_manifests == 0  # type: ignore[union-attr]
+    assert {e: (flavour_dir / e / MANIFEST).read_bytes() for e in ENTITIES} == manifests
 
 
 def test_flavour_subset_fetches_only_those(
