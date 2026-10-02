@@ -232,8 +232,10 @@ def _check_one_to_one(
         f"(input {len(records)} records, ALT '.' dropped "
         f"{len(records) - len(want)}, oracle {len(got)} body lines)"
     )
+    if not records:
+        return f"input has no records; nothing to compare {counts}"
     if not want:
-        return f"every input record has ALT '.'; nothing to compare {counts}"
+        return f"no input record survives the ALT '.' drop; nothing to compare {counts}"
     if want == got:
         return None
     i = next(

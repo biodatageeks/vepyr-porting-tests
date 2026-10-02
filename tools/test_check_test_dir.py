@@ -153,7 +153,7 @@ def test_zero_records(tmp_path: Path) -> None:
     d = make_test(tmp_path, records=())
     assert failed(d) == {
         CheckId.INPUT_RECORDS: "input.vcf has no records",
-        CheckId.ONE_TO_ONE: "every input record has ALT '.'; nothing to compare "
+        CheckId.ONE_TO_ONE: "input has no records; nothing to compare "
         "(input 0 records, ALT '.' dropped 0, oracle 0 body lines)",
     }
 
@@ -324,7 +324,7 @@ def test_alt_dot_records_dropped(
         pytest.param(
             (".",) * 5,
             (),
-            "every input record has ALT '.'; nothing to compare "
+            "no input record survives the ALT '.' drop; nothing to compare "
             "(input 5 records, ALT '.' dropped 5, oracle 0 body lines)",
             id="alldot_vacuous",
         ),
