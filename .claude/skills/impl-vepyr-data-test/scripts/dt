@@ -676,6 +676,38 @@ def check_bless(cfg: Config, repo: Path, d: Path) -> list[Check]:
     return [pos, negative("bless-check-negative", pos, tampered)]
 
 
+def check_index(cfg: Config, repo: Path) -> list[Check]:
+    """``tools/build_test_index --check`` (#92, #151): the repo's ``tests/INDEX.csv`` is current.
+
+    Runs in the resolved checkout, so a branch whose index was not regenerated after
+    merging ``master`` (or was hand-edited to resolve a conflict) fails here. Tool exit 0/1/2
+    (current / stale / bad ``test.toml``) maps to PASS/FAIL/FAIL; any other exit, or a
+    tool that cannot start, is a :class:`ToolError` (dt exit 3). Negative control: a
+    copy of the index without its last row, checked with ``--out``, must exit 1.
+    """
+    tool, index = repo / "tools" / "build_test_index", repo / "tests" / "INDEX.csv"
+
+    def checked(out: Path, name: str) -> tuple[int, str]:
+        proc = run([tool, "--check", "--out", out], cwd=repo, quiet=name.endswith("negative"))
+        if proc.returncode not in (0, 1, 2):
+            raise ToolError(f"build_test_index exited {proc.returncode}: {proc.stderr.strip()[-300:]}")
+        said = (proc.stdout + proc.stderr).splitlines()
+        return proc.returncode, next((ln for ln in said if ln.startswith("build_test_index:")),
+                                     said[-1].strip() if said else "")
+
+    code, said = checked(index, "build_test_index")
+    pos = Check("build_test_index", code == 0, f"exit {code}; {said}")
+
+    def stale() -> Check:
+        with scratch(cfg, "index") as s:
+            copy = s / "INDEX.csv"
+            copy.write_bytes(b"".join(index.read_bytes().splitlines(keepends=True)[:-1]))
+            bad, _ = checked(copy, "build_test_index-negative")
+        return Check("build_test_index-negative", bad == 1, f"stale copy (last row dropped) exit {bad} (want 1)")
+
+    return [pos, negative("build_test_index-negative", pos, stale)]
+
+
 def check_reproduce(cfg: Config, repo: Path, d: Path) -> Check:
     """``./bless --check --reproduce`` re-runs VEP and matches the stored md5."""
     with docker_work(cfg, d.name) as w:
@@ -968,7 +1000,7 @@ def cmd_verify(cfg: Config, a: argparse.Namespace) -> Exit:
     steps: list[Callable[[], Check | list[Check]]] = [
         lambda: check_structure(repo, d), lambda: check_mode(repo, d),
         lambda: check_normalised(repo, d), lambda: check_md5(d),
-        lambda: refcheck_summary(cfg, d),
+        lambda: refcheck_summary(cfg, d), lambda: check_index(cfg, repo),
     ]
     steps.append(lambda: check_bless(cfg, repo, d))
     if a.reproduce:
