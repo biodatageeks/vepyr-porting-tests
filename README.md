@@ -846,10 +846,13 @@ Primary-property checks select the case's specific field or record property;
 the existing body comparison also checks all incidental fields. A focus pass
 with a body failure remains a failing data test.
 
-This campaign contains 186 executed ports (168 SNVs, 15 small indels, two
-nonvariant cases and one MNV): 174 whole-body passes, 10 differences and two
-execution errors on the recorded master revision. Sixteen further candidates
-have documented blockers. The 16 pre-existing fixtures are outside this campaign;
-their inputs were regenerated unchanged and their prior oracles were retained.
+This campaign contains 189 executed ports (171 SNVs, 15 small indels, two
+nonvariant cases and one MNV): 177 whole-body passes, 10 differences and two
+execution errors on the recorded master revision. Thirteen further candidates
+remain unported: ten have data/configuration or cache-conversion blockers, and
+three are outside this normalized VCF contract. See the
+[unblocking assessment](docs/porting/vep1162-merged/unblocking/README.md).
+The 16 pre-existing fixtures are outside this campaign; their inputs were
+regenerated unchanged and their prior oracles were retained.
 See the [failure evidence](docs/porting/vep1162-merged/FAILURES.md) and the
 [complete assertion audit](docs/porting/vep1162-assertion-audit/README.md).

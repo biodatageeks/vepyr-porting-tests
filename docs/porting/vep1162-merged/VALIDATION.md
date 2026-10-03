@@ -1,8 +1,8 @@
 # Validation evidence
 
-186 campaign fixtures were independently normalized, blessed with VEP 116.2 Docker, and executed with vepyr master `b14bda3d4cf80c0f16d62ab371c28866ae589c33`. The remote master revision was rechecked after the runs. Results: 174 body matches, 10 body differences, two execution errors. Sixteen additional candidates are blocked with individual reasons. All 202 candidates are accounted for; blocked cases are not counted as executable ports.
+189 campaign fixtures were independently normalized, blessed with VEP 116.2 Docker, and executed with vepyr master `b14bda3d4cf80c0f16d62ab371c28866ae589c33`. The remote master revision was rechecked after the runs. Results: 177 body matches, 10 body differences, two execution errors. Thirteen candidates remain unported with individual reasons (ten blockers and three outside this contract). All 202 candidates are accounted for; blocked cases are not counted as executable ports.
 
-For every executed fixture, `cases.json` records commands, exits, normalized input SHA-256 (including the Docker copy), expected body MD5, and actual body MD5 when output exists. The expected MD5 is also in `[compare].body_md5` in the fixture's `test.toml`. Headers are excluded; body byte differences and ordering remain significant. The primary property passes in 183 of the 184 runnable cases; lowercase allele annotation fails its primary property. A primary-property pass does not override a body failure.
+For every executed fixture, `cases.json` records commands, exits, normalized input SHA-256 (including the Docker copy), expected body MD5, and actual body MD5 when output exists. The expected MD5 is also in `[compare].body_md5` in the fixture's `test.toml`. Headers are excluded; body byte differences and ordering remain significant. The primary property passes in 186 of the 187 runnable cases; lowercase allele annotation fails its primary property. A primary-property pass does not override a body failure.
 
 ## Local checks
 
@@ -11,16 +11,16 @@ All commands ran in the PR worktree. Normalization used `PATH=/Users/mwiewior/wo
 | Check | Exit | Result |
 |---|---:|---|
 | `.venv/bin/python -m pytest tools/test_bless.py tools/test_port_campaign.py -q` | 0 | 56 tests, including mismatched cache-mode, changed Docker-copy and body-order negative controls |
-| `./check_test_dir` | 0 | All 202 directories structurally valid (186 new, 16 pre-existing) |
-| `./check_normalised_input` | 0 | All 202 input VCFs satisfy the required normalization fixed point |
-| `tools/build_test_index --check` | 0 | Generated index current, 202 directories |
-| `.venv/bin/python tools/check_campaign.py --require-complete --require-normalized` | 0 | 186 executed, 16 blocked, no queued candidates |
+| `./check_test_dir` | 0 | All 205 directories structurally valid (189 new, 16 pre-existing) |
+| `./check_normalised_input` | 0 | All 205 input VCFs satisfy the required normalization fixed point |
+| `tools/build_test_index --check` | 0 | Generated index current, 205 directories |
+| `.venv/bin/python tools/check_campaign.py --require-complete --require-normalized` | 0 | 189 executed, 13 blocked, no queued candidates |
 | `cargo fmt --check` | 0 | Rust formatting |
 | pre-commit Ruff checks and formatting on changed tooling | 0 | Python lint and formatting |
 | `git diff --check` | 0 | Whitespace |
 | Rust loader tests with the current engine dependency ladder | 0 | 24 tests including the existing self-test; real fixture loop excluded here |
 
-The Rust loader run used `cargo test --offline --config .run_tests/engine.toml --test data_dirs -- --skip data_dirs` with a fresh temporary dependency resolution, then restored the tracked lockfile. The generated path overrides point to functions `c666301ed5e899fe9d2ab2f884c432bffe4476b7` and formats `00487b9edf53cbf36918d7d22a03a79fd0acf863`. With the old committed lockfile Cargo had ignored the newer path override; that earlier run is not evidence for the current engine. The real 186 data comparisons use the rebuilt Python extension, not that Rust loader loop.
+The Rust loader run used `cargo test --offline --config .run_tests/engine.toml --test data_dirs -- --skip data_dirs` with a fresh temporary dependency resolution, then restored the tracked lockfile. The generated path overrides point to functions `c666301ed5e899fe9d2ab2f884c432bffe4476b7` and formats `00487b9edf53cbf36918d7d22a03a79fd0acf863`. With the old committed lockfile Cargo had ignored the newer path override; that earlier run is not evidence for the current engine. The real 189 data comparisons use the rebuilt Python extension, not that Rust loader loop.
 
 An initial new Rust negative control exited 101 because its text replacement also touched a TOML comment; narrowing the replacement to the actual table header fixed the test, and all 24 passed. An initial documentation-renderer lint check exited 1 for an unparenthesized string concatenation; the corrected check exits 0. These tooling failures did not alter any VEP oracle. Differential FAIL and ERROR results remain visible in `FAILURES.md`.
 
@@ -30,8 +30,14 @@ An initial new Rust negative control exited 101 because its text replacement als
 
 The general `./run_tests` command still requires its pinned Hub layout and `PROVENANCE.json`. The owner-supplied local caches have no such receipt, so this campaign runs the real vepyr CLI directly and does not claim a successful general-harness invocation against these local caches.
 
-The 16 legacy inputs were regenerated and unchanged (`legacy-normalization.json`). Their old oracles remain outside the 186-fixture campaign. All new expected files were generated by the pinned 116.2 image. No expected output was edited to match vepyr.
+The 16 legacy inputs were regenerated and unchanged (`legacy-normalization.json`). Their old oracles remain outside the 189-fixture campaign. All new expected files were generated by the pinned 116.2 image. No expected output was edited to match vepyr.
 
 ## Super-review follow-up
 
 The independent super-review found that removing the CLI call to the cache-mode guard still passed the original 52-test suite. Added CLI-level blessing and reproduction checks reject both mismatched flavours and run overrides, accept the merged-only layout, and retain merged provenance even when an Ensembl receipt is present. Removing each of the three wiring points now makes the suite fail. These changes add four tests (56 total) and do not change the 186 inputs, oracles or recorded engine results.
+
+## Unblocking follow-up
+
+Three additional SNV fixtures passed real Docker VEP 116.2 and vepyr master with identical normalized input hashes and output-body MD5s. The partial final batch is documented in [unblocking/README.md](unblocking/README.md), including full cache-scan counts, failed-variant positive-control VCF, and native HGNC before/after evidence. All three REF alleles match the supplied FASTA. Existing FAIL/ERROR results and their oracles remain unchanged.
+
+The follow-up reruns all four acceptance criteria. Its initial lint setup failed because this checkout has no local pre-commit executable or configuration. Using the installed pre-commit with the engine repository's configuration exposed formatting issues in the new scan script; the hooks corrected them, and the repeated lint check passed. The earlier Rust-loader and super-review results above apply to unchanged tooling and were not rerun for these data-only additions.

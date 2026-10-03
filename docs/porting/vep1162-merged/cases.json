@@ -391,8 +391,8 @@
       "https://github.com/Ensembl/ensembl-vep/blob/2cb0bbe216bb31c75de8f8000e2da7ff4fb7b451/t/OutputFactory_VCF.t#L331-L336"
     ],
     "old_cache_problem": "No old-cache value is needed for this property; generate a fresh 116.2 oracle nevertheless.",
-    "potential_vepyr_bug": "Unassessed: no 116.2 differential run. A candidate is not evidence of a bug.",
-    "unsupported_features": "None identified for --everything parity; runtime unverified.",
+    "potential_vepyr_bug": "No additional vepyr defect demonstrated; see the witness assessment in unblocking/README.md.",
+    "unsupported_features": "No additional annotation flag identified; the missing piece is a qualifying data witness.",
     "witness_status": "Source injects an output value directly; needs a real cache/custom value carrying the character, not an invalid nucleotide ALT.",
     "oracle_status": "NOT GENERATED: run VEP 116.2",
     "raw_multiallelic_required": false,
@@ -419,7 +419,8 @@
     "porting_lane": "everything parity",
     "related_existing_fixtures": [],
     "status": "BLOCKED",
-    "block_reason": "Upstream injects Allele=\"A  G\" into a Perl output hash. No valid normalized SNV/indel allele can carry that whitespace stimulus; no natural cache annotation witness qualified."
+    "block_reason": "Full supplied-cache scan found whitespace only in transcript.source=Curated Genomic, which is not emitted as the merged SOURCE value. No whitespace-bearing emitted scalar witness qualified. The upstream stimulus is the synthetic Allele string A  G, not a valid SNV allele.",
+    "blocker_category": "data_witness"
   },
   {
     "id": "DT-c3cf584eb6",
@@ -436,8 +437,8 @@
       "https://github.com/Ensembl/ensembl-vep/blob/2cb0bbe216bb31c75de8f8000e2da7ff4fb7b451/t/OutputFactory.t#L713-L717"
     ],
     "old_cache_problem": "Release-84 microcache expectation: rediscover the witness and regenerate with cache 116; old literal is not an oracle.",
-    "potential_vepyr_bug": "Unassessed: no 116.2 differential run. A candidate is not evidence of a bug.",
-    "unsupported_features": "None identified for --everything parity; runtime unverified.",
+    "potential_vepyr_bug": "No additional vepyr defect demonstrated; see the witness assessment in unblocking/README.md.",
+    "unsupported_features": "No additional annotation flag identified; the missing piece is a qualifying data witness.",
     "witness_status": "Find a real reverse-reference/allele-matching cache witness; REF==ALT is not a faithful stimulus.",
     "oracle_status": "NOT GENERATED: run VEP 116.2",
     "raw_multiallelic_required": false,
@@ -464,7 +465,8 @@
     "porting_lane": "everything parity",
     "related_existing_fixtures": [],
     "status": "BLOCKED",
-    "block_reason": "Direct helper assertion asks for the reference allele frequency. Current VEP discovery gives no CSQ for REF=ALT and no known match/AF for the reversed T>C input at the baseline locus. Neither qualifies the complement assertion; no replacement witness established."
+    "block_reason": "The upstream helper asks for the reference allele frequency as 1 minus the alternate frequency. Normal VCF consequence output is for alternate alleles; REF=ALT produces no qualifying CSQ. Across all 463 supplied variation shards, no nonfailed simple biallelic SNV stored global AF only for its first/reference allele (a possible alternate-allele complement projection). No faithful VCF witness qualified.",
+    "blocker_category": "data_witness"
   },
   {
     "id": "DT-431b85b993",
@@ -2067,8 +2069,8 @@
       "https://github.com/Ensembl/ensembl-vep/blob/2cb0bbe216bb31c75de8f8000e2da7ff4fb7b451/t/OutputFactory_VCF.t#L331-L336"
     ],
     "old_cache_problem": "No old-cache value is needed for this property; generate a fresh 116.2 oracle nevertheless.",
-    "potential_vepyr_bug": "Unassessed: no 116.2 differential run. A candidate is not evidence of a bug.",
-    "unsupported_features": "None identified for --everything parity; runtime unverified.",
+    "potential_vepyr_bug": "No additional vepyr defect demonstrated; see the witness assessment in unblocking/README.md.",
+    "unsupported_features": "No additional annotation flag identified; the missing piece is a qualifying data witness.",
     "witness_status": "Source injects an output value directly; needs a real cache/custom value carrying the character, not an invalid nucleotide ALT.",
     "oracle_status": "NOT GENERATED: run VEP 116.2",
     "raw_multiallelic_required": false,
@@ -2095,7 +2097,8 @@
     "porting_lane": "everything parity",
     "related_existing_fixtures": [],
     "status": "BLOCKED",
-    "block_reason": "Upstream injects Allele=\";\" directly into a Perl output hash. No valid normalized SNV/indel allele carries this stimulus; would need a controlled annotation value and a different projection."
+    "block_reason": "No semicolon-bearing witness in the scanned emitted transcript/feature identifiers or effective known-variant names and CLIN_SIG values. Upstream injects Allele=semicolon into an output hash; a legitimate normalized SNV/indel does not supply that value.",
+    "blocker_category": "data_witness"
   },
   {
     "id": "DT-e91c7aea26",
@@ -2350,8 +2353,8 @@
       "https://github.com/Ensembl/ensembl-vep/blob/2cb0bbe216bb31c75de8f8000e2da7ff4fb7b451/t/AnnotationSource_Database_Transcript.t#L299-L301"
     ],
     "old_cache_problem": "Release-84 microcache expectation: rediscover the witness and regenerate with cache 116; old literal is not an oracle.",
-    "potential_vepyr_bug": "Unassessed: no 116.2 differential run. A candidate is not evidence of a bug.",
-    "unsupported_features": "None identified for --everything parity; runtime unverified.",
+    "potential_vepyr_bug": "No additional vepyr defect demonstrated; see the witness assessment in unblocking/README.md.",
+    "unsupported_features": "Not representable by this normalized offline VCF-to-VCF contract.",
     "witness_status": "DB filter is not proof cache mode filters the same way. Qualify a 116.2 cache-mode witness before accepting this analog.",
     "oracle_status": "NOT GENERATED: run VEP 116.2",
     "raw_multiallelic_required": false,
@@ -2378,7 +2381,8 @@
     "porting_lane": "everything parity",
     "related_existing_fixtures": [],
     "status": "BLOCKED",
-    "block_reason": "Source tests filtering readthrough_tra-tagged transcripts in the test database. Absence in an offline cache cannot prove that database filtering path; no positive tagged current-cache witness was qualified."
+    "block_reason": "The upstream assertion filters readthrough records from a test database containing known positives. Offline cache absence cannot prove database filtering. Retain as a database integration test, outside normalized VCF-to-VCF annotation with these caches.",
+    "blocker_category": "outside_contract"
   },
   {
     "id": "DT-57cd2a2bc5",
@@ -2522,8 +2526,8 @@
       "https://github.com/Ensembl/ensembl-vep/blob/2cb0bbe216bb31c75de8f8000e2da7ff4fb7b451/t/InputBuffer.t#L235-L239"
     ],
     "old_cache_problem": "No old-cache value is needed for this property; generate a fresh 116.2 oracle nevertheless.",
-    "potential_vepyr_bug": "Unassessed: no 116.2 differential run. A candidate is not evidence of a bug.",
-    "unsupported_features": "None identified for --everything parity; runtime unverified.",
+    "potential_vepyr_bug": "No additional vepyr defect demonstrated; see the witness assessment in unblocking/README.md.",
+    "unsupported_features": "No additional annotation flag identified; the missing piece is a qualifying data witness.",
     "witness_status": "Synthetic interval query: find release-116 feature boundaries or declare a controlled custom feature; public output only tests the overlap outcome, not the tree/fallback implementation.",
     "oracle_status": "NOT GENERATED: run VEP 116.2",
     "raw_multiallelic_required": false,
@@ -2550,7 +2554,8 @@
     "porting_lane": "everything parity",
     "related_existing_fixtures": [],
     "status": "BLOCKED",
-    "block_reason": "Source queries an in-memory interval tree at an exactly coincident one-base interval. No one-base transcript/regulatory/motif feature witness found in inspected contigs 1,2,21,22,MT; absence of a witness is not proof of an unsupported feature."
+    "block_reason": "All 1,869 transcript, 24 regulatory and 24 motif shards scanned: zero features with start=end. The upstream assertion explicitly queries a one-base interval; ordinary overlap with a longer feature does not exercise that exact interval property. A matched real annotation source with a one-base feature is needed.",
+    "blocker_category": "data_witness"
   },
   {
     "id": "DT-031627e782",
@@ -7466,8 +7471,8 @@
       "https://github.com/Ensembl/ensembl-vep/blob/2cb0bbe216bb31c75de8f8000e2da7ff4fb7b451/t/Parser.t#L251-L251"
     ],
     "old_cache_problem": "No old-cache value is needed for this property; generate a fresh 116.2 oracle nevertheless.",
-    "potential_vepyr_bug": "Unassessed: no 116.2 differential run. A candidate is not evidence of a bug.",
-    "unsupported_features": "Campaign constraint: normalized input removes the CRLF stimulus; not an engine-support verdict.",
+    "potential_vepyr_bug": "No additional vepyr defect demonstrated; see the witness assessment in unblocking/README.md.",
+    "unsupported_features": "Not representable by this normalized offline VCF-to-VCF contract.",
     "witness_status": "input recipe identified; verify release-116 witness",
     "oracle_status": "NOT GENERATED: run VEP 116.2",
     "raw_multiallelic_required": false,
@@ -7494,7 +7499,8 @@
     "porting_lane": "everything parity",
     "related_existing_fixtures": [],
     "status": "BLOCKED",
-    "block_reason": "Required bcftools normalization rewrites CRLF to LF. Re-encoding input after normalization would violate the agreed normalization fixed point, so the CRLF parser stimulus is out of this campaign."
+    "block_reason": "The upstream assertion checks CRLF format detection before annotation. Required bcftools normalization rewrites line endings to LF, so the stimulus does not reach either engine. Retain as a raw-parser test; changing line endings after normalization would violate this campaign contract.",
+    "blocker_category": "outside_contract"
   },
   {
     "id": "DT-4d25e2d5ce",
@@ -7903,8 +7909,8 @@
       "https://github.com/Ensembl/ensembl-vep/blob/2cb0bbe216bb31c75de8f8000e2da7ff4fb7b451/t/OutputFactory_VCF.t#L331-L336"
     ],
     "old_cache_problem": "No old-cache value is needed for this property; generate a fresh 116.2 oracle nevertheless.",
-    "potential_vepyr_bug": "Unassessed: no 116.2 differential run. A candidate is not evidence of a bug.",
-    "unsupported_features": "None identified for --everything parity; runtime unverified.",
+    "potential_vepyr_bug": "No additional vepyr defect demonstrated; see the witness assessment in unblocking/README.md.",
+    "unsupported_features": "No additional annotation flag identified; the missing piece is a qualifying data witness.",
     "witness_status": "Source injects an output value directly; needs a real cache/custom value carrying the character, not an invalid nucleotide ALT.",
     "oracle_status": "NOT GENERATED: run VEP 116.2",
     "raw_multiallelic_required": false,
@@ -7931,7 +7937,8 @@
     "porting_lane": "everything parity",
     "related_existing_fixtures": [],
     "status": "BLOCKED",
-    "block_reason": "Upstream injects Allele=\",\" directly into a Perl output hash. In VCF ALT the comma separates alleles; bcftools splits them, so this is not the same annotation-value stimulus."
+    "block_reason": "Commas found in cached RefSeq/protein/TF/CLIN_SIG lists are consumed as list delimiters before VCF serialization. List joining does not establish the upstream scalar comma-escaping property. No scalar output witness qualified.",
+    "blocker_category": "data_witness"
   },
   {
     "id": "DT-866260258b",
@@ -7950,8 +7957,8 @@
       "https://github.com/Ensembl/ensembl-vep/blob/2cb0bbe216bb31c75de8f8000e2da7ff4fb7b451/t/OutputFactory_VCF.t#L331-L336"
     ],
     "old_cache_problem": "No old-cache value is needed for this property; generate a fresh 116.2 oracle nevertheless.",
-    "potential_vepyr_bug": "Unassessed: no 116.2 differential run. A candidate is not evidence of a bug.",
-    "unsupported_features": "None identified for --everything parity; runtime unverified.",
+    "potential_vepyr_bug": "No additional vepyr defect demonstrated; see the witness assessment in unblocking/README.md.",
+    "unsupported_features": "No additional annotation flag identified; the missing piece is a qualifying data witness.",
     "witness_status": "Source injects an output value directly; needs a real cache/custom value carrying the character, not an invalid nucleotide ALT.",
     "oracle_status": "NOT GENERATED: run VEP 116.2",
     "raw_multiallelic_required": false,
@@ -7978,7 +7985,8 @@
     "porting_lane": "everything parity",
     "related_existing_fixtures": [],
     "status": "BLOCKED",
-    "block_reason": "Upstream injects Allele=\"|\" directly into a Perl output hash. This is not a valid literal SNV/indel allele; no qualifying cache-value witness established."
+    "block_reason": "No pipe-bearing witness in the scanned emitted transcript/feature identifiers or effective known-variant names and CLIN_SIG values. Upstream injects a pipe as Allele into an output hash; this is not a valid normalized SNV/indel allele.",
+    "blocker_category": "data_witness"
   },
   {
     "id": "DT-dc8c2f0fc9",
@@ -21353,8 +21361,8 @@
       "https://github.com/Ensembl/ensembl-vep/blob/2cb0bbe216bb31c75de8f8000e2da7ff4fb7b451/t/Parser.t#L144-L144"
     ],
     "old_cache_problem": "No old-cache value is needed for this property; generate a fresh 116.2 oracle nevertheless.",
-    "potential_vepyr_bug": "Unassessed: no 116.2 differential run. A candidate is not evidence of a bug.",
-    "unsupported_features": "None identified for --everything parity; runtime unverified.",
+    "potential_vepyr_bug": "No additional vepyr defect demonstrated; see the witness assessment in unblocking/README.md.",
+    "unsupported_features": "Matched source/synonym configuration is outside the current harness mode.",
     "witness_status": "input recipe identified; verify release-116 witness",
     "oracle_status": "NOT GENERATED: run VEP 116.2",
     "raw_multiallelic_required": false,
@@ -21381,7 +21389,8 @@
     "porting_lane": "everything parity",
     "related_existing_fixtures": [],
     "status": "BLOCKED",
-    "block_reason": "Real VEP 116.2 --everything --merged discovery with M:4472 T>A produces only an intergenic consequence; the same MT input produces transcript consequences. M alias resolution does not reproduce with the supplied default configuration; may require explicit synonyms."
+    "block_reason": "The supplied native cache has MT but default VEP treats input M as intergenic at the tested mitochondrial locus. Its existing synonyms can admit M without canonicalizing it to MT. A matched source/synonym configuration is needed before the original M-to-MT property can be tested; the present harness accepts only --everything plus merged-cache selection.",
+    "blocker_category": "source_configuration"
   },
   {
     "id": "DT-112b9b8d7b",
@@ -21638,8 +21647,8 @@
       "https://github.com/Ensembl/ensembl-vep/blob/2cb0bbe216bb31c75de8f8000e2da7ff4fb7b451/t/Parser.t#L140-L140"
     ],
     "old_cache_problem": "No old-cache value is needed for this property; generate a fresh 116.2 oracle nevertheless.",
-    "potential_vepyr_bug": "Unassessed: no 116.2 differential run. A candidate is not evidence of a bug.",
-    "unsupported_features": "Requires a controlled chr-prefixed annotation source outside the supplied-cache --everything run.",
+    "potential_vepyr_bug": "No additional vepyr defect demonstrated; see the witness assessment in unblocking/README.md.",
+    "unsupported_features": "Matched source/synonym configuration is outside the current harness mode.",
     "witness_status": "input recipe identified; verify release-116 witness",
     "oracle_status": "NOT GENERATED: run VEP 116.2",
     "raw_multiallelic_required": false,
@@ -21666,7 +21675,8 @@
     "porting_lane": "everything parity",
     "related_existing_fixtures": [],
     "status": "BLOCKED",
-    "block_reason": "Source configures a chr-prefixed annotation source before checking a bare contig. The supplied native cache uses bare names; a chr-prefixed controlled/custom source is needed to exercise this direction, beyond the fixed-cache campaign."
+    "block_reason": "Upstream sets a chr-prefixed annotation source then supplies a bare contig. The supplied native cache uses bare contigs. Converted shard filenames alone do not demonstrate the configured source property. Requires an independently prepared matched annotation source and a separate configuration contract, not a modified microcache.",
+    "blocker_category": "source_configuration"
   },
   {
     "id": "DT-4248db998c",
@@ -22856,10 +22866,10 @@
       "https://github.com/Ensembl/ensembl-vep/blob/2cb0bbe216bb31c75de8f8000e2da7ff4fb7b451/t/AnnotationSource_Cache_Variation.t#L53-L53"
     ],
     "old_cache_problem": "Release-84 microcache expectation: rediscover the witness and regenerate with cache 116; old literal is not an oracle.",
-    "potential_vepyr_bug": "Unassessed: no 116.2 differential run. A candidate is not evidence of a bug.",
-    "unsupported_features": "None identified for --everything parity; runtime unverified.",
-    "witness_status": "release-116 witness required",
-    "oracle_status": "NOT GENERATED: run VEP 116.2",
+    "potential_vepyr_bug": "None observed in this run",
+    "unsupported_features": "None: qualified with --everything and the supplied release-116 merged caches.",
+    "witness_status": "Primary property qualified against the generated oracle",
+    "oracle_status": "Generated by VEP 116.2 with merged cache 116",
     "raw_multiallelic_required": false,
     "header_comparison_required": false,
     "relation": "projection",
@@ -22883,8 +22893,79 @@
     "priority": 0,
     "porting_lane": "everything parity",
     "related_existing_fixtures": [],
-    "status": "BLOCKED",
-    "block_reason": "Inspected 14,574,753 chr21 variation records: all 185 failed records lack a variation name. Their missing identifier is not an observable proof of filtering, because it would be absent without filtering too. No named failed witness qualified."
+    "status": "PASS",
+    "rows": [
+      "21\t5230609\t.\tA\tG\t.\t.\t."
+    ],
+    "focus": {
+      "where": {
+        "Feature": "ENST00000623753"
+      },
+      "field": "Existing_variation",
+      "expected": ""
+    },
+    "batch_order": 1000,
+    "witness_note": "Named failed record rs1979841086 is stored in dbsnp_ids, with allele_string=dbSNP_novariation and failed=true. VEP 116.2 --failed 1 reveals the identifier; default --everything excludes it. The earlier claim that all failed chr21 records were nameless was incorrect.",
+    "result": {
+      "vepyr_sha": "b14bda3d4cf80c0f16d62ab371c28866ae589c33",
+      "commands": [
+        {
+          "argv": [
+            "/Users/mwiewior/research/git/vepyr-porting-tests-1162-merged/tools/normalize_input",
+            "/Users/mwiewior/workspace/data_vepyr/evidence/vep1162-unblock-ukcd9p5b/ported/exclude_a_failed_cache_record_by_default_70fe97/raw.vcf",
+            "/Users/mwiewior/research/git/vepyr-porting-tests-1162-merged/tests/data/exclude_a_failed_cache_record_by_default_70fe97"
+          ],
+          "exit": 0,
+          "log": "/Users/mwiewior/workspace/data_vepyr/evidence/vep1162-unblock-ukcd9p5b/ported/exclude_a_failed_cache_record_by_default_70fe97/normalize.log"
+        },
+        {
+          "argv": [
+            "/Users/mwiewior/research/git/vepyr-porting-tests-1162-merged/bless",
+            "--vep-cache-dir",
+            "/Users/mwiewior/workspace/data_vepyr",
+            "--vep-fasta",
+            "/Users/mwiewior/workspace/data_vepyr/input/Homo_sapiens.GRCh38.dna.primary_assembly.fa",
+            "/Users/mwiewior/research/git/vepyr-porting-tests-1162-merged/tests/data/exclude_a_failed_cache_record_by_default_70fe97"
+          ],
+          "exit": 0,
+          "log": "/Users/mwiewior/workspace/data_vepyr/evidence/vep1162-unblock-ukcd9p5b/ported/exclude_a_failed_cache_record_by_default_70fe97/vep.log"
+        },
+        {
+          "argv": [
+            "/Users/mwiewior/research/git/vepyr/.venv/bin/python",
+            "-m",
+            "vepyr",
+            "annotate",
+            "--input_file",
+            "/Users/mwiewior/research/git/vepyr-porting-tests-1162-merged/tests/data/exclude_a_failed_cache_record_by_default_70fe97/input.vcf",
+            "--output_file",
+            "/Users/mwiewior/workspace/data_vepyr/evidence/vep1162-unblock-ukcd9p5b/ported/exclude_a_failed_cache_record_by_default_70fe97/vepyr.vcf",
+            "--dir_cache",
+            "/Users/mwiewior/workspace/data_vepyr/cache/116_GRCh38_merged",
+            "--fasta",
+            "/Users/mwiewior/workspace/data_vepyr/input/Homo_sapiens.GRCh38.dna.primary_assembly.fa",
+            "--cache_version",
+            "116",
+            "--everything",
+            "--no_progress"
+          ],
+          "exit": 0,
+          "log": "/Users/mwiewior/workspace/data_vepyr/evidence/vep1162-unblock-ukcd9p5b/ported/exclude_a_failed_cache_record_by_default_70fe97/vepyr.log"
+        }
+      ],
+      "input_sha256": "e79275661c37b85855d5ef5756d8e58e621e7bd4a756005c04e802f446feae07",
+      "oracle_body_md5": "e183a908bc4fa5fba1d3ad3b3b8b884b",
+      "oracle_focus": "",
+      "normalization_verified": true,
+      "input_sha256_before_vep": "e79275661c37b85855d5ef5756d8e58e621e7bd4a756005c04e802f446feae07",
+      "input_sha256_before_vepyr": "e79275661c37b85855d5ef5756d8e58e621e7bd4a756005c04e802f446feae07",
+      "docker_input_sha256": "e79275661c37b85855d5ef5756d8e58e621e7bd4a756005c04e802f446feae07",
+      "runnable": true,
+      "vepyr_body_md5": "e183a908bc4fa5fba1d3ad3b3b8b884b",
+      "vepyr_focus": "",
+      "focus_pass": true,
+      "status": "PASS"
+    }
   },
   {
     "id": "DT-0521713a8a",
@@ -22901,8 +22982,8 @@
       "https://github.com/Ensembl/ensembl-vep/blob/2cb0bbe216bb31c75de8f8000e2da7ff4fb7b451/t/AnnotationSource_Database_Transcript.t#L289-L290"
     ],
     "old_cache_problem": "Release-84 microcache expectation: rediscover the witness and regenerate with cache 116; old literal is not an oracle.",
-    "potential_vepyr_bug": "Unassessed: no 116.2 differential run. A candidate is not evidence of a bug.",
-    "unsupported_features": "None identified for --everything parity; runtime unverified.",
+    "potential_vepyr_bug": "No additional vepyr defect demonstrated; see the witness assessment in unblocking/README.md.",
+    "unsupported_features": "Not representable by this normalized offline VCF-to-VCF contract.",
     "witness_status": "release-116 witness required",
     "oracle_status": "NOT GENERATED: run VEP 116.2",
     "raw_multiallelic_required": false,
@@ -22929,7 +23010,8 @@
     "porting_lane": "everything parity",
     "related_existing_fixtures": [],
     "status": "BLOCKED",
-    "block_reason": "Source verifies artifact transcript filtering against a test database with three known artifact transcripts. No corresponding positive artifact witness qualified in the supplied chr21 cache; cached absence does not establish the database-filtering behavior."
+    "block_reason": "The upstream assertion filters artifact transcripts from a test database containing known positives. Offline cache absence cannot prove database filtering. Retain as a database integration test, outside normalized VCF-to-VCF annotation with these caches.",
+    "blocker_category": "outside_contract"
   },
   {
     "id": "DT-eee329ca1e",
@@ -22946,10 +23028,10 @@
       "https://github.com/Ensembl/ensembl-vep/blob/2cb0bbe216bb31c75de8f8000e2da7ff4fb7b451/t/AnnotationSource_Cache_Variation.t#L163-L167"
     ],
     "old_cache_problem": "Release-84 microcache expectation: rediscover the witness and regenerate with cache 116; old literal is not an oracle.",
-    "potential_vepyr_bug": "Unassessed: no 116.2 differential run. A candidate is not evidence of a bug.",
-    "unsupported_features": "None identified for --everything parity; runtime unverified.",
-    "witness_status": "release-116 witness required",
-    "oracle_status": "NOT GENERATED: run VEP 116.2",
+    "potential_vepyr_bug": "None observed in this run",
+    "unsupported_features": "None: qualified with --everything and the supplied release-116 merged caches.",
+    "witness_status": "Primary property qualified against the generated oracle",
+    "oracle_status": "Generated by VEP 116.2 with merged cache 116",
     "raw_multiallelic_required": false,
     "header_comparison_required": false,
     "relation": "projection",
@@ -22973,8 +23055,79 @@
     "priority": 0,
     "porting_lane": "everything parity",
     "related_existing_fixtures": [],
-    "status": "BLOCKED",
-    "block_reason": "Upstream mutates an in-memory known variant to allele_string=NULL. No named record with a missing allele string found in the inspected chr21 variation cache; no current-cache VCF witness qualified."
+    "status": "PASS",
+    "rows": [
+      "21\t10521658\t.\tG\tA\t.\t.\t."
+    ],
+    "focus": {
+      "where": {
+        "Feature": "ENST00000427445"
+      },
+      "field": "Existing_variation",
+      "expected": "COSV53365562"
+    },
+    "batch_order": 1001,
+    "witness_note": "The native unknown-allele sentinel COSMIC_MUTATION exercises the same no-slash branch as the upstream synthetic NULL value. Both engines include COSV53365562 at matching coordinates. The earlier search checked only missing/literal NULL alleles and missed this witness.",
+    "result": {
+      "vepyr_sha": "b14bda3d4cf80c0f16d62ab371c28866ae589c33",
+      "commands": [
+        {
+          "argv": [
+            "/Users/mwiewior/research/git/vepyr-porting-tests-1162-merged/tools/normalize_input",
+            "/Users/mwiewior/workspace/data_vepyr/evidence/vep1162-unblock-ukcd9p5b/ported/include_a_coordinate_matched_known_record_with_unknown_alleles_eee329/raw.vcf",
+            "/Users/mwiewior/research/git/vepyr-porting-tests-1162-merged/tests/data/include_a_coordinate_matched_known_record_with_unknown_alleles_eee329"
+          ],
+          "exit": 0,
+          "log": "/Users/mwiewior/workspace/data_vepyr/evidence/vep1162-unblock-ukcd9p5b/ported/include_a_coordinate_matched_known_record_with_unknown_alleles_eee329/normalize.log"
+        },
+        {
+          "argv": [
+            "/Users/mwiewior/research/git/vepyr-porting-tests-1162-merged/bless",
+            "--vep-cache-dir",
+            "/Users/mwiewior/workspace/data_vepyr",
+            "--vep-fasta",
+            "/Users/mwiewior/workspace/data_vepyr/input/Homo_sapiens.GRCh38.dna.primary_assembly.fa",
+            "/Users/mwiewior/research/git/vepyr-porting-tests-1162-merged/tests/data/include_a_coordinate_matched_known_record_with_unknown_alleles_eee329"
+          ],
+          "exit": 0,
+          "log": "/Users/mwiewior/workspace/data_vepyr/evidence/vep1162-unblock-ukcd9p5b/ported/include_a_coordinate_matched_known_record_with_unknown_alleles_eee329/vep.log"
+        },
+        {
+          "argv": [
+            "/Users/mwiewior/research/git/vepyr/.venv/bin/python",
+            "-m",
+            "vepyr",
+            "annotate",
+            "--input_file",
+            "/Users/mwiewior/research/git/vepyr-porting-tests-1162-merged/tests/data/include_a_coordinate_matched_known_record_with_unknown_alleles_eee329/input.vcf",
+            "--output_file",
+            "/Users/mwiewior/workspace/data_vepyr/evidence/vep1162-unblock-ukcd9p5b/ported/include_a_coordinate_matched_known_record_with_unknown_alleles_eee329/vepyr.vcf",
+            "--dir_cache",
+            "/Users/mwiewior/workspace/data_vepyr/cache/116_GRCh38_merged",
+            "--fasta",
+            "/Users/mwiewior/workspace/data_vepyr/input/Homo_sapiens.GRCh38.dna.primary_assembly.fa",
+            "--cache_version",
+            "116",
+            "--everything",
+            "--no_progress"
+          ],
+          "exit": 0,
+          "log": "/Users/mwiewior/workspace/data_vepyr/evidence/vep1162-unblock-ukcd9p5b/ported/include_a_coordinate_matched_known_record_with_unknown_alleles_eee329/vepyr.log"
+        }
+      ],
+      "input_sha256": "5261c2cf3ce5983858966fd5f9ae517d8a10073c57164a980c29f8c572a621a5",
+      "oracle_body_md5": "1c0932086f43d0851f16c318bfc36b10",
+      "oracle_focus": "COSV53365562",
+      "normalization_verified": true,
+      "input_sha256_before_vep": "5261c2cf3ce5983858966fd5f9ae517d8a10073c57164a980c29f8c572a621a5",
+      "input_sha256_before_vepyr": "5261c2cf3ce5983858966fd5f9ae517d8a10073c57164a980c29f8c572a621a5",
+      "docker_input_sha256": "5261c2cf3ce5983858966fd5f9ae517d8a10073c57164a980c29f8c572a621a5",
+      "runnable": true,
+      "vepyr_body_md5": "1c0932086f43d0851f16c318bfc36b10",
+      "vepyr_focus": "COSV53365562",
+      "focus_pass": true,
+      "status": "PASS"
+    }
   },
   {
     "id": "DT-c44397d314",
@@ -23348,8 +23501,8 @@
       "https://github.com/Ensembl/ensembl-vep/blob/2cb0bbe216bb31c75de8f8000e2da7ff4fb7b451/t/AnnotationSource_Cache_Variation.t#L131-L143"
     ],
     "old_cache_problem": "Release-84 microcache expectation: rediscover the witness and regenerate with cache 116; old literal is not an oracle.",
-    "potential_vepyr_bug": "Unassessed: no 116.2 differential run. A candidate is not evidence of a bug.",
-    "unsupported_features": "None identified for --everything parity; runtime unverified.",
+    "potential_vepyr_bug": "Confirmed strand-loss capability gap; see https://github.com/biodatageeks/vepyr/issues/156. Whole-VCF witness not yet qualified.",
+    "unsupported_features": "Reverse-strand known-variant conversion/lookup: vepyr#156.",
     "witness_status": "release-116 witness required",
     "oracle_status": "NOT GENERATED: run VEP 116.2",
     "raw_multiallelic_required": false,
@@ -23376,7 +23529,8 @@
     "porting_lane": "everything parity",
     "related_existing_fixtures": [],
     "status": "BLOCKED",
-    "block_reason": "Upstream constructs a reverse-strand (-1) cache allele T/C. No reverse-strand cache record has yet been qualified as a VCF witness in the supplied cache; a generic allele match would not exercise strand complementation. All 14,574,753 native chr21 rows have strand=\".\"; no -1 witness in this scoped scan."
+    "block_reason": "Tracked in biodatageeks/vepyr#156: native parsing retains variation strand but conversion drops it and runtime lookup assumes +1. Helper probes demonstrate missed reverse-strand matches. Fix conversion and lookup, rebuild matched caches, then qualify a real reverse-strand VCF witness. No such stock-cache witness qualified yet.",
+    "blocker_category": "cache_conversion"
   },
   {
     "id": "DT-4d3b3ca340",
@@ -23393,20 +23547,20 @@
       "https://github.com/Ensembl/ensembl-vep/blob/2cb0bbe216bb31c75de8f8000e2da7ff4fb7b451/t/AnnotationSource_Cache_Transcript.t#L193-L193"
     ],
     "old_cache_problem": "Release-84 microcache expectation: rediscover the witness and regenerate with cache 116; old literal is not an oracle.",
-    "potential_vepyr_bug": "Unassessed: no 116.2 differential run. A candidate is not evidence of a bug.",
-    "unsupported_features": "None identified for --everything parity; runtime unverified.",
-    "witness_status": "release-116 witness required",
-    "oracle_status": "NOT GENERATED: run VEP 116.2",
+    "potential_vepyr_bug": "None observed in this run",
+    "unsupported_features": "None: qualified with --everything and the supplied release-116 merged caches.",
+    "witness_status": "Primary property qualified against the generated oracle",
+    "oracle_status": "Generated by VEP 116.2 with merged cache 116",
     "raw_multiallelic_required": false,
     "header_comparison_required": false,
     "relation": "projection",
     "implementation_links": [
       {
         "path": "modules/Bio/EnsEMBL/VEP/AnnotationType/Transcript.pm",
-        "line": 92,
-        "function": "annotate_InputBuffer",
-        "url": "https://github.com/Ensembl/ensembl-vep/blob/2cb0bbe216bb31c75de8f8000e2da7ff4fb7b451/modules/Bio/EnsEMBL/VEP/AnnotationType/Transcript.pm#L92",
-        "relation": "implementation entrypoint, potentially delegating to Ensembl dependencies"
+        "line": 266,
+        "function": "merge_features",
+        "url": "https://github.com/Ensembl/ensembl-vep/blob/2cb0bbe216bb31c75de8f8000e2da7ff4fb7b451/modules/Bio/EnsEMBL/VEP/AnnotationType/Transcript.pm#L266-L308",
+        "relation": "restores missing HGNC IDs by gene symbol"
       }
     ],
     "vepyr_support_evidence": [
@@ -23420,8 +23574,79 @@
     "priority": 0,
     "porting_lane": "everything parity",
     "related_existing_fixtures": [],
-    "status": "BLOCKED",
-    "block_reason": "Source deletes _gene_hgnc_id from one deserialized transcript then checks restoration from a sibling. Input VCF cannot make that deletion. No native-missing/converted-present HGNC witness found in inspected chr21 transcripts; normal HGNC output would not prove restoration."
+    "status": "PASS",
+    "rows": [
+      "21\t5499023\t.\tC\tT\t.\t.\t."
+    ],
+    "focus": {
+      "where": {
+        "Feature": "XR_951086.3"
+      },
+      "field": "HGNC_ID",
+      "expected": "HGNC:52458"
+    },
+    "batch_order": 1002,
+    "witness_note": "The unmodified native cache has no HGNC ID for XR_951086.3 (LINC01670). VEP merge_features restores HGNC:52458 from same-symbol sibling transcripts; removing the donor IDs in an in-memory diagnostic prevents restoration. Both real VCF runs emit the restored ID. Conversion need not prefill the field: restoration happens during annotation.",
+    "result": {
+      "vepyr_sha": "b14bda3d4cf80c0f16d62ab371c28866ae589c33",
+      "commands": [
+        {
+          "argv": [
+            "/Users/mwiewior/research/git/vepyr-porting-tests-1162-merged/tools/normalize_input",
+            "/Users/mwiewior/workspace/data_vepyr/evidence/vep1162-unblock-ukcd9p5b/ported/recover_a_missing_hgnc_id_from_sibling_transcripts_4d3b3c/raw.vcf",
+            "/Users/mwiewior/research/git/vepyr-porting-tests-1162-merged/tests/data/recover_a_missing_hgnc_id_from_sibling_transcripts_4d3b3c"
+          ],
+          "exit": 0,
+          "log": "/Users/mwiewior/workspace/data_vepyr/evidence/vep1162-unblock-ukcd9p5b/ported/recover_a_missing_hgnc_id_from_sibling_transcripts_4d3b3c/normalize.log"
+        },
+        {
+          "argv": [
+            "/Users/mwiewior/research/git/vepyr-porting-tests-1162-merged/bless",
+            "--vep-cache-dir",
+            "/Users/mwiewior/workspace/data_vepyr",
+            "--vep-fasta",
+            "/Users/mwiewior/workspace/data_vepyr/input/Homo_sapiens.GRCh38.dna.primary_assembly.fa",
+            "/Users/mwiewior/research/git/vepyr-porting-tests-1162-merged/tests/data/recover_a_missing_hgnc_id_from_sibling_transcripts_4d3b3c"
+          ],
+          "exit": 0,
+          "log": "/Users/mwiewior/workspace/data_vepyr/evidence/vep1162-unblock-ukcd9p5b/ported/recover_a_missing_hgnc_id_from_sibling_transcripts_4d3b3c/vep.log"
+        },
+        {
+          "argv": [
+            "/Users/mwiewior/research/git/vepyr/.venv/bin/python",
+            "-m",
+            "vepyr",
+            "annotate",
+            "--input_file",
+            "/Users/mwiewior/research/git/vepyr-porting-tests-1162-merged/tests/data/recover_a_missing_hgnc_id_from_sibling_transcripts_4d3b3c/input.vcf",
+            "--output_file",
+            "/Users/mwiewior/workspace/data_vepyr/evidence/vep1162-unblock-ukcd9p5b/ported/recover_a_missing_hgnc_id_from_sibling_transcripts_4d3b3c/vepyr.vcf",
+            "--dir_cache",
+            "/Users/mwiewior/workspace/data_vepyr/cache/116_GRCh38_merged",
+            "--fasta",
+            "/Users/mwiewior/workspace/data_vepyr/input/Homo_sapiens.GRCh38.dna.primary_assembly.fa",
+            "--cache_version",
+            "116",
+            "--everything",
+            "--no_progress"
+          ],
+          "exit": 0,
+          "log": "/Users/mwiewior/workspace/data_vepyr/evidence/vep1162-unblock-ukcd9p5b/ported/recover_a_missing_hgnc_id_from_sibling_transcripts_4d3b3c/vepyr.log"
+        }
+      ],
+      "input_sha256": "8170001ad3cfec6f339ac7b8f2ee067ba35f8662eb83fadadb90b579fc65b55a",
+      "oracle_body_md5": "37fab4a6056170d19f6710b4667477af",
+      "oracle_focus": "HGNC:52458",
+      "normalization_verified": true,
+      "input_sha256_before_vep": "8170001ad3cfec6f339ac7b8f2ee067ba35f8662eb83fadadb90b579fc65b55a",
+      "input_sha256_before_vepyr": "8170001ad3cfec6f339ac7b8f2ee067ba35f8662eb83fadadb90b579fc65b55a",
+      "docker_input_sha256": "8170001ad3cfec6f339ac7b8f2ee067ba35f8662eb83fadadb90b579fc65b55a",
+      "runnable": true,
+      "vepyr_body_md5": "37fab4a6056170d19f6710b4667477af",
+      "vepyr_focus": "HGNC:52458",
+      "focus_pass": true,
+      "status": "PASS"
+    }
   },
   {
     "id": "DT-a49e2146f6",
@@ -23438,8 +23663,8 @@
       "https://github.com/Ensembl/ensembl-vep/blob/2cb0bbe216bb31c75de8f8000e2da7ff4fb7b451/t/AnnotationSource_Cache_Variation.t#L146-L150"
     ],
     "old_cache_problem": "Release-84 microcache expectation: rediscover the witness and regenerate with cache 116; old literal is not an oracle.",
-    "potential_vepyr_bug": "Unassessed: no 116.2 differential run. A candidate is not evidence of a bug.",
-    "unsupported_features": "None identified for --everything parity; runtime unverified.",
+    "potential_vepyr_bug": "Confirmed strand-loss capability gap; see https://github.com/biodatageeks/vepyr/issues/156. Whole-VCF witness not yet qualified.",
+    "unsupported_features": "Reverse-strand known-variant conversion/lookup: vepyr#156.",
     "witness_status": "release-116 witness required",
     "oracle_status": "NOT GENERATED: run VEP 116.2",
     "raw_multiallelic_required": false,
@@ -23466,7 +23691,8 @@
     "porting_lane": "everything parity",
     "related_existing_fixtures": [],
     "status": "BLOCKED",
-    "block_reason": "Upstream constructs a reverse-strand (-1) cache allele T/G and rejects a literal-base match. No qualifying reverse-strand current-cache record established; a generic mismatch would not test complementation. All 14,574,753 native chr21 rows have strand=\".\"; no -1 witness in this scoped scan."
+    "block_reason": "Tracked in biodatageeks/vepyr#156 with the same strand-loss root cause. The original negative helper example passes coincidentally; an additional opposite-orientation example demonstrates a false positive. Conversion/lookup repair plus a real matching-cache witness is needed before this assertion can become a VCF port.",
+    "blocker_category": "cache_conversion"
   },
   {
     "id": "DT-aaaa359947",
