@@ -15310,11 +15310,11 @@
         {
           "argv": [
             "/Users/mwiewior/research/git/vepyr-porting-tests-1162-merged/tools/normalize_input",
-            "/Users/mwiewior/workspace/data_vepyr/evidence/vep1162-merged-20261003/report_cdna_position_for_the_utr_consequence_de435c/raw.vcf",
+            "/Users/mwiewior/workspace/data_vepyr/evidence/vep1162-merged-20261003/normalized-rerun/report_cdna_position_for_the_utr_consequence_de435c/raw.vcf",
             "/Users/mwiewior/research/git/vepyr-porting-tests-1162-merged/tests/data/report_cdna_position_for_the_utr_consequence_de435c"
           ],
           "exit": 0,
-          "log": "/Users/mwiewior/workspace/data_vepyr/evidence/vep1162-merged-20261003/report_cdna_position_for_the_utr_consequence_de435c/normalize.log"
+          "log": "/Users/mwiewior/workspace/data_vepyr/evidence/vep1162-merged-20261003/normalized-rerun/report_cdna_position_for_the_utr_consequence_de435c/normalize.log"
         },
         {
           "argv": [
@@ -15326,7 +15326,7 @@
             "/Users/mwiewior/research/git/vepyr-porting-tests-1162-merged/tests/data/report_cdna_position_for_the_utr_consequence_de435c"
           ],
           "exit": 0,
-          "log": "/Users/mwiewior/workspace/data_vepyr/evidence/vep1162-merged-20261003/report_cdna_position_for_the_utr_consequence_de435c/vep.log"
+          "log": "/Users/mwiewior/workspace/data_vepyr/evidence/vep1162-merged-20261003/normalized-rerun/report_cdna_position_for_the_utr_consequence_de435c/vep.log"
         },
         {
           "argv": [
@@ -15337,7 +15337,7 @@
             "--input_file",
             "/Users/mwiewior/research/git/vepyr-porting-tests-1162-merged/tests/data/report_cdna_position_for_the_utr_consequence_de435c/input.vcf",
             "--output_file",
-            "/Users/mwiewior/workspace/data_vepyr/evidence/vep1162-merged-20261003/report_cdna_position_for_the_utr_consequence_de435c/vepyr.vcf",
+            "/Users/mwiewior/workspace/data_vepyr/evidence/vep1162-merged-20261003/normalized-rerun/report_cdna_position_for_the_utr_consequence_de435c/vepyr.vcf",
             "--dir_cache",
             "/Users/mwiewior/workspace/data_vepyr/cache/116_GRCh38_merged",
             "--fasta",
@@ -15348,12 +15348,16 @@
             "--no_progress"
           ],
           "exit": 0,
-          "log": "/Users/mwiewior/workspace/data_vepyr/evidence/vep1162-merged-20261003/report_cdna_position_for_the_utr_consequence_de435c/vepyr.log"
+          "log": "/Users/mwiewior/workspace/data_vepyr/evidence/vep1162-merged-20261003/normalized-rerun/report_cdna_position_for_the_utr_consequence_de435c/vepyr.log"
         }
       ],
       "input_sha256": "47964cf3345147ba8b15027a02e68004e17f1fb4a0a7cdd707ca8391d98dee93",
       "oracle_body_md5": "05bf31b59c70febbbace9660e9b5288e",
       "oracle_focus": "1130",
+      "normalization_verified": true,
+      "input_sha256_before_vep": "47964cf3345147ba8b15027a02e68004e17f1fb4a0a7cdd707ca8391d98dee93",
+      "input_sha256_before_vepyr": "47964cf3345147ba8b15027a02e68004e17f1fb4a0a7cdd707ca8391d98dee93",
+      "docker_input_sha256": "47964cf3345147ba8b15027a02e68004e17f1fb4a0a7cdd707ca8391d98dee93",
       "runnable": true,
       "vepyr_body_md5": "05bf31b59c70febbbace9660e9b5288e",
       "vepyr_focus": "1130",
@@ -15451,11 +15455,11 @@
         {
           "argv": [
             "/Users/mwiewior/research/git/vepyr-porting-tests-1162-merged/tools/normalize_input",
-            "/Users/mwiewior/workspace/data_vepyr/evidence/vep1162-merged-20261003/report_cdna_position_for_the_coding_transcript_consequence_4aaf19/raw.vcf",
+            "/Users/mwiewior/workspace/data_vepyr/evidence/vep1162-merged-20261003/normalized-rerun/report_cdna_position_for_the_coding_transcript_consequence_4aaf19/raw.vcf",
             "/Users/mwiewior/research/git/vepyr-porting-tests-1162-merged/tests/data/report_cdna_position_for_the_coding_transcript_consequence_4aaf19"
           ],
           "exit": 0,
-          "log": "/Users/mwiewior/workspace/data_vepyr/evidence/vep1162-merged-20261003/report_cdna_position_for_the_coding_transcript_consequence_4aaf19/normalize.log"
+          "log": "/Users/mwiewior/workspace/data_vepyr/evidence/vep1162-merged-20261003/normalized-rerun/report_cdna_position_for_the_coding_transcript_consequence_4aaf19/normalize.log"
         },
         {
           "argv": [
@@ -15467,7 +15471,7 @@
             "/Users/mwiewior/research/git/vepyr-porting-tests-1162-merged/tests/data/report_cdna_position_for_the_coding_transcript_consequence_4aaf19"
           ],
           "exit": 0,
-          "log": "/Users/mwiewior/workspace/data_vepyr/evidence/vep1162-merged-20261003/report_cdna_position_for_the_coding_transcript_consequence_4aaf19/vep.log"
+          "log": "/Users/mwiewior/workspace/data_vepyr/evidence/vep1162-merged-20261003/normalized-rerun/report_cdna_position_for_the_coding_transcript_consequence_4aaf19/vep.log"
         },
         {
           "argv": [
@@ -15478,7 +15482,7 @@
             "--input_file",
             "/Users/mwiewior/research/git/vepyr-porting-tests-1162-merged/tests/data/report_cdna_position_for_the_coding_transcript_consequence_4aaf19/input.vcf",
             "--output_file",
-            "/Users/mwiewior/workspace/data_vepyr/evidence/vep1162-merged-20261003/report_cdna_position_for_the_coding_transcript_consequence_4aaf19/vepyr.vcf",
+            "/Users/mwiewior/workspace/data_vepyr/evidence/vep1162-merged-20261003/normalized-rerun/report_cdna_position_for_the_coding_transcript_consequence_4aaf19/vepyr.vcf",
             "--dir_cache",
             "/Users/mwiewior/workspace/data_vepyr/cache/116_GRCh38_merged",
             "--fasta",
@@ -15489,12 +15493,16 @@
             "--no_progress"
           ],
           "exit": 0,
-          "log": "/Users/mwiewior/workspace/data_vepyr/evidence/vep1162-merged-20261003/report_cdna_position_for_the_coding_transcript_consequence_4aaf19/vepyr.log"
+          "log": "/Users/mwiewior/workspace/data_vepyr/evidence/vep1162-merged-20261003/normalized-rerun/report_cdna_position_for_the_coding_transcript_consequence_4aaf19/vepyr.log"
         }
       ],
       "input_sha256": "47964cf3345147ba8b15027a02e68004e17f1fb4a0a7cdd707ca8391d98dee93",
       "oracle_body_md5": "05bf31b59c70febbbace9660e9b5288e",
       "oracle_focus": "997",
+      "normalization_verified": true,
+      "input_sha256_before_vep": "47964cf3345147ba8b15027a02e68004e17f1fb4a0a7cdd707ca8391d98dee93",
+      "input_sha256_before_vepyr": "47964cf3345147ba8b15027a02e68004e17f1fb4a0a7cdd707ca8391d98dee93",
+      "docker_input_sha256": "47964cf3345147ba8b15027a02e68004e17f1fb4a0a7cdd707ca8391d98dee93",
       "runnable": true,
       "vepyr_body_md5": "05bf31b59c70febbbace9660e9b5288e",
       "vepyr_focus": "997",
@@ -15575,11 +15583,11 @@
         {
           "argv": [
             "/Users/mwiewior/research/git/vepyr-porting-tests-1162-merged/tools/normalize_input",
-            "/Users/mwiewior/workspace/data_vepyr/evidence/vep1162-merged-20261003/report_cdna_position_on_the_app_missense_consequence_977462/raw.vcf",
+            "/Users/mwiewior/workspace/data_vepyr/evidence/vep1162-merged-20261003/normalized-rerun/report_cdna_position_on_the_app_missense_consequence_977462/raw.vcf",
             "/Users/mwiewior/research/git/vepyr-porting-tests-1162-merged/tests/data/report_cdna_position_on_the_app_missense_consequence_977462"
           ],
           "exit": 0,
-          "log": "/Users/mwiewior/workspace/data_vepyr/evidence/vep1162-merged-20261003/report_cdna_position_on_the_app_missense_consequence_977462/normalize.log"
+          "log": "/Users/mwiewior/workspace/data_vepyr/evidence/vep1162-merged-20261003/normalized-rerun/report_cdna_position_on_the_app_missense_consequence_977462/normalize.log"
         },
         {
           "argv": [
@@ -15591,7 +15599,7 @@
             "/Users/mwiewior/research/git/vepyr-porting-tests-1162-merged/tests/data/report_cdna_position_on_the_app_missense_consequence_977462"
           ],
           "exit": 0,
-          "log": "/Users/mwiewior/workspace/data_vepyr/evidence/vep1162-merged-20261003/report_cdna_position_on_the_app_missense_consequence_977462/vep.log"
+          "log": "/Users/mwiewior/workspace/data_vepyr/evidence/vep1162-merged-20261003/normalized-rerun/report_cdna_position_on_the_app_missense_consequence_977462/vep.log"
         },
         {
           "argv": [
@@ -15602,7 +15610,7 @@
             "--input_file",
             "/Users/mwiewior/research/git/vepyr-porting-tests-1162-merged/tests/data/report_cdna_position_on_the_app_missense_consequence_977462/input.vcf",
             "--output_file",
-            "/Users/mwiewior/workspace/data_vepyr/evidence/vep1162-merged-20261003/report_cdna_position_on_the_app_missense_consequence_977462/vepyr.vcf",
+            "/Users/mwiewior/workspace/data_vepyr/evidence/vep1162-merged-20261003/normalized-rerun/report_cdna_position_on_the_app_missense_consequence_977462/vepyr.vcf",
             "--dir_cache",
             "/Users/mwiewior/workspace/data_vepyr/cache/116_GRCh38_merged",
             "--fasta",
@@ -15613,12 +15621,16 @@
             "--no_progress"
           ],
           "exit": 0,
-          "log": "/Users/mwiewior/workspace/data_vepyr/evidence/vep1162-merged-20261003/report_cdna_position_on_the_app_missense_consequence_977462/vepyr.log"
+          "log": "/Users/mwiewior/workspace/data_vepyr/evidence/vep1162-merged-20261003/normalized-rerun/report_cdna_position_on_the_app_missense_consequence_977462/vepyr.log"
         }
       ],
       "input_sha256": "d2eeaec241628ac214f50b63eb679f00e2da1428ed7848bd89c998bf6b3c2bd6",
       "oracle_body_md5": "e4a8977ffa983361a70be47d05515bbb",
       "oracle_focus": "1273",
+      "normalization_verified": true,
+      "input_sha256_before_vep": "d2eeaec241628ac214f50b63eb679f00e2da1428ed7848bd89c998bf6b3c2bd6",
+      "input_sha256_before_vepyr": "d2eeaec241628ac214f50b63eb679f00e2da1428ed7848bd89c998bf6b3c2bd6",
+      "docker_input_sha256": "d2eeaec241628ac214f50b63eb679f00e2da1428ed7848bd89c998bf6b3c2bd6",
       "runnable": true,
       "vepyr_body_md5": "e4a8977ffa983361a70be47d05515bbb",
       "vepyr_focus": "1273",
@@ -16040,11 +16052,11 @@
         {
           "argv": [
             "/Users/mwiewior/research/git/vepyr-porting-tests-1162-merged/tools/normalize_input",
-            "/Users/mwiewior/workspace/data_vepyr/evidence/vep1162-merged-20261003/report_gnomade_af_for_the_matched_alt_e9d93f/raw.vcf",
+            "/Users/mwiewior/workspace/data_vepyr/evidence/vep1162-merged-20261003/normalized-rerun/report_gnomade_af_for_the_matched_alt_e9d93f/raw.vcf",
             "/Users/mwiewior/research/git/vepyr-porting-tests-1162-merged/tests/data/report_gnomade_af_for_the_matched_alt_e9d93f"
           ],
           "exit": 0,
-          "log": "/Users/mwiewior/workspace/data_vepyr/evidence/vep1162-merged-20261003/report_gnomade_af_for_the_matched_alt_e9d93f/normalize.log"
+          "log": "/Users/mwiewior/workspace/data_vepyr/evidence/vep1162-merged-20261003/normalized-rerun/report_gnomade_af_for_the_matched_alt_e9d93f/normalize.log"
         },
         {
           "argv": [
@@ -16056,7 +16068,7 @@
             "/Users/mwiewior/research/git/vepyr-porting-tests-1162-merged/tests/data/report_gnomade_af_for_the_matched_alt_e9d93f"
           ],
           "exit": 0,
-          "log": "/Users/mwiewior/workspace/data_vepyr/evidence/vep1162-merged-20261003/report_gnomade_af_for_the_matched_alt_e9d93f/vep.log"
+          "log": "/Users/mwiewior/workspace/data_vepyr/evidence/vep1162-merged-20261003/normalized-rerun/report_gnomade_af_for_the_matched_alt_e9d93f/vep.log"
         },
         {
           "argv": [
@@ -16067,7 +16079,7 @@
             "--input_file",
             "/Users/mwiewior/research/git/vepyr-porting-tests-1162-merged/tests/data/report_gnomade_af_for_the_matched_alt_e9d93f/input.vcf",
             "--output_file",
-            "/Users/mwiewior/workspace/data_vepyr/evidence/vep1162-merged-20261003/report_gnomade_af_for_the_matched_alt_e9d93f/vepyr.vcf",
+            "/Users/mwiewior/workspace/data_vepyr/evidence/vep1162-merged-20261003/normalized-rerun/report_gnomade_af_for_the_matched_alt_e9d93f/vepyr.vcf",
             "--dir_cache",
             "/Users/mwiewior/workspace/data_vepyr/cache/116_GRCh38_merged",
             "--fasta",
@@ -16078,12 +16090,16 @@
             "--no_progress"
           ],
           "exit": 0,
-          "log": "/Users/mwiewior/workspace/data_vepyr/evidence/vep1162-merged-20261003/report_gnomade_af_for_the_matched_alt_e9d93f/vepyr.log"
+          "log": "/Users/mwiewior/workspace/data_vepyr/evidence/vep1162-merged-20261003/normalized-rerun/report_gnomade_af_for_the_matched_alt_e9d93f/vepyr.log"
         }
       ],
       "input_sha256": "47964cf3345147ba8b15027a02e68004e17f1fb4a0a7cdd707ca8391d98dee93",
       "oracle_body_md5": "05bf31b59c70febbbace9660e9b5288e",
       "oracle_focus": "9.481e-05",
+      "normalization_verified": true,
+      "input_sha256_before_vep": "47964cf3345147ba8b15027a02e68004e17f1fb4a0a7cdd707ca8391d98dee93",
+      "input_sha256_before_vepyr": "47964cf3345147ba8b15027a02e68004e17f1fb4a0a7cdd707ca8391d98dee93",
+      "docker_input_sha256": "47964cf3345147ba8b15027a02e68004e17f1fb4a0a7cdd707ca8391d98dee93",
       "runnable": true,
       "vepyr_body_md5": "05bf31b59c70febbbace9660e9b5288e",
       "vepyr_focus": "9.481e-05",
@@ -16174,11 +16190,11 @@
         {
           "argv": [
             "/Users/mwiewior/research/git/vepyr-porting-tests-1162-merged/tools/normalize_input",
-            "/Users/mwiewior/workspace/data_vepyr/evidence/vep1162-merged-20261003/report_gnomade_afr_af_for_the_matched_alt_656349/raw.vcf",
+            "/Users/mwiewior/workspace/data_vepyr/evidence/vep1162-merged-20261003/normalized-rerun/report_gnomade_afr_af_for_the_matched_alt_656349/raw.vcf",
             "/Users/mwiewior/research/git/vepyr-porting-tests-1162-merged/tests/data/report_gnomade_afr_af_for_the_matched_alt_656349"
           ],
           "exit": 0,
-          "log": "/Users/mwiewior/workspace/data_vepyr/evidence/vep1162-merged-20261003/report_gnomade_afr_af_for_the_matched_alt_656349/normalize.log"
+          "log": "/Users/mwiewior/workspace/data_vepyr/evidence/vep1162-merged-20261003/normalized-rerun/report_gnomade_afr_af_for_the_matched_alt_656349/normalize.log"
         },
         {
           "argv": [
@@ -16190,7 +16206,7 @@
             "/Users/mwiewior/research/git/vepyr-porting-tests-1162-merged/tests/data/report_gnomade_afr_af_for_the_matched_alt_656349"
           ],
           "exit": 0,
-          "log": "/Users/mwiewior/workspace/data_vepyr/evidence/vep1162-merged-20261003/report_gnomade_afr_af_for_the_matched_alt_656349/vep.log"
+          "log": "/Users/mwiewior/workspace/data_vepyr/evidence/vep1162-merged-20261003/normalized-rerun/report_gnomade_afr_af_for_the_matched_alt_656349/vep.log"
         },
         {
           "argv": [
@@ -16201,7 +16217,7 @@
             "--input_file",
             "/Users/mwiewior/research/git/vepyr-porting-tests-1162-merged/tests/data/report_gnomade_afr_af_for_the_matched_alt_656349/input.vcf",
             "--output_file",
-            "/Users/mwiewior/workspace/data_vepyr/evidence/vep1162-merged-20261003/report_gnomade_afr_af_for_the_matched_alt_656349/vepyr.vcf",
+            "/Users/mwiewior/workspace/data_vepyr/evidence/vep1162-merged-20261003/normalized-rerun/report_gnomade_afr_af_for_the_matched_alt_656349/vepyr.vcf",
             "--dir_cache",
             "/Users/mwiewior/workspace/data_vepyr/cache/116_GRCh38_merged",
             "--fasta",
@@ -16212,12 +16228,16 @@
             "--no_progress"
           ],
           "exit": 0,
-          "log": "/Users/mwiewior/workspace/data_vepyr/evidence/vep1162-merged-20261003/report_gnomade_afr_af_for_the_matched_alt_656349/vepyr.log"
+          "log": "/Users/mwiewior/workspace/data_vepyr/evidence/vep1162-merged-20261003/normalized-rerun/report_gnomade_afr_af_for_the_matched_alt_656349/vepyr.log"
         }
       ],
       "input_sha256": "47964cf3345147ba8b15027a02e68004e17f1fb4a0a7cdd707ca8391d98dee93",
       "oracle_body_md5": "05bf31b59c70febbbace9660e9b5288e",
       "oracle_focus": "0.003061",
+      "normalization_verified": true,
+      "input_sha256_before_vep": "47964cf3345147ba8b15027a02e68004e17f1fb4a0a7cdd707ca8391d98dee93",
+      "input_sha256_before_vepyr": "47964cf3345147ba8b15027a02e68004e17f1fb4a0a7cdd707ca8391d98dee93",
+      "docker_input_sha256": "47964cf3345147ba8b15027a02e68004e17f1fb4a0a7cdd707ca8391d98dee93",
       "runnable": true,
       "vepyr_body_md5": "05bf31b59c70febbbace9660e9b5288e",
       "vepyr_focus": "0.003061",
@@ -16308,11 +16328,11 @@
         {
           "argv": [
             "/Users/mwiewior/research/git/vepyr-porting-tests-1162-merged/tools/normalize_input",
-            "/Users/mwiewior/workspace/data_vepyr/evidence/vep1162-merged-20261003/report_gnomade_amr_af_for_the_matched_alt_c46dff/raw.vcf",
+            "/Users/mwiewior/workspace/data_vepyr/evidence/vep1162-merged-20261003/normalized-rerun/report_gnomade_amr_af_for_the_matched_alt_c46dff/raw.vcf",
             "/Users/mwiewior/research/git/vepyr-porting-tests-1162-merged/tests/data/report_gnomade_amr_af_for_the_matched_alt_c46dff"
           ],
           "exit": 0,
-          "log": "/Users/mwiewior/workspace/data_vepyr/evidence/vep1162-merged-20261003/report_gnomade_amr_af_for_the_matched_alt_c46dff/normalize.log"
+          "log": "/Users/mwiewior/workspace/data_vepyr/evidence/vep1162-merged-20261003/normalized-rerun/report_gnomade_amr_af_for_the_matched_alt_c46dff/normalize.log"
         },
         {
           "argv": [
@@ -16324,7 +16344,7 @@
             "/Users/mwiewior/research/git/vepyr-porting-tests-1162-merged/tests/data/report_gnomade_amr_af_for_the_matched_alt_c46dff"
           ],
           "exit": 0,
-          "log": "/Users/mwiewior/workspace/data_vepyr/evidence/vep1162-merged-20261003/report_gnomade_amr_af_for_the_matched_alt_c46dff/vep.log"
+          "log": "/Users/mwiewior/workspace/data_vepyr/evidence/vep1162-merged-20261003/normalized-rerun/report_gnomade_amr_af_for_the_matched_alt_c46dff/vep.log"
         },
         {
           "argv": [
@@ -16335,7 +16355,7 @@
             "--input_file",
             "/Users/mwiewior/research/git/vepyr-porting-tests-1162-merged/tests/data/report_gnomade_amr_af_for_the_matched_alt_c46dff/input.vcf",
             "--output_file",
-            "/Users/mwiewior/workspace/data_vepyr/evidence/vep1162-merged-20261003/report_gnomade_amr_af_for_the_matched_alt_c46dff/vepyr.vcf",
+            "/Users/mwiewior/workspace/data_vepyr/evidence/vep1162-merged-20261003/normalized-rerun/report_gnomade_amr_af_for_the_matched_alt_c46dff/vepyr.vcf",
             "--dir_cache",
             "/Users/mwiewior/workspace/data_vepyr/cache/116_GRCh38_merged",
             "--fasta",
@@ -16346,12 +16366,16 @@
             "--no_progress"
           ],
           "exit": 0,
-          "log": "/Users/mwiewior/workspace/data_vepyr/evidence/vep1162-merged-20261003/report_gnomade_amr_af_for_the_matched_alt_c46dff/vepyr.log"
+          "log": "/Users/mwiewior/workspace/data_vepyr/evidence/vep1162-merged-20261003/normalized-rerun/report_gnomade_amr_af_for_the_matched_alt_c46dff/vepyr.log"
         }
       ],
       "input_sha256": "47964cf3345147ba8b15027a02e68004e17f1fb4a0a7cdd707ca8391d98dee93",
       "oracle_body_md5": "05bf31b59c70febbbace9660e9b5288e",
       "oracle_focus": "0.0002375",
+      "normalization_verified": true,
+      "input_sha256_before_vep": "47964cf3345147ba8b15027a02e68004e17f1fb4a0a7cdd707ca8391d98dee93",
+      "input_sha256_before_vepyr": "47964cf3345147ba8b15027a02e68004e17f1fb4a0a7cdd707ca8391d98dee93",
+      "docker_input_sha256": "47964cf3345147ba8b15027a02e68004e17f1fb4a0a7cdd707ca8391d98dee93",
       "runnable": true,
       "vepyr_body_md5": "05bf31b59c70febbbace9660e9b5288e",
       "vepyr_focus": "0.0002375",
@@ -16442,11 +16466,11 @@
         {
           "argv": [
             "/Users/mwiewior/research/git/vepyr-porting-tests-1162-merged/tools/normalize_input",
-            "/Users/mwiewior/workspace/data_vepyr/evidence/vep1162-merged-20261003/report_gnomade_asj_af_for_the_matched_alt_0858e8/raw.vcf",
+            "/Users/mwiewior/workspace/data_vepyr/evidence/vep1162-merged-20261003/normalized-rerun/report_gnomade_asj_af_for_the_matched_alt_0858e8/raw.vcf",
             "/Users/mwiewior/research/git/vepyr-porting-tests-1162-merged/tests/data/report_gnomade_asj_af_for_the_matched_alt_0858e8"
           ],
           "exit": 0,
-          "log": "/Users/mwiewior/workspace/data_vepyr/evidence/vep1162-merged-20261003/report_gnomade_asj_af_for_the_matched_alt_0858e8/normalize.log"
+          "log": "/Users/mwiewior/workspace/data_vepyr/evidence/vep1162-merged-20261003/normalized-rerun/report_gnomade_asj_af_for_the_matched_alt_0858e8/normalize.log"
         },
         {
           "argv": [
@@ -16458,7 +16482,7 @@
             "/Users/mwiewior/research/git/vepyr-porting-tests-1162-merged/tests/data/report_gnomade_asj_af_for_the_matched_alt_0858e8"
           ],
           "exit": 0,
-          "log": "/Users/mwiewior/workspace/data_vepyr/evidence/vep1162-merged-20261003/report_gnomade_asj_af_for_the_matched_alt_0858e8/vep.log"
+          "log": "/Users/mwiewior/workspace/data_vepyr/evidence/vep1162-merged-20261003/normalized-rerun/report_gnomade_asj_af_for_the_matched_alt_0858e8/vep.log"
         },
         {
           "argv": [
@@ -16469,7 +16493,7 @@
             "--input_file",
             "/Users/mwiewior/research/git/vepyr-porting-tests-1162-merged/tests/data/report_gnomade_asj_af_for_the_matched_alt_0858e8/input.vcf",
             "--output_file",
-            "/Users/mwiewior/workspace/data_vepyr/evidence/vep1162-merged-20261003/report_gnomade_asj_af_for_the_matched_alt_0858e8/vepyr.vcf",
+            "/Users/mwiewior/workspace/data_vepyr/evidence/vep1162-merged-20261003/normalized-rerun/report_gnomade_asj_af_for_the_matched_alt_0858e8/vepyr.vcf",
             "--dir_cache",
             "/Users/mwiewior/workspace/data_vepyr/cache/116_GRCh38_merged",
             "--fasta",
@@ -16480,12 +16504,16 @@
             "--no_progress"
           ],
           "exit": 0,
-          "log": "/Users/mwiewior/workspace/data_vepyr/evidence/vep1162-merged-20261003/report_gnomade_asj_af_for_the_matched_alt_0858e8/vepyr.log"
+          "log": "/Users/mwiewior/workspace/data_vepyr/evidence/vep1162-merged-20261003/normalized-rerun/report_gnomade_asj_af_for_the_matched_alt_0858e8/vepyr.log"
         }
       ],
       "input_sha256": "47964cf3345147ba8b15027a02e68004e17f1fb4a0a7cdd707ca8391d98dee93",
       "oracle_body_md5": "05bf31b59c70febbbace9660e9b5288e",
       "oracle_focus": "0",
+      "normalization_verified": true,
+      "input_sha256_before_vep": "47964cf3345147ba8b15027a02e68004e17f1fb4a0a7cdd707ca8391d98dee93",
+      "input_sha256_before_vepyr": "47964cf3345147ba8b15027a02e68004e17f1fb4a0a7cdd707ca8391d98dee93",
+      "docker_input_sha256": "47964cf3345147ba8b15027a02e68004e17f1fb4a0a7cdd707ca8391d98dee93",
       "runnable": true,
       "vepyr_body_md5": "05bf31b59c70febbbace9660e9b5288e",
       "vepyr_focus": "0",
@@ -16576,11 +16604,11 @@
         {
           "argv": [
             "/Users/mwiewior/research/git/vepyr-porting-tests-1162-merged/tools/normalize_input",
-            "/Users/mwiewior/workspace/data_vepyr/evidence/vep1162-merged-20261003/report_gnomade_eas_af_for_the_matched_alt_91fbf8/raw.vcf",
+            "/Users/mwiewior/workspace/data_vepyr/evidence/vep1162-merged-20261003/normalized-rerun/report_gnomade_eas_af_for_the_matched_alt_91fbf8/raw.vcf",
             "/Users/mwiewior/research/git/vepyr-porting-tests-1162-merged/tests/data/report_gnomade_eas_af_for_the_matched_alt_91fbf8"
           ],
           "exit": 0,
-          "log": "/Users/mwiewior/workspace/data_vepyr/evidence/vep1162-merged-20261003/report_gnomade_eas_af_for_the_matched_alt_91fbf8/normalize.log"
+          "log": "/Users/mwiewior/workspace/data_vepyr/evidence/vep1162-merged-20261003/normalized-rerun/report_gnomade_eas_af_for_the_matched_alt_91fbf8/normalize.log"
         },
         {
           "argv": [
@@ -16592,7 +16620,7 @@
             "/Users/mwiewior/research/git/vepyr-porting-tests-1162-merged/tests/data/report_gnomade_eas_af_for_the_matched_alt_91fbf8"
           ],
           "exit": 0,
-          "log": "/Users/mwiewior/workspace/data_vepyr/evidence/vep1162-merged-20261003/report_gnomade_eas_af_for_the_matched_alt_91fbf8/vep.log"
+          "log": "/Users/mwiewior/workspace/data_vepyr/evidence/vep1162-merged-20261003/normalized-rerun/report_gnomade_eas_af_for_the_matched_alt_91fbf8/vep.log"
         },
         {
           "argv": [
@@ -16603,7 +16631,7 @@
             "--input_file",
             "/Users/mwiewior/research/git/vepyr-porting-tests-1162-merged/tests/data/report_gnomade_eas_af_for_the_matched_alt_91fbf8/input.vcf",
             "--output_file",
-            "/Users/mwiewior/workspace/data_vepyr/evidence/vep1162-merged-20261003/report_gnomade_eas_af_for_the_matched_alt_91fbf8/vepyr.vcf",
+            "/Users/mwiewior/workspace/data_vepyr/evidence/vep1162-merged-20261003/normalized-rerun/report_gnomade_eas_af_for_the_matched_alt_91fbf8/vepyr.vcf",
             "--dir_cache",
             "/Users/mwiewior/workspace/data_vepyr/cache/116_GRCh38_merged",
             "--fasta",
@@ -16614,12 +16642,16 @@
             "--no_progress"
           ],
           "exit": 0,
-          "log": "/Users/mwiewior/workspace/data_vepyr/evidence/vep1162-merged-20261003/report_gnomade_eas_af_for_the_matched_alt_91fbf8/vepyr.log"
+          "log": "/Users/mwiewior/workspace/data_vepyr/evidence/vep1162-merged-20261003/normalized-rerun/report_gnomade_eas_af_for_the_matched_alt_91fbf8/vepyr.log"
         }
       ],
       "input_sha256": "47964cf3345147ba8b15027a02e68004e17f1fb4a0a7cdd707ca8391d98dee93",
       "oracle_body_md5": "05bf31b59c70febbbace9660e9b5288e",
       "oracle_focus": "0",
+      "normalization_verified": true,
+      "input_sha256_before_vep": "47964cf3345147ba8b15027a02e68004e17f1fb4a0a7cdd707ca8391d98dee93",
+      "input_sha256_before_vepyr": "47964cf3345147ba8b15027a02e68004e17f1fb4a0a7cdd707ca8391d98dee93",
+      "docker_input_sha256": "47964cf3345147ba8b15027a02e68004e17f1fb4a0a7cdd707ca8391d98dee93",
       "runnable": true,
       "vepyr_body_md5": "05bf31b59c70febbbace9660e9b5288e",
       "vepyr_focus": "0",
@@ -16710,11 +16742,11 @@
         {
           "argv": [
             "/Users/mwiewior/research/git/vepyr-porting-tests-1162-merged/tools/normalize_input",
-            "/Users/mwiewior/workspace/data_vepyr/evidence/vep1162-merged-20261003/report_gnomade_fin_af_for_the_matched_alt_7577bd/raw.vcf",
+            "/Users/mwiewior/workspace/data_vepyr/evidence/vep1162-merged-20261003/normalized-rerun/report_gnomade_fin_af_for_the_matched_alt_7577bd/raw.vcf",
             "/Users/mwiewior/research/git/vepyr-porting-tests-1162-merged/tests/data/report_gnomade_fin_af_for_the_matched_alt_7577bd"
           ],
           "exit": 0,
-          "log": "/Users/mwiewior/workspace/data_vepyr/evidence/vep1162-merged-20261003/report_gnomade_fin_af_for_the_matched_alt_7577bd/normalize.log"
+          "log": "/Users/mwiewior/workspace/data_vepyr/evidence/vep1162-merged-20261003/normalized-rerun/report_gnomade_fin_af_for_the_matched_alt_7577bd/normalize.log"
         },
         {
           "argv": [
@@ -16726,7 +16758,7 @@
             "/Users/mwiewior/research/git/vepyr-porting-tests-1162-merged/tests/data/report_gnomade_fin_af_for_the_matched_alt_7577bd"
           ],
           "exit": 0,
-          "log": "/Users/mwiewior/workspace/data_vepyr/evidence/vep1162-merged-20261003/report_gnomade_fin_af_for_the_matched_alt_7577bd/vep.log"
+          "log": "/Users/mwiewior/workspace/data_vepyr/evidence/vep1162-merged-20261003/normalized-rerun/report_gnomade_fin_af_for_the_matched_alt_7577bd/vep.log"
         },
         {
           "argv": [
@@ -16737,7 +16769,7 @@
             "--input_file",
             "/Users/mwiewior/research/git/vepyr-porting-tests-1162-merged/tests/data/report_gnomade_fin_af_for_the_matched_alt_7577bd/input.vcf",
             "--output_file",
-            "/Users/mwiewior/workspace/data_vepyr/evidence/vep1162-merged-20261003/report_gnomade_fin_af_for_the_matched_alt_7577bd/vepyr.vcf",
+            "/Users/mwiewior/workspace/data_vepyr/evidence/vep1162-merged-20261003/normalized-rerun/report_gnomade_fin_af_for_the_matched_alt_7577bd/vepyr.vcf",
             "--dir_cache",
             "/Users/mwiewior/workspace/data_vepyr/cache/116_GRCh38_merged",
             "--fasta",
@@ -16748,12 +16780,16 @@
             "--no_progress"
           ],
           "exit": 0,
-          "log": "/Users/mwiewior/workspace/data_vepyr/evidence/vep1162-merged-20261003/report_gnomade_fin_af_for_the_matched_alt_7577bd/vepyr.log"
+          "log": "/Users/mwiewior/workspace/data_vepyr/evidence/vep1162-merged-20261003/normalized-rerun/report_gnomade_fin_af_for_the_matched_alt_7577bd/vepyr.log"
         }
       ],
       "input_sha256": "47964cf3345147ba8b15027a02e68004e17f1fb4a0a7cdd707ca8391d98dee93",
       "oracle_body_md5": "05bf31b59c70febbbace9660e9b5288e",
       "oracle_focus": "0",
+      "normalization_verified": true,
+      "input_sha256_before_vep": "47964cf3345147ba8b15027a02e68004e17f1fb4a0a7cdd707ca8391d98dee93",
+      "input_sha256_before_vepyr": "47964cf3345147ba8b15027a02e68004e17f1fb4a0a7cdd707ca8391d98dee93",
+      "docker_input_sha256": "47964cf3345147ba8b15027a02e68004e17f1fb4a0a7cdd707ca8391d98dee93",
       "runnable": true,
       "vepyr_body_md5": "05bf31b59c70febbbace9660e9b5288e",
       "vepyr_focus": "0",
@@ -16844,11 +16880,11 @@
         {
           "argv": [
             "/Users/mwiewior/research/git/vepyr-porting-tests-1162-merged/tools/normalize_input",
-            "/Users/mwiewior/workspace/data_vepyr/evidence/vep1162-merged-20261003/report_gnomade_mid_af_for_the_matched_alt_81261d/raw.vcf",
+            "/Users/mwiewior/workspace/data_vepyr/evidence/vep1162-merged-20261003/normalized-rerun/report_gnomade_mid_af_for_the_matched_alt_81261d/raw.vcf",
             "/Users/mwiewior/research/git/vepyr-porting-tests-1162-merged/tests/data/report_gnomade_mid_af_for_the_matched_alt_81261d"
           ],
           "exit": 0,
-          "log": "/Users/mwiewior/workspace/data_vepyr/evidence/vep1162-merged-20261003/report_gnomade_mid_af_for_the_matched_alt_81261d/normalize.log"
+          "log": "/Users/mwiewior/workspace/data_vepyr/evidence/vep1162-merged-20261003/normalized-rerun/report_gnomade_mid_af_for_the_matched_alt_81261d/normalize.log"
         },
         {
           "argv": [
@@ -16860,7 +16896,7 @@
             "/Users/mwiewior/research/git/vepyr-porting-tests-1162-merged/tests/data/report_gnomade_mid_af_for_the_matched_alt_81261d"
           ],
           "exit": 0,
-          "log": "/Users/mwiewior/workspace/data_vepyr/evidence/vep1162-merged-20261003/report_gnomade_mid_af_for_the_matched_alt_81261d/vep.log"
+          "log": "/Users/mwiewior/workspace/data_vepyr/evidence/vep1162-merged-20261003/normalized-rerun/report_gnomade_mid_af_for_the_matched_alt_81261d/vep.log"
         },
         {
           "argv": [
@@ -16871,7 +16907,7 @@
             "--input_file",
             "/Users/mwiewior/research/git/vepyr-porting-tests-1162-merged/tests/data/report_gnomade_mid_af_for_the_matched_alt_81261d/input.vcf",
             "--output_file",
-            "/Users/mwiewior/workspace/data_vepyr/evidence/vep1162-merged-20261003/report_gnomade_mid_af_for_the_matched_alt_81261d/vepyr.vcf",
+            "/Users/mwiewior/workspace/data_vepyr/evidence/vep1162-merged-20261003/normalized-rerun/report_gnomade_mid_af_for_the_matched_alt_81261d/vepyr.vcf",
             "--dir_cache",
             "/Users/mwiewior/workspace/data_vepyr/cache/116_GRCh38_merged",
             "--fasta",
@@ -16882,12 +16918,16 @@
             "--no_progress"
           ],
           "exit": 0,
-          "log": "/Users/mwiewior/workspace/data_vepyr/evidence/vep1162-merged-20261003/report_gnomade_mid_af_for_the_matched_alt_81261d/vepyr.log"
+          "log": "/Users/mwiewior/workspace/data_vepyr/evidence/vep1162-merged-20261003/normalized-rerun/report_gnomade_mid_af_for_the_matched_alt_81261d/vepyr.log"
         }
       ],
       "input_sha256": "47964cf3345147ba8b15027a02e68004e17f1fb4a0a7cdd707ca8391d98dee93",
       "oracle_body_md5": "05bf31b59c70febbbace9660e9b5288e",
       "oracle_focus": "0.0001759",
+      "normalization_verified": true,
+      "input_sha256_before_vep": "47964cf3345147ba8b15027a02e68004e17f1fb4a0a7cdd707ca8391d98dee93",
+      "input_sha256_before_vepyr": "47964cf3345147ba8b15027a02e68004e17f1fb4a0a7cdd707ca8391d98dee93",
+      "docker_input_sha256": "47964cf3345147ba8b15027a02e68004e17f1fb4a0a7cdd707ca8391d98dee93",
       "runnable": true,
       "vepyr_body_md5": "05bf31b59c70febbbace9660e9b5288e",
       "vepyr_focus": "0.0001759",
