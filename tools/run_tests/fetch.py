@@ -282,7 +282,8 @@ class Downloader(Protocol):
     the same commit). Only the manifests-only call, with exactly
     ``["*/chrom_manifest.json"]``, forces the full manifests back from the Hub:
     :func:`fetch` makes it under the lock, immediately before trimming, whenever
-    :func:`_manifests_stale` finds a manifest that misses a requested shard on disk.
+    :func:`_manifests_stale` finds a manifest that misses a requested shard on disk,
+    and on a whole-genome run whose record says ``manifests_trimmed`` (no trim then).
     """
 
     def __call__(
@@ -637,6 +638,20 @@ def trim_manifest(path: Path) -> bool:
     return True
 
 
+def _recorded_trimmed(existing: Provenance | None, p: Plan) -> bool:
+    """Whether ``PROVENANCE.json`` records ``p``'s flavour with trimmed manifests.
+
+    Args:
+        existing: The record read at the start of the run, ``None`` on a fresh root.
+        p: The flavour's plan.
+
+    Returns:
+        ``True`` only when the flavour has a record and it says ``manifests_trimmed``.
+    """
+    record = existing.datasets.get(p.flavour.value) if existing else None
+    return record is not None and record.manifests_trimmed
+
+
 def _manifests_stale(flavour_dir: Path, requested: frozenset[str]) -> bool:
     """True when some manifest of ``flavour_dir`` misses a requested shard or a file.
 
@@ -873,7 +888,9 @@ def fetch(
     re-fetches and trims whenever a manifest names an absent shard or misses a
     requested one on disk (:func:`_manifests_stale`), so it is idempotent and repairs
     a root left untrimmed by an interrupted or ``--no-trim-manifests`` run, or left
-    stale by a top-up.
+    stale by a top-up. A whole-genome run whose flavour ``PROVENANCE.json`` records
+    ``manifests_trimmed`` re-fetches the full manifests (no trim), so the root matches
+    the ``contigs: ALL`` it records (#223).
 
     Returns:
         The outcome (always :attr:`Exit.OK`) with the shard counters; every failure is
@@ -939,6 +956,18 @@ def fetch(
                     manifest = flavour_dir / entity / MANIFEST
                     if manifest.is_file() and trim_manifest(manifest):
                         refreshed += 1
+        elif selection.contigs is None and _recorded_trimmed(existing, p):
+            with provenance_lock(root):
+                # A whole-genome run on a root that a per-contig run trimmed: restore
+                # the full manifests (no trim), so they match the ``contigs: ALL`` this
+                # run records. Keyed on the record, not on the disk, so a shard the Hub
+                # manifest itself omits never triggers the forced call (#223).
+                downloader(
+                    p.pin.repo_id, p.pin.revision, [f"*/{MANIFEST}"], flavour_dir
+                )
+                refreshed += sum(
+                    (flavour_dir / entity / MANIFEST).is_file() for entity in ENTITIES
+                )
         added += len((after - before) & wanted_paths)
         skipped += len(before & wanted_paths)
         shards = {path for path in wanted_paths if path.endswith(".parquet")}

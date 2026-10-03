@@ -628,6 +628,56 @@ def test_files_and_bytes_describe_the_root_like_contigs_do(
     assert record.bytes == sum(p.stat().st_size for p in on_disk)
 
 
+def _forced_calls(remote: FakeHub) -> int:
+    """How many manifests-only (forced) calls ``remote`` has served."""
+    return [c[2] for c in remote.calls].count([f"*/{MANIFEST}"])
+
+
+def test_a_whole_genome_run_untrims_a_per_contig_root_once(
+    remote: FakeHub, pins: Path, tmp_path: Path
+) -> None:
+    """#223: ``contigs: ALL`` must not sit beside manifests trimmed to one contig.
+
+    The whole-genome run makes one forced manifests-only call (keyed on the record's
+    ``manifests_trimmed``), does not trim, and records ``manifests_trimmed: false``;
+    a second whole-genome run on the repaired root makes no forced call.
+    """
+    root = tmp_path / "root"
+    _run(remote, pins, root, contigs=("chr21",), flavours=(Flavour.ENSEMBL,))
+    before = _forced_calls(remote)
+    code, _ = _run(remote, pins, root, flavours=(Flavour.ENSEMBL,))
+    assert code is Exit.OK
+    assert _forced_calls(remote) - before == 1
+    record = read_provenance(root).datasets["ensembl"]  # type: ignore[union-attr]
+    assert (record.contigs, record.manifests_trimmed) == ("ALL", False)
+    assert read_provenance(root).runs[-1].refreshed_manifests == 7  # type: ignore[union-attr]
+    for entity in ENTITIES:
+        assert _chroms(root, entity) == list(CONTIGS), entity
+    before = _forced_calls(remote)
+    _run(remote, pins, root, flavours=(Flavour.ENSEMBL,))
+    assert _forced_calls(remote) - before == 0
+    assert read_provenance(root).runs[-1].refreshed_manifests == 0  # type: ignore[union-attr]
+
+
+def test_a_whole_genome_run_with_a_hub_omitted_shard_settles_after_untrim(
+    remote: FakeHub, pins: Path, tmp_path: Path
+) -> None:
+    """#223: a shard the Hub manifest omits never keeps the untrim call firing.
+
+    The trigger is the record, not "a shard on disk the manifest does not list", so
+    after the one transition call later whole-genome runs make none.
+    """
+    (remote.root / "ensembl" / "exon" / "GL000009.2.parquet").write_bytes(b"omitted")
+    root = tmp_path / "root"
+    _run(remote, pins, root, contigs=("chr21",), flavours=(Flavour.ENSEMBL,))
+    before = _forced_calls(remote)
+    for _ in range(3):
+        code, _ = _run(remote, pins, root, flavours=(Flavour.ENSEMBL,))
+        assert code is Exit.OK
+    assert (root / "116_GRCh38_ensembl" / "exon" / "GL000009.2.parquet").is_file()
+    assert _forced_calls(remote) - before == 1
+
+
 def test_a_whole_genome_root_topped_up_with_one_contig_stays_all(
     remote: FakeHub, pins: Path, tmp_path: Path
 ) -> None:

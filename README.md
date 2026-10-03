@@ -597,7 +597,12 @@ does not request are not checked, so a shard the Hub manifest itself omits
 (e.g. `exon/GL000009.2.parquet` of a whole-flavour download) stays unlisted and
 forces no Hub call. An older root whose manifests are stale (shards of a later
 contig, manifests trimmed to the first set) is repaired by rerunning
-`--add-contigs` with the declared list. For a
+`--add-contigs` with the declared list. A whole-genome run (no
+`--add-contigs`) on a root whose `PROVENANCE.json` records
+`manifests_trimmed: true` for a flavour (left by a per-contig run) re-fetches
+that flavour's full manifests from the Hub once and does not trim them, so they
+match the `contigs: "ALL"` it records; later whole-genome runs on that root make
+no such call. For a
 wholly different set, use a fresh `--cache-dir` or clean the directory yourself.
 
 **Illegal / incomplete contig sets.** Every cache entity must get at least one
