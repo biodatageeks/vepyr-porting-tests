@@ -2,7 +2,7 @@
 
 One PR; one commit and status report per ten ports. SNVs precede small indels.
 
-Input normalization reverified for 30 executed tests: one input SHA-256 shared by VEP Docker and vepyr.
+Input normalization reverified for 40 executed tests: one input SHA-256 shared by VEP Docker and vepyr.
 
 Current results: FAIL: 1, PASS: 115, QUEUED: 86.
 
