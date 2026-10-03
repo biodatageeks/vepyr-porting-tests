@@ -5,7 +5,7 @@ description = "vepyr annotates 21 25982445 C>T (rs141331202), which hits many AP
 vep_test = "https://github.com/Ensembl/ensembl-vep/blob/release/116.0/t/OutputFactory_VCF.t#L294-L309"
 vep_test_pinned = "https://github.com/Ensembl/ensembl-vep/blob/57ea5c52340acc1f156267f810ad162e26597082/t/OutputFactory_VCF.t#L294-L309"
 vep_subject = "https://github.com/Ensembl/ensembl-vep/blob/57ea5c52340acc1f156267f810ad162e26597082/modules/Bio/EnsEMBL/VEP/OutputFactory/VCF.pm#L299"
-ledger = "https://github.com/sitekwb/vepyr-porting-tests/blob/c4f4eb8eae415b1f58841ef15cebf2bb081ce750/ledger/OutputFactory_VCF.ledger.toml#L354-L363"
+ledger = "OutputFactory_VCF.ledger.toml n=26"
 issue = 119
 
 [input]

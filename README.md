@@ -628,8 +628,8 @@ VEPYR_CACHE_ROOT=/mnt/hf-cache cargo test --test data_dirs
 ```
 
 VEP and vepyr read the same `input.vcf`, byte for byte. Candidates come from the
-assertion ledger in [sitekwb/vepyr-porting-tests](https://github.com/sitekwb/vepyr-porting-tests)
-(`ledger/*.ledger.toml`); a directory names its source row in `[origin] ledger`.
+assertion ledger `ledger/assertions.csv` (key `(vep_file, n)`); a directory names its
+source row in `[origin] ledger` as `<Stem>.ledger.toml n=<N>` (`t/<Stem>.t`, row `n`).
 
 **`test.toml`**, one line per key (`?` = optional). Every table is checked against
 this list, and any other key fails the test with `[<name>] unknown key: <key>`:
@@ -641,7 +641,7 @@ description = "..."                    # one sentence
 vep_test        = "https://github.com/Ensembl/ensembl-vep/blob/release/116.0/t/Runner.t#L244-L292"
 vep_test_pinned = ".../blob/57ea5c52340acc1f156267f810ad162e26597082/t/Runner.t#L244-L292"
 vep_subject     = ".../blob/57ea5c52.../modules/Bio/EnsEMBL/VEP/Runner.pm#L396"
-ledger          = "Runner.ledger.toml n=16"   # ? source row in the sitekwb ledger
+ledger          = "Runner.ledger.toml n=16"   # ? source row (t/Runner.t, n=16) of ledger/assertions.csv
 issue           = 16                           # ? issue that introduced the test
 [input]                                        # written by tools/normalize_input
 command          = "bcftools norm -m -both -o <out.vcf> <in.vcf.gz>"

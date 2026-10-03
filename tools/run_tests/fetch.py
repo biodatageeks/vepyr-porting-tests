@@ -33,7 +33,7 @@ Why the manifests are trimmed in per-contig mode: datafusion-bio-function-vep 0.
 opens the FIRST entry of ``variation/chrom_manifest.json`` to detect the cache flavour
 (``cache_source.rs:43-58``), and the first shard of every entity when it scans, so a
 partial download whose manifests still name ``chr1`` fails on a file that was never
-requested (sitekwb/vepyr-porting-tests#607). Trimming keeps only entries whose shard is
+requested. Trimming keeps only entries whose shard is
 on disk; :data:`TRIM_DEFAULT` flips to ``False`` in one PR once upstream reads the
 flavour from a file that is always present.
 
