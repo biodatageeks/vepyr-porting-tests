@@ -931,6 +931,30 @@ fn merged_flavour_requires_matching_oracle() {
 }
 
 #[test]
+fn merged_flavour_accepts_matching_oracle() {
+    let original = include_str!("fixtures/data_dirs_selftest/case/test.toml");
+    let edited = original
+        .replace("flavour = \"ensembl\"", "flavour = \"merged\"")
+        .replace(" --everything", " --everything --merged");
+    let test = load_fixture_edited(original, &edited);
+    assert_eq!(test.name, "case");
+}
+
+#[test]
+#[should_panic(expected = "cache flavour mismatch")]
+fn merged_oracle_rejects_ensembl_run_override() {
+    let original = include_str!("fixtures/data_dirs_selftest/case/test.toml");
+    let edited = original
+        .replace("flavour = \"ensembl\"", "flavour = \"merged\"")
+        .replace(" --everything", " --everything --merged")
+        .replace(
+            "[compare]",
+            "[[vepyr_run]]\nflavour = \"ensembl\"\n\n[compare]",
+        );
+    load_fixture_edited(original, &edited);
+}
+
+#[test]
 #[should_panic(expected = "refseq-only oracles are not supported")]
 fn vepyr_run_flavour_override_is_rejected() {
     load_fixture_edited("[vep]\n", "[[vepyr_run]]\nflavour = \"refseq\"\n\n[vep]\n");
