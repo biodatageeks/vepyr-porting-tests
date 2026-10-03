@@ -5,6 +5,7 @@ from __future__ import annotations
 import hashlib
 import re
 import shlex
+import shutil
 import subprocess
 import tomllib
 from pathlib import Path
@@ -973,6 +974,75 @@ def test_merged_provenance_does_not_reuse_ensembl_receipt(complete_cache):
     prov = ensembl.cache_provenance(complete_cache, merged=True)
     assert prov.source.endswith("/homo_sapiens_merged/116_GRCh38")
     assert prov.checksum == "unverified"
+
+
+@pytest.mark.parametrize("flavour,flags", [("merged", []), ("ensembl", ["--merged"])])
+def test_cli_refuses_cache_flavour_mismatch(
+    flavour, flags, complete_cache, fasta, test_dir, tmp_path, capsys, monkeypatch
+):
+    """Both blessing paths reject a mismatch before any container runs."""
+    # Both layouts exist, so missing-cache rejection cannot hide a missing guard.
+    shutil.copytree(
+        complete_cache / "homo_sapiens", complete_cache / "homo_sapiens_merged"
+    )
+    _set_flags(test_dir, flags)
+    toml = test_dir / "test.toml"
+    toml.write_text(testdir.set_keys(toml.read_text(), {"vepyr": {"flavour": flavour}}))
+    calls = []
+    _fake_vep_container(monkeypatch, calls)
+    argv = _bless_argv(test_dir, complete_cache, fasta, tmp_path)
+    before = {p.name: p.read_bytes() for p in test_dir.iterdir()}
+    for mode in ([], ["--check", "--reproduce"]):
+        code, _, err = run([*mode, *argv], capsys)
+        assert code == 1 and "cache flavour mismatch" in err
+        assert calls == []
+        assert {p.name: p.read_bytes() for p in test_dir.iterdir()} == before
+
+
+def test_cli_blesses_merged_layout_and_records_merged_provenance(
+    complete_cache, fasta, test_dir, tmp_path, capsys, monkeypatch
+):
+    """The CLI selects the merged layout and does not adopt an Ensembl receipt."""
+    (complete_cache / "homo_sapiens").rename(complete_cache / "homo_sapiens_merged")
+    (complete_cache / ensembl.SOURCE_RECORD).write_text(
+        'source = "ensembl-archive"\nchecksum = "ensembl-sha"\n'
+    )
+    _set_flags(test_dir, ["--merged"])
+    toml = test_dir / "test.toml"
+    toml.write_text(
+        testdir.set_keys(toml.read_text(), {"vepyr": {"flavour": "merged"}})
+    )
+    calls = []
+    _fake_vep_container(monkeypatch, calls)
+    argv = _bless_argv(test_dir, complete_cache, fasta, tmp_path)
+    code, _, err = run(argv, capsys)
+    assert code == 0, err
+    recorded = tomllib.loads(toml.read_text())
+    assert recorded["vep"]["command"] == vep.vep_command(("--merged",))
+    assert recorded["vep"]["cache_source"] == (
+        f"local:{complete_cache}/homo_sapiens_merged/116_GRCh38"
+    )
+    assert recorded["vep"]["cache_checksum"] == "unverified"
+    assert _vep_part(calls[-1]) == [*vep.VEP_ARGV, "--merged"]
+    assert run(["--check", "--reproduce", *argv], capsys)[0] == 0
+    assert len(calls) == 2
+
+
+def test_cli_refuses_merged_cache_override(
+    complete_cache, fasta, test_dir, tmp_path, capsys, monkeypatch
+):
+    """An explicit run override cannot silently compare different cache flavours."""
+    _set_flags(test_dir, ["--merged"])
+    toml = test_dir / "test.toml"
+    toml.write_text(
+        testdir.set_keys(toml.read_text(), {"vepyr": {"flavour": "merged"}})
+        + '\n[[vepyr_run]]\nflavour = "ensembl"\n'
+    )
+    calls = []
+    _fake_vep_container(monkeypatch, calls)
+    code, _, err = run(_bless_argv(test_dir, complete_cache, fasta, tmp_path), capsys)
+    assert code == 1 and "cache flavour mismatch" in err
+    assert calls == []
 
 
 def test_docker_copy_must_match_normalized_input(

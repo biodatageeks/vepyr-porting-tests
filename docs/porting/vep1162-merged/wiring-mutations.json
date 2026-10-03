@@ -1,0 +1,20 @@
+[
+  {
+    "mutation": "mode_guard",
+    "removed": "vep.require_cache_mode(test.config, extra, where=str(test.toml_path))",
+    "exit": 1,
+    "log": "/Users/mwiewior/workspace/data_vepyr/evidence/vep1162-merged-20261003/mutation-mode_guard.log"
+  },
+  {
+    "mutation": "layout",
+    "removed": "ensembl.require_complete_cache(cache.path, flag=cache.flag, merged=merged)",
+    "exit": 1,
+    "log": "/Users/mwiewior/workspace/data_vepyr/evidence/vep1162-merged-20261003/mutation-layout.log"
+  },
+  {
+    "mutation": "provenance",
+    "removed": "ensembl.cache_provenance(cache.path, merged=\"--merged\" in extra)",
+    "exit": 1,
+    "log": "/Users/mwiewior/workspace/data_vepyr/evidence/vep1162-merged-20261003/mutation-provenance.log"
+  }
+]
