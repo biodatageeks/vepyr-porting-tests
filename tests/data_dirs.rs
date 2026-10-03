@@ -948,8 +948,8 @@ fn merged_oracle_rejects_ensembl_run_override() {
         .replace("flavour = \"ensembl\"", "flavour = \"merged\"")
         .replace(" --everything", " --everything --merged")
         .replace(
-            "[compare]",
-            "[[vepyr_run]]\nflavour = \"ensembl\"\n\n[compare]",
+            "\n[compare]\n",
+            "\n[[vepyr_run]]\nflavour = \"ensembl\"\n\n[compare]\n",
         );
     load_fixture_edited(original, &edited);
 }
