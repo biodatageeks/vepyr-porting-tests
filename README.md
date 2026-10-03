@@ -664,6 +664,14 @@ buffer_size = 1
 
 (The `[vep]` line above is abbreviated; in a real file each key is on its own line.)
 
+`[origin] vep_test_pinned` and `vep_subject` must be commit-pinned permalinks,
+`https://github.com/<owner>/<repo>/blob/<40 lowercase hex commit>/<path>` (a `#L..`
+anchor is allowed); a branch, a tag or a short hash fails the test with
+`[<name>] origin.<key> is not a commit-pinned permalink: <value>`. `vep_test` is the
+readable `release/116.0` tag link and is not checked for shape. The *Data-test*
+issue form has one field per link: *VEP test link* (`vep_test`, `vep_test_pinned`)
+and *VEP subject link* (`vep_subject`).
+
 **What the runner checks**, per directory:
 
 1. *Self-check:* `[compare] body_md5` equals the md5 of the body of
