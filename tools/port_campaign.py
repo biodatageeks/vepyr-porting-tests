@@ -39,7 +39,18 @@ def csq(path):
 
 
 def focus_value(path, focus):
+    kind = focus.get('kind', 'csq')
+    rows = [line.split('\t') for line in path.read_text().splitlines() if not line.startswith('#')]
+    if kind == 'column':
+        return [row[focus['column']] for row in rows]
+    if kind == 'record_count':
+        return len(rows)
+    if kind == 'info':
+        return [next((v.partition('=')[2] for v in row[7].split(';') if v.partition('=')[0] == focus['key']), None) for row in rows]
     entries = [e for e in csq(path) if all(e.get(k) == v for k, v in focus['where'].items())]
+    if kind == 'csq_values':
+        values = [e[focus['field']] for e in entries]
+        return values if focus.get('ordered') else sorted(values)
     if len(entries) != 1:
         raise ValueError(f'focus selects {len(entries)} entries, expected exactly one')
     return entries[0][focus['field']]
@@ -78,7 +89,7 @@ def main():
         evidence.mkdir(parents=True, exist_ok=False)
         contigs = list(dict.fromkeys(r.split('\t')[0] for r in case['rows']))
         raw = evidence / 'raw.vcf'
-        raw.write_text('##fileformat=VCFv4.2\n' + ''.join(f'##contig=<ID={c}>\n' for c in contigs) + '#CHROM\tPOS\tID\tREF\tALT\tQUAL\tFILTER\tINFO\n' + '\n'.join(case['rows']) + '\n')
+        raw.write_text('##fileformat=VCFv4.2\n' + ''.join(f'##contig=<ID={c}>\n' for c in contigs) + ''.join(h+'\n' for h in case.get('headers', [])) + case.get('column_header', '#CHROM\tPOS\tID\tREF\tALT\tQUAL\tFILTER\tINFO') + '\n' + '\n'.join(case['rows']) + '\n')
         q = json.dumps
         pinned = case['source_links'][0]
         subject = case['implementation_links'][0]['url']
