@@ -26,7 +26,7 @@ An initial new Rust negative control exited 101 because its text replacement als
 
 ## Data and build identity
 
-`runtime.json` records the actual native-extension hash, build command and exit. The three cache fingerprint files cover the full FASTA plus native and converted data for the used chromosomes 1, 21 and 22. They are scoped checksums, not a claim of whole-genome cache identity or a Hugging Face receipt. `reference-audit.json` identifies 13 input cases whose REF disagrees with the supplied FASTA; inputs were not repaired. The requested `bcftools norm -m -both` splits alleles without FASTA-based REF correction or left alignment.
+`runtime.json` records the actual native-extension hash, build command and exit. The two cache fingerprint files cover the full FASTA plus native and converted data for the used chromosomes 1, 21 and 22. They are scoped checksums, not a claim of whole-genome cache identity or a Hugging Face receipt. `reference-audit.json` identifies 13 input cases whose REF disagrees with the supplied FASTA; inputs were not repaired. The requested `bcftools norm -m -both` splits alleles without FASTA-based REF correction or left alignment.
 
 The general `./run_tests` command still requires its pinned Hub layout and `PROVENANCE.json`. The owner-supplied local caches have no such receipt, so this campaign runs the real vepyr CLI directly and does not claim a successful general-harness invocation against these local caches.
 
