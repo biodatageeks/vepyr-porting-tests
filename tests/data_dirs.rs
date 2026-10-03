@@ -316,7 +316,7 @@ impl VepyrSettings {
         let flavour = Flavour::from_key(flavour_key).unwrap_or_else(|| {
             panic!("[{name}] [vepyr] flavour = {flavour_key:?} is not ensembl, refseq or merged")
         });
-        if matches!(flavour, Flavour::Refseq) {
+        if matches!(flavour, Flavour::RefSeq) {
             panic!(
                 "[{name}] [vepyr] flavour = {flavour_key:?}: the oracle is always VEP on the \
                  Ensembl or merged cache; refseq-only oracles are not supported"
