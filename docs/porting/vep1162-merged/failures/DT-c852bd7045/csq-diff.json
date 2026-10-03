@@ -1,0 +1,5037 @@
+{
+  "vep_entries": 39,
+  "vepyr_entries": 39,
+  "ordered_entry_differences": [
+    {
+      "feature": "ENST00000307301",
+      "differences": {
+        "Allele": {
+          "vep": "T",
+          "vepyr": "t"
+        },
+        "Existing_variation": {
+          "vep": "rs142513484",
+          "vepyr": ""
+        },
+        "AF": {
+          "vep": "0.0010",
+          "vepyr": ""
+        },
+        "AFR_AF": {
+          "vep": "0.003",
+          "vepyr": ""
+        },
+        "AMR_AF": {
+          "vep": "0.0014",
+          "vepyr": ""
+        },
+        "EAS_AF": {
+          "vep": "0",
+          "vepyr": ""
+        },
+        "EUR_AF": {
+          "vep": "0",
+          "vepyr": ""
+        },
+        "SAS_AF": {
+          "vep": "0",
+          "vepyr": ""
+        },
+        "gnomADe_AF": {
+          "vep": "9.481e-05",
+          "vepyr": ""
+        },
+        "gnomADe_AFR_AF": {
+          "vep": "0.003061",
+          "vepyr": ""
+        },
+        "gnomADe_AMR_AF": {
+          "vep": "0.0002375",
+          "vepyr": ""
+        },
+        "gnomADe_ASJ_AF": {
+          "vep": "0",
+          "vepyr": ""
+        },
+        "gnomADe_EAS_AF": {
+          "vep": "0",
+          "vepyr": ""
+        },
+        "gnomADe_FIN_AF": {
+          "vep": "0",
+          "vepyr": ""
+        },
+        "gnomADe_MID_AF": {
+          "vep": "0.0001759",
+          "vepyr": ""
+        },
+        "gnomADe_NFE_AF": {
+          "vep": "1.195e-05",
+          "vepyr": ""
+        },
+        "gnomADe_REMAINING_AF": {
+          "vep": "0.0002031",
+          "vepyr": ""
+        },
+        "gnomADe_SAS_AF": {
+          "vep": "0",
+          "vepyr": ""
+        },
+        "gnomADg_AF": {
+          "vep": "0.001307",
+          "vepyr": ""
+        },
+        "gnomADg_AFR_AF": {
+          "vep": "0.004669",
+          "vepyr": ""
+        },
+        "gnomADg_AMI_AF": {
+          "vep": "0",
+          "vepyr": ""
+        },
+        "gnomADg_AMR_AF": {
+          "vep": "0.0002616",
+          "vepyr": ""
+        },
+        "gnomADg_ASJ_AF": {
+          "vep": "0",
+          "vepyr": ""
+        },
+        "gnomADg_EAS_AF": {
+          "vep": "0",
+          "vepyr": ""
+        },
+        "gnomADg_FIN_AF": {
+          "vep": "0",
+          "vepyr": ""
+        },
+        "gnomADg_MID_AF": {
+          "vep": "0",
+          "vepyr": ""
+        },
+        "gnomADg_NFE_AF": {
+          "vep": "1.471e-05",
+          "vepyr": ""
+        },
+        "gnomADg_REMAINING_AF": {
+          "vep": "0",
+          "vepyr": ""
+        },
+        "gnomADg_SAS_AF": {
+          "vep": "0",
+          "vepyr": ""
+        },
+        "MAX_AF": {
+          "vep": "0.004669",
+          "vepyr": ""
+        },
+        "MAX_AF_POPS": {
+          "vep": "gnomADg_AFR",
+          "vepyr": ""
+        }
+      }
+    },
+    {
+      "feature": "ENST00000352957",
+      "differences": {
+        "Allele": {
+          "vep": "T",
+          "vepyr": "t"
+        },
+        "Existing_variation": {
+          "vep": "rs142513484",
+          "vepyr": ""
+        },
+        "AF": {
+          "vep": "0.0010",
+          "vepyr": ""
+        },
+        "AFR_AF": {
+          "vep": "0.003",
+          "vepyr": ""
+        },
+        "AMR_AF": {
+          "vep": "0.0014",
+          "vepyr": ""
+        },
+        "EAS_AF": {
+          "vep": "0",
+          "vepyr": ""
+        },
+        "EUR_AF": {
+          "vep": "0",
+          "vepyr": ""
+        },
+        "SAS_AF": {
+          "vep": "0",
+          "vepyr": ""
+        },
+        "gnomADe_AF": {
+          "vep": "9.481e-05",
+          "vepyr": ""
+        },
+        "gnomADe_AFR_AF": {
+          "vep": "0.003061",
+          "vepyr": ""
+        },
+        "gnomADe_AMR_AF": {
+          "vep": "0.0002375",
+          "vepyr": ""
+        },
+        "gnomADe_ASJ_AF": {
+          "vep": "0",
+          "vepyr": ""
+        },
+        "gnomADe_EAS_AF": {
+          "vep": "0",
+          "vepyr": ""
+        },
+        "gnomADe_FIN_AF": {
+          "vep": "0",
+          "vepyr": ""
+        },
+        "gnomADe_MID_AF": {
+          "vep": "0.0001759",
+          "vepyr": ""
+        },
+        "gnomADe_NFE_AF": {
+          "vep": "1.195e-05",
+          "vepyr": ""
+        },
+        "gnomADe_REMAINING_AF": {
+          "vep": "0.0002031",
+          "vepyr": ""
+        },
+        "gnomADe_SAS_AF": {
+          "vep": "0",
+          "vepyr": ""
+        },
+        "gnomADg_AF": {
+          "vep": "0.001307",
+          "vepyr": ""
+        },
+        "gnomADg_AFR_AF": {
+          "vep": "0.004669",
+          "vepyr": ""
+        },
+        "gnomADg_AMI_AF": {
+          "vep": "0",
+          "vepyr": ""
+        },
+        "gnomADg_AMR_AF": {
+          "vep": "0.0002616",
+          "vepyr": ""
+        },
+        "gnomADg_ASJ_AF": {
+          "vep": "0",
+          "vepyr": ""
+        },
+        "gnomADg_EAS_AF": {
+          "vep": "0",
+          "vepyr": ""
+        },
+        "gnomADg_FIN_AF": {
+          "vep": "0",
+          "vepyr": ""
+        },
+        "gnomADg_MID_AF": {
+          "vep": "0",
+          "vepyr": ""
+        },
+        "gnomADg_NFE_AF": {
+          "vep": "1.471e-05",
+          "vepyr": ""
+        },
+        "gnomADg_REMAINING_AF": {
+          "vep": "0",
+          "vepyr": ""
+        },
+        "gnomADg_SAS_AF": {
+          "vep": "0",
+          "vepyr": ""
+        },
+        "MAX_AF": {
+          "vep": "0.004669",
+          "vepyr": ""
+        },
+        "MAX_AF_POPS": {
+          "vep": "gnomADg_AFR",
+          "vepyr": ""
+        }
+      }
+    },
+    {
+      "feature": "ENST00000567517",
+      "differences": {
+        "Allele": {
+          "vep": "T",
+          "vepyr": "t"
+        },
+        "Existing_variation": {
+          "vep": "rs142513484",
+          "vepyr": ""
+        },
+        "AF": {
+          "vep": "0.0010",
+          "vepyr": ""
+        },
+        "AFR_AF": {
+          "vep": "0.003",
+          "vepyr": ""
+        },
+        "AMR_AF": {
+          "vep": "0.0014",
+          "vepyr": ""
+        },
+        "EAS_AF": {
+          "vep": "0",
+          "vepyr": ""
+        },
+        "EUR_AF": {
+          "vep": "0",
+          "vepyr": ""
+        },
+        "SAS_AF": {
+          "vep": "0",
+          "vepyr": ""
+        },
+        "gnomADe_AF": {
+          "vep": "9.481e-05",
+          "vepyr": ""
+        },
+        "gnomADe_AFR_AF": {
+          "vep": "0.003061",
+          "vepyr": ""
+        },
+        "gnomADe_AMR_AF": {
+          "vep": "0.0002375",
+          "vepyr": ""
+        },
+        "gnomADe_ASJ_AF": {
+          "vep": "0",
+          "vepyr": ""
+        },
+        "gnomADe_EAS_AF": {
+          "vep": "0",
+          "vepyr": ""
+        },
+        "gnomADe_FIN_AF": {
+          "vep": "0",
+          "vepyr": ""
+        },
+        "gnomADe_MID_AF": {
+          "vep": "0.0001759",
+          "vepyr": ""
+        },
+        "gnomADe_NFE_AF": {
+          "vep": "1.195e-05",
+          "vepyr": ""
+        },
+        "gnomADe_REMAINING_AF": {
+          "vep": "0.0002031",
+          "vepyr": ""
+        },
+        "gnomADe_SAS_AF": {
+          "vep": "0",
+          "vepyr": ""
+        },
+        "gnomADg_AF": {
+          "vep": "0.001307",
+          "vepyr": ""
+        },
+        "gnomADg_AFR_AF": {
+          "vep": "0.004669",
+          "vepyr": ""
+        },
+        "gnomADg_AMI_AF": {
+          "vep": "0",
+          "vepyr": ""
+        },
+        "gnomADg_AMR_AF": {
+          "vep": "0.0002616",
+          "vepyr": ""
+        },
+        "gnomADg_ASJ_AF": {
+          "vep": "0",
+          "vepyr": ""
+        },
+        "gnomADg_EAS_AF": {
+          "vep": "0",
+          "vepyr": ""
+        },
+        "gnomADg_FIN_AF": {
+          "vep": "0",
+          "vepyr": ""
+        },
+        "gnomADg_MID_AF": {
+          "vep": "0",
+          "vepyr": ""
+        },
+        "gnomADg_NFE_AF": {
+          "vep": "1.471e-05",
+          "vepyr": ""
+        },
+        "gnomADg_REMAINING_AF": {
+          "vep": "0",
+          "vepyr": ""
+        },
+        "gnomADg_SAS_AF": {
+          "vep": "0",
+          "vepyr": ""
+        },
+        "MAX_AF": {
+          "vep": "0.004669",
+          "vepyr": ""
+        },
+        "MAX_AF_POPS": {
+          "vep": "gnomADg_AFR",
+          "vepyr": ""
+        }
+      }
+    },
+    {
+      "feature": "ENST00000875588",
+      "differences": {
+        "Allele": {
+          "vep": "T",
+          "vepyr": "t"
+        },
+        "Existing_variation": {
+          "vep": "rs142513484",
+          "vepyr": ""
+        },
+        "AF": {
+          "vep": "0.0010",
+          "vepyr": ""
+        },
+        "AFR_AF": {
+          "vep": "0.003",
+          "vepyr": ""
+        },
+        "AMR_AF": {
+          "vep": "0.0014",
+          "vepyr": ""
+        },
+        "EAS_AF": {
+          "vep": "0",
+          "vepyr": ""
+        },
+        "EUR_AF": {
+          "vep": "0",
+          "vepyr": ""
+        },
+        "SAS_AF": {
+          "vep": "0",
+          "vepyr": ""
+        },
+        "gnomADe_AF": {
+          "vep": "9.481e-05",
+          "vepyr": ""
+        },
+        "gnomADe_AFR_AF": {
+          "vep": "0.003061",
+          "vepyr": ""
+        },
+        "gnomADe_AMR_AF": {
+          "vep": "0.0002375",
+          "vepyr": ""
+        },
+        "gnomADe_ASJ_AF": {
+          "vep": "0",
+          "vepyr": ""
+        },
+        "gnomADe_EAS_AF": {
+          "vep": "0",
+          "vepyr": ""
+        },
+        "gnomADe_FIN_AF": {
+          "vep": "0",
+          "vepyr": ""
+        },
+        "gnomADe_MID_AF": {
+          "vep": "0.0001759",
+          "vepyr": ""
+        },
+        "gnomADe_NFE_AF": {
+          "vep": "1.195e-05",
+          "vepyr": ""
+        },
+        "gnomADe_REMAINING_AF": {
+          "vep": "0.0002031",
+          "vepyr": ""
+        },
+        "gnomADe_SAS_AF": {
+          "vep": "0",
+          "vepyr": ""
+        },
+        "gnomADg_AF": {
+          "vep": "0.001307",
+          "vepyr": ""
+        },
+        "gnomADg_AFR_AF": {
+          "vep": "0.004669",
+          "vepyr": ""
+        },
+        "gnomADg_AMI_AF": {
+          "vep": "0",
+          "vepyr": ""
+        },
+        "gnomADg_AMR_AF": {
+          "vep": "0.0002616",
+          "vepyr": ""
+        },
+        "gnomADg_ASJ_AF": {
+          "vep": "0",
+          "vepyr": ""
+        },
+        "gnomADg_EAS_AF": {
+          "vep": "0",
+          "vepyr": ""
+        },
+        "gnomADg_FIN_AF": {
+          "vep": "0",
+          "vepyr": ""
+        },
+        "gnomADg_MID_AF": {
+          "vep": "0",
+          "vepyr": ""
+        },
+        "gnomADg_NFE_AF": {
+          "vep": "1.471e-05",
+          "vepyr": ""
+        },
+        "gnomADg_REMAINING_AF": {
+          "vep": "0",
+          "vepyr": ""
+        },
+        "gnomADg_SAS_AF": {
+          "vep": "0",
+          "vepyr": ""
+        },
+        "MAX_AF": {
+          "vep": "0.004669",
+          "vepyr": ""
+        },
+        "MAX_AF_POPS": {
+          "vep": "gnomADg_AFR",
+          "vepyr": ""
+        }
+      }
+    },
+    {
+      "feature": "ENST00000875589",
+      "differences": {
+        "Allele": {
+          "vep": "T",
+          "vepyr": "t"
+        },
+        "Existing_variation": {
+          "vep": "rs142513484",
+          "vepyr": ""
+        },
+        "AF": {
+          "vep": "0.0010",
+          "vepyr": ""
+        },
+        "AFR_AF": {
+          "vep": "0.003",
+          "vepyr": ""
+        },
+        "AMR_AF": {
+          "vep": "0.0014",
+          "vepyr": ""
+        },
+        "EAS_AF": {
+          "vep": "0",
+          "vepyr": ""
+        },
+        "EUR_AF": {
+          "vep": "0",
+          "vepyr": ""
+        },
+        "SAS_AF": {
+          "vep": "0",
+          "vepyr": ""
+        },
+        "gnomADe_AF": {
+          "vep": "9.481e-05",
+          "vepyr": ""
+        },
+        "gnomADe_AFR_AF": {
+          "vep": "0.003061",
+          "vepyr": ""
+        },
+        "gnomADe_AMR_AF": {
+          "vep": "0.0002375",
+          "vepyr": ""
+        },
+        "gnomADe_ASJ_AF": {
+          "vep": "0",
+          "vepyr": ""
+        },
+        "gnomADe_EAS_AF": {
+          "vep": "0",
+          "vepyr": ""
+        },
+        "gnomADe_FIN_AF": {
+          "vep": "0",
+          "vepyr": ""
+        },
+        "gnomADe_MID_AF": {
+          "vep": "0.0001759",
+          "vepyr": ""
+        },
+        "gnomADe_NFE_AF": {
+          "vep": "1.195e-05",
+          "vepyr": ""
+        },
+        "gnomADe_REMAINING_AF": {
+          "vep": "0.0002031",
+          "vepyr": ""
+        },
+        "gnomADe_SAS_AF": {
+          "vep": "0",
+          "vepyr": ""
+        },
+        "gnomADg_AF": {
+          "vep": "0.001307",
+          "vepyr": ""
+        },
+        "gnomADg_AFR_AF": {
+          "vep": "0.004669",
+          "vepyr": ""
+        },
+        "gnomADg_AMI_AF": {
+          "vep": "0",
+          "vepyr": ""
+        },
+        "gnomADg_AMR_AF": {
+          "vep": "0.0002616",
+          "vepyr": ""
+        },
+        "gnomADg_ASJ_AF": {
+          "vep": "0",
+          "vepyr": ""
+        },
+        "gnomADg_EAS_AF": {
+          "vep": "0",
+          "vepyr": ""
+        },
+        "gnomADg_FIN_AF": {
+          "vep": "0",
+          "vepyr": ""
+        },
+        "gnomADg_MID_AF": {
+          "vep": "0",
+          "vepyr": ""
+        },
+        "gnomADg_NFE_AF": {
+          "vep": "1.471e-05",
+          "vepyr": ""
+        },
+        "gnomADg_REMAINING_AF": {
+          "vep": "0",
+          "vepyr": ""
+        },
+        "gnomADg_SAS_AF": {
+          "vep": "0",
+          "vepyr": ""
+        },
+        "MAX_AF": {
+          "vep": "0.004669",
+          "vepyr": ""
+        },
+        "MAX_AF_POPS": {
+          "vep": "gnomADg_AFR",
+          "vepyr": ""
+        }
+      }
+    },
+    {
+      "feature": "ENST00000925340",
+      "differences": {
+        "Allele": {
+          "vep": "T",
+          "vepyr": "t"
+        },
+        "Existing_variation": {
+          "vep": "rs142513484",
+          "vepyr": ""
+        },
+        "AF": {
+          "vep": "0.0010",
+          "vepyr": ""
+        },
+        "AFR_AF": {
+          "vep": "0.003",
+          "vepyr": ""
+        },
+        "AMR_AF": {
+          "vep": "0.0014",
+          "vepyr": ""
+        },
+        "EAS_AF": {
+          "vep": "0",
+          "vepyr": ""
+        },
+        "EUR_AF": {
+          "vep": "0",
+          "vepyr": ""
+        },
+        "SAS_AF": {
+          "vep": "0",
+          "vepyr": ""
+        },
+        "gnomADe_AF": {
+          "vep": "9.481e-05",
+          "vepyr": ""
+        },
+        "gnomADe_AFR_AF": {
+          "vep": "0.003061",
+          "vepyr": ""
+        },
+        "gnomADe_AMR_AF": {
+          "vep": "0.0002375",
+          "vepyr": ""
+        },
+        "gnomADe_ASJ_AF": {
+          "vep": "0",
+          "vepyr": ""
+        },
+        "gnomADe_EAS_AF": {
+          "vep": "0",
+          "vepyr": ""
+        },
+        "gnomADe_FIN_AF": {
+          "vep": "0",
+          "vepyr": ""
+        },
+        "gnomADe_MID_AF": {
+          "vep": "0.0001759",
+          "vepyr": ""
+        },
+        "gnomADe_NFE_AF": {
+          "vep": "1.195e-05",
+          "vepyr": ""
+        },
+        "gnomADe_REMAINING_AF": {
+          "vep": "0.0002031",
+          "vepyr": ""
+        },
+        "gnomADe_SAS_AF": {
+          "vep": "0",
+          "vepyr": ""
+        },
+        "gnomADg_AF": {
+          "vep": "0.001307",
+          "vepyr": ""
+        },
+        "gnomADg_AFR_AF": {
+          "vep": "0.004669",
+          "vepyr": ""
+        },
+        "gnomADg_AMI_AF": {
+          "vep": "0",
+          "vepyr": ""
+        },
+        "gnomADg_AMR_AF": {
+          "vep": "0.0002616",
+          "vepyr": ""
+        },
+        "gnomADg_ASJ_AF": {
+          "vep": "0",
+          "vepyr": ""
+        },
+        "gnomADg_EAS_AF": {
+          "vep": "0",
+          "vepyr": ""
+        },
+        "gnomADg_FIN_AF": {
+          "vep": "0",
+          "vepyr": ""
+        },
+        "gnomADg_MID_AF": {
+          "vep": "0",
+          "vepyr": ""
+        },
+        "gnomADg_NFE_AF": {
+          "vep": "1.471e-05",
+          "vepyr": ""
+        },
+        "gnomADg_REMAINING_AF": {
+          "vep": "0",
+          "vepyr": ""
+        },
+        "gnomADg_SAS_AF": {
+          "vep": "0",
+          "vepyr": ""
+        },
+        "MAX_AF": {
+          "vep": "0.004669",
+          "vepyr": ""
+        },
+        "MAX_AF_POPS": {
+          "vep": "gnomADg_AFR",
+          "vepyr": ""
+        }
+      }
+    },
+    {
+      "feature": "ENST00000925341",
+      "differences": {
+        "Allele": {
+          "vep": "T",
+          "vepyr": "t"
+        },
+        "Existing_variation": {
+          "vep": "rs142513484",
+          "vepyr": ""
+        },
+        "AF": {
+          "vep": "0.0010",
+          "vepyr": ""
+        },
+        "AFR_AF": {
+          "vep": "0.003",
+          "vepyr": ""
+        },
+        "AMR_AF": {
+          "vep": "0.0014",
+          "vepyr": ""
+        },
+        "EAS_AF": {
+          "vep": "0",
+          "vepyr": ""
+        },
+        "EUR_AF": {
+          "vep": "0",
+          "vepyr": ""
+        },
+        "SAS_AF": {
+          "vep": "0",
+          "vepyr": ""
+        },
+        "gnomADe_AF": {
+          "vep": "9.481e-05",
+          "vepyr": ""
+        },
+        "gnomADe_AFR_AF": {
+          "vep": "0.003061",
+          "vepyr": ""
+        },
+        "gnomADe_AMR_AF": {
+          "vep": "0.0002375",
+          "vepyr": ""
+        },
+        "gnomADe_ASJ_AF": {
+          "vep": "0",
+          "vepyr": ""
+        },
+        "gnomADe_EAS_AF": {
+          "vep": "0",
+          "vepyr": ""
+        },
+        "gnomADe_FIN_AF": {
+          "vep": "0",
+          "vepyr": ""
+        },
+        "gnomADe_MID_AF": {
+          "vep": "0.0001759",
+          "vepyr": ""
+        },
+        "gnomADe_NFE_AF": {
+          "vep": "1.195e-05",
+          "vepyr": ""
+        },
+        "gnomADe_REMAINING_AF": {
+          "vep": "0.0002031",
+          "vepyr": ""
+        },
+        "gnomADe_SAS_AF": {
+          "vep": "0",
+          "vepyr": ""
+        },
+        "gnomADg_AF": {
+          "vep": "0.001307",
+          "vepyr": ""
+        },
+        "gnomADg_AFR_AF": {
+          "vep": "0.004669",
+          "vepyr": ""
+        },
+        "gnomADg_AMI_AF": {
+          "vep": "0",
+          "vepyr": ""
+        },
+        "gnomADg_AMR_AF": {
+          "vep": "0.0002616",
+          "vepyr": ""
+        },
+        "gnomADg_ASJ_AF": {
+          "vep": "0",
+          "vepyr": ""
+        },
+        "gnomADg_EAS_AF": {
+          "vep": "0",
+          "vepyr": ""
+        },
+        "gnomADg_FIN_AF": {
+          "vep": "0",
+          "vepyr": ""
+        },
+        "gnomADg_MID_AF": {
+          "vep": "0",
+          "vepyr": ""
+        },
+        "gnomADg_NFE_AF": {
+          "vep": "1.471e-05",
+          "vepyr": ""
+        },
+        "gnomADg_REMAINING_AF": {
+          "vep": "0",
+          "vepyr": ""
+        },
+        "gnomADg_SAS_AF": {
+          "vep": "0",
+          "vepyr": ""
+        },
+        "MAX_AF": {
+          "vep": "0.004669",
+          "vepyr": ""
+        },
+        "MAX_AF_POPS": {
+          "vep": "gnomADg_AFR",
+          "vepyr": ""
+        }
+      }
+    },
+    {
+      "feature": "ENST00000925342",
+      "differences": {
+        "Allele": {
+          "vep": "T",
+          "vepyr": "t"
+        },
+        "Existing_variation": {
+          "vep": "rs142513484",
+          "vepyr": ""
+        },
+        "AF": {
+          "vep": "0.0010",
+          "vepyr": ""
+        },
+        "AFR_AF": {
+          "vep": "0.003",
+          "vepyr": ""
+        },
+        "AMR_AF": {
+          "vep": "0.0014",
+          "vepyr": ""
+        },
+        "EAS_AF": {
+          "vep": "0",
+          "vepyr": ""
+        },
+        "EUR_AF": {
+          "vep": "0",
+          "vepyr": ""
+        },
+        "SAS_AF": {
+          "vep": "0",
+          "vepyr": ""
+        },
+        "gnomADe_AF": {
+          "vep": "9.481e-05",
+          "vepyr": ""
+        },
+        "gnomADe_AFR_AF": {
+          "vep": "0.003061",
+          "vepyr": ""
+        },
+        "gnomADe_AMR_AF": {
+          "vep": "0.0002375",
+          "vepyr": ""
+        },
+        "gnomADe_ASJ_AF": {
+          "vep": "0",
+          "vepyr": ""
+        },
+        "gnomADe_EAS_AF": {
+          "vep": "0",
+          "vepyr": ""
+        },
+        "gnomADe_FIN_AF": {
+          "vep": "0",
+          "vepyr": ""
+        },
+        "gnomADe_MID_AF": {
+          "vep": "0.0001759",
+          "vepyr": ""
+        },
+        "gnomADe_NFE_AF": {
+          "vep": "1.195e-05",
+          "vepyr": ""
+        },
+        "gnomADe_REMAINING_AF": {
+          "vep": "0.0002031",
+          "vepyr": ""
+        },
+        "gnomADe_SAS_AF": {
+          "vep": "0",
+          "vepyr": ""
+        },
+        "gnomADg_AF": {
+          "vep": "0.001307",
+          "vepyr": ""
+        },
+        "gnomADg_AFR_AF": {
+          "vep": "0.004669",
+          "vepyr": ""
+        },
+        "gnomADg_AMI_AF": {
+          "vep": "0",
+          "vepyr": ""
+        },
+        "gnomADg_AMR_AF": {
+          "vep": "0.0002616",
+          "vepyr": ""
+        },
+        "gnomADg_ASJ_AF": {
+          "vep": "0",
+          "vepyr": ""
+        },
+        "gnomADg_EAS_AF": {
+          "vep": "0",
+          "vepyr": ""
+        },
+        "gnomADg_FIN_AF": {
+          "vep": "0",
+          "vepyr": ""
+        },
+        "gnomADg_MID_AF": {
+          "vep": "0",
+          "vepyr": ""
+        },
+        "gnomADg_NFE_AF": {
+          "vep": "1.471e-05",
+          "vepyr": ""
+        },
+        "gnomADg_REMAINING_AF": {
+          "vep": "0",
+          "vepyr": ""
+        },
+        "gnomADg_SAS_AF": {
+          "vep": "0",
+          "vepyr": ""
+        },
+        "MAX_AF": {
+          "vep": "0.004669",
+          "vepyr": ""
+        },
+        "MAX_AF_POPS": {
+          "vep": "gnomADg_AFR",
+          "vepyr": ""
+        }
+      }
+    },
+    {
+      "feature": "ENST00000925343",
+      "differences": {
+        "Allele": {
+          "vep": "T",
+          "vepyr": "t"
+        },
+        "Existing_variation": {
+          "vep": "rs142513484",
+          "vepyr": ""
+        },
+        "AF": {
+          "vep": "0.0010",
+          "vepyr": ""
+        },
+        "AFR_AF": {
+          "vep": "0.003",
+          "vepyr": ""
+        },
+        "AMR_AF": {
+          "vep": "0.0014",
+          "vepyr": ""
+        },
+        "EAS_AF": {
+          "vep": "0",
+          "vepyr": ""
+        },
+        "EUR_AF": {
+          "vep": "0",
+          "vepyr": ""
+        },
+        "SAS_AF": {
+          "vep": "0",
+          "vepyr": ""
+        },
+        "gnomADe_AF": {
+          "vep": "9.481e-05",
+          "vepyr": ""
+        },
+        "gnomADe_AFR_AF": {
+          "vep": "0.003061",
+          "vepyr": ""
+        },
+        "gnomADe_AMR_AF": {
+          "vep": "0.0002375",
+          "vepyr": ""
+        },
+        "gnomADe_ASJ_AF": {
+          "vep": "0",
+          "vepyr": ""
+        },
+        "gnomADe_EAS_AF": {
+          "vep": "0",
+          "vepyr": ""
+        },
+        "gnomADe_FIN_AF": {
+          "vep": "0",
+          "vepyr": ""
+        },
+        "gnomADe_MID_AF": {
+          "vep": "0.0001759",
+          "vepyr": ""
+        },
+        "gnomADe_NFE_AF": {
+          "vep": "1.195e-05",
+          "vepyr": ""
+        },
+        "gnomADe_REMAINING_AF": {
+          "vep": "0.0002031",
+          "vepyr": ""
+        },
+        "gnomADe_SAS_AF": {
+          "vep": "0",
+          "vepyr": ""
+        },
+        "gnomADg_AF": {
+          "vep": "0.001307",
+          "vepyr": ""
+        },
+        "gnomADg_AFR_AF": {
+          "vep": "0.004669",
+          "vepyr": ""
+        },
+        "gnomADg_AMI_AF": {
+          "vep": "0",
+          "vepyr": ""
+        },
+        "gnomADg_AMR_AF": {
+          "vep": "0.0002616",
+          "vepyr": ""
+        },
+        "gnomADg_ASJ_AF": {
+          "vep": "0",
+          "vepyr": ""
+        },
+        "gnomADg_EAS_AF": {
+          "vep": "0",
+          "vepyr": ""
+        },
+        "gnomADg_FIN_AF": {
+          "vep": "0",
+          "vepyr": ""
+        },
+        "gnomADg_MID_AF": {
+          "vep": "0",
+          "vepyr": ""
+        },
+        "gnomADg_NFE_AF": {
+          "vep": "1.471e-05",
+          "vepyr": ""
+        },
+        "gnomADg_REMAINING_AF": {
+          "vep": "0",
+          "vepyr": ""
+        },
+        "gnomADg_SAS_AF": {
+          "vep": "0",
+          "vepyr": ""
+        },
+        "MAX_AF": {
+          "vep": "0.004669",
+          "vepyr": ""
+        },
+        "MAX_AF_POPS": {
+          "vep": "gnomADg_AFR",
+          "vepyr": ""
+        }
+      }
+    },
+    {
+      "feature": "ENST00000925344",
+      "differences": {
+        "Allele": {
+          "vep": "T",
+          "vepyr": "t"
+        },
+        "Existing_variation": {
+          "vep": "rs142513484",
+          "vepyr": ""
+        },
+        "AF": {
+          "vep": "0.0010",
+          "vepyr": ""
+        },
+        "AFR_AF": {
+          "vep": "0.003",
+          "vepyr": ""
+        },
+        "AMR_AF": {
+          "vep": "0.0014",
+          "vepyr": ""
+        },
+        "EAS_AF": {
+          "vep": "0",
+          "vepyr": ""
+        },
+        "EUR_AF": {
+          "vep": "0",
+          "vepyr": ""
+        },
+        "SAS_AF": {
+          "vep": "0",
+          "vepyr": ""
+        },
+        "gnomADe_AF": {
+          "vep": "9.481e-05",
+          "vepyr": ""
+        },
+        "gnomADe_AFR_AF": {
+          "vep": "0.003061",
+          "vepyr": ""
+        },
+        "gnomADe_AMR_AF": {
+          "vep": "0.0002375",
+          "vepyr": ""
+        },
+        "gnomADe_ASJ_AF": {
+          "vep": "0",
+          "vepyr": ""
+        },
+        "gnomADe_EAS_AF": {
+          "vep": "0",
+          "vepyr": ""
+        },
+        "gnomADe_FIN_AF": {
+          "vep": "0",
+          "vepyr": ""
+        },
+        "gnomADe_MID_AF": {
+          "vep": "0.0001759",
+          "vepyr": ""
+        },
+        "gnomADe_NFE_AF": {
+          "vep": "1.195e-05",
+          "vepyr": ""
+        },
+        "gnomADe_REMAINING_AF": {
+          "vep": "0.0002031",
+          "vepyr": ""
+        },
+        "gnomADe_SAS_AF": {
+          "vep": "0",
+          "vepyr": ""
+        },
+        "gnomADg_AF": {
+          "vep": "0.001307",
+          "vepyr": ""
+        },
+        "gnomADg_AFR_AF": {
+          "vep": "0.004669",
+          "vepyr": ""
+        },
+        "gnomADg_AMI_AF": {
+          "vep": "0",
+          "vepyr": ""
+        },
+        "gnomADg_AMR_AF": {
+          "vep": "0.0002616",
+          "vepyr": ""
+        },
+        "gnomADg_ASJ_AF": {
+          "vep": "0",
+          "vepyr": ""
+        },
+        "gnomADg_EAS_AF": {
+          "vep": "0",
+          "vepyr": ""
+        },
+        "gnomADg_FIN_AF": {
+          "vep": "0",
+          "vepyr": ""
+        },
+        "gnomADg_MID_AF": {
+          "vep": "0",
+          "vepyr": ""
+        },
+        "gnomADg_NFE_AF": {
+          "vep": "1.471e-05",
+          "vepyr": ""
+        },
+        "gnomADg_REMAINING_AF": {
+          "vep": "0",
+          "vepyr": ""
+        },
+        "gnomADg_SAS_AF": {
+          "vep": "0",
+          "vepyr": ""
+        },
+        "MAX_AF": {
+          "vep": "0.004669",
+          "vepyr": ""
+        },
+        "MAX_AF_POPS": {
+          "vep": "gnomADg_AFR",
+          "vepyr": ""
+        }
+      }
+    },
+    {
+      "feature": "ENST00000925345",
+      "differences": {
+        "Allele": {
+          "vep": "T",
+          "vepyr": "t"
+        },
+        "Existing_variation": {
+          "vep": "rs142513484",
+          "vepyr": ""
+        },
+        "AF": {
+          "vep": "0.0010",
+          "vepyr": ""
+        },
+        "AFR_AF": {
+          "vep": "0.003",
+          "vepyr": ""
+        },
+        "AMR_AF": {
+          "vep": "0.0014",
+          "vepyr": ""
+        },
+        "EAS_AF": {
+          "vep": "0",
+          "vepyr": ""
+        },
+        "EUR_AF": {
+          "vep": "0",
+          "vepyr": ""
+        },
+        "SAS_AF": {
+          "vep": "0",
+          "vepyr": ""
+        },
+        "gnomADe_AF": {
+          "vep": "9.481e-05",
+          "vepyr": ""
+        },
+        "gnomADe_AFR_AF": {
+          "vep": "0.003061",
+          "vepyr": ""
+        },
+        "gnomADe_AMR_AF": {
+          "vep": "0.0002375",
+          "vepyr": ""
+        },
+        "gnomADe_ASJ_AF": {
+          "vep": "0",
+          "vepyr": ""
+        },
+        "gnomADe_EAS_AF": {
+          "vep": "0",
+          "vepyr": ""
+        },
+        "gnomADe_FIN_AF": {
+          "vep": "0",
+          "vepyr": ""
+        },
+        "gnomADe_MID_AF": {
+          "vep": "0.0001759",
+          "vepyr": ""
+        },
+        "gnomADe_NFE_AF": {
+          "vep": "1.195e-05",
+          "vepyr": ""
+        },
+        "gnomADe_REMAINING_AF": {
+          "vep": "0.0002031",
+          "vepyr": ""
+        },
+        "gnomADe_SAS_AF": {
+          "vep": "0",
+          "vepyr": ""
+        },
+        "gnomADg_AF": {
+          "vep": "0.001307",
+          "vepyr": ""
+        },
+        "gnomADg_AFR_AF": {
+          "vep": "0.004669",
+          "vepyr": ""
+        },
+        "gnomADg_AMI_AF": {
+          "vep": "0",
+          "vepyr": ""
+        },
+        "gnomADg_AMR_AF": {
+          "vep": "0.0002616",
+          "vepyr": ""
+        },
+        "gnomADg_ASJ_AF": {
+          "vep": "0",
+          "vepyr": ""
+        },
+        "gnomADg_EAS_AF": {
+          "vep": "0",
+          "vepyr": ""
+        },
+        "gnomADg_FIN_AF": {
+          "vep": "0",
+          "vepyr": ""
+        },
+        "gnomADg_MID_AF": {
+          "vep": "0",
+          "vepyr": ""
+        },
+        "gnomADg_NFE_AF": {
+          "vep": "1.471e-05",
+          "vepyr": ""
+        },
+        "gnomADg_REMAINING_AF": {
+          "vep": "0",
+          "vepyr": ""
+        },
+        "gnomADg_SAS_AF": {
+          "vep": "0",
+          "vepyr": ""
+        },
+        "MAX_AF": {
+          "vep": "0.004669",
+          "vepyr": ""
+        },
+        "MAX_AF_POPS": {
+          "vep": "gnomADg_AFR",
+          "vepyr": ""
+        }
+      }
+    },
+    {
+      "feature": "ENST00000925346",
+      "differences": {
+        "Allele": {
+          "vep": "T",
+          "vepyr": "t"
+        },
+        "Existing_variation": {
+          "vep": "rs142513484",
+          "vepyr": ""
+        },
+        "AF": {
+          "vep": "0.0010",
+          "vepyr": ""
+        },
+        "AFR_AF": {
+          "vep": "0.003",
+          "vepyr": ""
+        },
+        "AMR_AF": {
+          "vep": "0.0014",
+          "vepyr": ""
+        },
+        "EAS_AF": {
+          "vep": "0",
+          "vepyr": ""
+        },
+        "EUR_AF": {
+          "vep": "0",
+          "vepyr": ""
+        },
+        "SAS_AF": {
+          "vep": "0",
+          "vepyr": ""
+        },
+        "gnomADe_AF": {
+          "vep": "9.481e-05",
+          "vepyr": ""
+        },
+        "gnomADe_AFR_AF": {
+          "vep": "0.003061",
+          "vepyr": ""
+        },
+        "gnomADe_AMR_AF": {
+          "vep": "0.0002375",
+          "vepyr": ""
+        },
+        "gnomADe_ASJ_AF": {
+          "vep": "0",
+          "vepyr": ""
+        },
+        "gnomADe_EAS_AF": {
+          "vep": "0",
+          "vepyr": ""
+        },
+        "gnomADe_FIN_AF": {
+          "vep": "0",
+          "vepyr": ""
+        },
+        "gnomADe_MID_AF": {
+          "vep": "0.0001759",
+          "vepyr": ""
+        },
+        "gnomADe_NFE_AF": {
+          "vep": "1.195e-05",
+          "vepyr": ""
+        },
+        "gnomADe_REMAINING_AF": {
+          "vep": "0.0002031",
+          "vepyr": ""
+        },
+        "gnomADe_SAS_AF": {
+          "vep": "0",
+          "vepyr": ""
+        },
+        "gnomADg_AF": {
+          "vep": "0.001307",
+          "vepyr": ""
+        },
+        "gnomADg_AFR_AF": {
+          "vep": "0.004669",
+          "vepyr": ""
+        },
+        "gnomADg_AMI_AF": {
+          "vep": "0",
+          "vepyr": ""
+        },
+        "gnomADg_AMR_AF": {
+          "vep": "0.0002616",
+          "vepyr": ""
+        },
+        "gnomADg_ASJ_AF": {
+          "vep": "0",
+          "vepyr": ""
+        },
+        "gnomADg_EAS_AF": {
+          "vep": "0",
+          "vepyr": ""
+        },
+        "gnomADg_FIN_AF": {
+          "vep": "0",
+          "vepyr": ""
+        },
+        "gnomADg_MID_AF": {
+          "vep": "0",
+          "vepyr": ""
+        },
+        "gnomADg_NFE_AF": {
+          "vep": "1.471e-05",
+          "vepyr": ""
+        },
+        "gnomADg_REMAINING_AF": {
+          "vep": "0",
+          "vepyr": ""
+        },
+        "gnomADg_SAS_AF": {
+          "vep": "0",
+          "vepyr": ""
+        },
+        "MAX_AF": {
+          "vep": "0.004669",
+          "vepyr": ""
+        },
+        "MAX_AF_POPS": {
+          "vep": "gnomADg_AFR",
+          "vepyr": ""
+        }
+      }
+    },
+    {
+      "feature": "ENST00000946900",
+      "differences": {
+        "Allele": {
+          "vep": "T",
+          "vepyr": "t"
+        },
+        "Existing_variation": {
+          "vep": "rs142513484",
+          "vepyr": ""
+        },
+        "AF": {
+          "vep": "0.0010",
+          "vepyr": ""
+        },
+        "AFR_AF": {
+          "vep": "0.003",
+          "vepyr": ""
+        },
+        "AMR_AF": {
+          "vep": "0.0014",
+          "vepyr": ""
+        },
+        "EAS_AF": {
+          "vep": "0",
+          "vepyr": ""
+        },
+        "EUR_AF": {
+          "vep": "0",
+          "vepyr": ""
+        },
+        "SAS_AF": {
+          "vep": "0",
+          "vepyr": ""
+        },
+        "gnomADe_AF": {
+          "vep": "9.481e-05",
+          "vepyr": ""
+        },
+        "gnomADe_AFR_AF": {
+          "vep": "0.003061",
+          "vepyr": ""
+        },
+        "gnomADe_AMR_AF": {
+          "vep": "0.0002375",
+          "vepyr": ""
+        },
+        "gnomADe_ASJ_AF": {
+          "vep": "0",
+          "vepyr": ""
+        },
+        "gnomADe_EAS_AF": {
+          "vep": "0",
+          "vepyr": ""
+        },
+        "gnomADe_FIN_AF": {
+          "vep": "0",
+          "vepyr": ""
+        },
+        "gnomADe_MID_AF": {
+          "vep": "0.0001759",
+          "vepyr": ""
+        },
+        "gnomADe_NFE_AF": {
+          "vep": "1.195e-05",
+          "vepyr": ""
+        },
+        "gnomADe_REMAINING_AF": {
+          "vep": "0.0002031",
+          "vepyr": ""
+        },
+        "gnomADe_SAS_AF": {
+          "vep": "0",
+          "vepyr": ""
+        },
+        "gnomADg_AF": {
+          "vep": "0.001307",
+          "vepyr": ""
+        },
+        "gnomADg_AFR_AF": {
+          "vep": "0.004669",
+          "vepyr": ""
+        },
+        "gnomADg_AMI_AF": {
+          "vep": "0",
+          "vepyr": ""
+        },
+        "gnomADg_AMR_AF": {
+          "vep": "0.0002616",
+          "vepyr": ""
+        },
+        "gnomADg_ASJ_AF": {
+          "vep": "0",
+          "vepyr": ""
+        },
+        "gnomADg_EAS_AF": {
+          "vep": "0",
+          "vepyr": ""
+        },
+        "gnomADg_FIN_AF": {
+          "vep": "0",
+          "vepyr": ""
+        },
+        "gnomADg_MID_AF": {
+          "vep": "0",
+          "vepyr": ""
+        },
+        "gnomADg_NFE_AF": {
+          "vep": "1.471e-05",
+          "vepyr": ""
+        },
+        "gnomADg_REMAINING_AF": {
+          "vep": "0",
+          "vepyr": ""
+        },
+        "gnomADg_SAS_AF": {
+          "vep": "0",
+          "vepyr": ""
+        },
+        "MAX_AF": {
+          "vep": "0.004669",
+          "vepyr": ""
+        },
+        "MAX_AF_POPS": {
+          "vep": "gnomADg_AFR",
+          "vepyr": ""
+        }
+      }
+    },
+    {
+      "feature": "ENST00000946901",
+      "differences": {
+        "Allele": {
+          "vep": "T",
+          "vepyr": "t"
+        },
+        "Existing_variation": {
+          "vep": "rs142513484",
+          "vepyr": ""
+        },
+        "AF": {
+          "vep": "0.0010",
+          "vepyr": ""
+        },
+        "AFR_AF": {
+          "vep": "0.003",
+          "vepyr": ""
+        },
+        "AMR_AF": {
+          "vep": "0.0014",
+          "vepyr": ""
+        },
+        "EAS_AF": {
+          "vep": "0",
+          "vepyr": ""
+        },
+        "EUR_AF": {
+          "vep": "0",
+          "vepyr": ""
+        },
+        "SAS_AF": {
+          "vep": "0",
+          "vepyr": ""
+        },
+        "gnomADe_AF": {
+          "vep": "9.481e-05",
+          "vepyr": ""
+        },
+        "gnomADe_AFR_AF": {
+          "vep": "0.003061",
+          "vepyr": ""
+        },
+        "gnomADe_AMR_AF": {
+          "vep": "0.0002375",
+          "vepyr": ""
+        },
+        "gnomADe_ASJ_AF": {
+          "vep": "0",
+          "vepyr": ""
+        },
+        "gnomADe_EAS_AF": {
+          "vep": "0",
+          "vepyr": ""
+        },
+        "gnomADe_FIN_AF": {
+          "vep": "0",
+          "vepyr": ""
+        },
+        "gnomADe_MID_AF": {
+          "vep": "0.0001759",
+          "vepyr": ""
+        },
+        "gnomADe_NFE_AF": {
+          "vep": "1.195e-05",
+          "vepyr": ""
+        },
+        "gnomADe_REMAINING_AF": {
+          "vep": "0.0002031",
+          "vepyr": ""
+        },
+        "gnomADe_SAS_AF": {
+          "vep": "0",
+          "vepyr": ""
+        },
+        "gnomADg_AF": {
+          "vep": "0.001307",
+          "vepyr": ""
+        },
+        "gnomADg_AFR_AF": {
+          "vep": "0.004669",
+          "vepyr": ""
+        },
+        "gnomADg_AMI_AF": {
+          "vep": "0",
+          "vepyr": ""
+        },
+        "gnomADg_AMR_AF": {
+          "vep": "0.0002616",
+          "vepyr": ""
+        },
+        "gnomADg_ASJ_AF": {
+          "vep": "0",
+          "vepyr": ""
+        },
+        "gnomADg_EAS_AF": {
+          "vep": "0",
+          "vepyr": ""
+        },
+        "gnomADg_FIN_AF": {
+          "vep": "0",
+          "vepyr": ""
+        },
+        "gnomADg_MID_AF": {
+          "vep": "0",
+          "vepyr": ""
+        },
+        "gnomADg_NFE_AF": {
+          "vep": "1.471e-05",
+          "vepyr": ""
+        },
+        "gnomADg_REMAINING_AF": {
+          "vep": "0",
+          "vepyr": ""
+        },
+        "gnomADg_SAS_AF": {
+          "vep": "0",
+          "vepyr": ""
+        },
+        "MAX_AF": {
+          "vep": "0.004669",
+          "vepyr": ""
+        },
+        "MAX_AF_POPS": {
+          "vep": "gnomADg_AFR",
+          "vepyr": ""
+        }
+      }
+    },
+    {
+      "feature": "ENST00000985907",
+      "differences": {
+        "Allele": {
+          "vep": "T",
+          "vepyr": "t"
+        },
+        "Existing_variation": {
+          "vep": "rs142513484",
+          "vepyr": ""
+        },
+        "AF": {
+          "vep": "0.0010",
+          "vepyr": ""
+        },
+        "AFR_AF": {
+          "vep": "0.003",
+          "vepyr": ""
+        },
+        "AMR_AF": {
+          "vep": "0.0014",
+          "vepyr": ""
+        },
+        "EAS_AF": {
+          "vep": "0",
+          "vepyr": ""
+        },
+        "EUR_AF": {
+          "vep": "0",
+          "vepyr": ""
+        },
+        "SAS_AF": {
+          "vep": "0",
+          "vepyr": ""
+        },
+        "gnomADe_AF": {
+          "vep": "9.481e-05",
+          "vepyr": ""
+        },
+        "gnomADe_AFR_AF": {
+          "vep": "0.003061",
+          "vepyr": ""
+        },
+        "gnomADe_AMR_AF": {
+          "vep": "0.0002375",
+          "vepyr": ""
+        },
+        "gnomADe_ASJ_AF": {
+          "vep": "0",
+          "vepyr": ""
+        },
+        "gnomADe_EAS_AF": {
+          "vep": "0",
+          "vepyr": ""
+        },
+        "gnomADe_FIN_AF": {
+          "vep": "0",
+          "vepyr": ""
+        },
+        "gnomADe_MID_AF": {
+          "vep": "0.0001759",
+          "vepyr": ""
+        },
+        "gnomADe_NFE_AF": {
+          "vep": "1.195e-05",
+          "vepyr": ""
+        },
+        "gnomADe_REMAINING_AF": {
+          "vep": "0.0002031",
+          "vepyr": ""
+        },
+        "gnomADe_SAS_AF": {
+          "vep": "0",
+          "vepyr": ""
+        },
+        "gnomADg_AF": {
+          "vep": "0.001307",
+          "vepyr": ""
+        },
+        "gnomADg_AFR_AF": {
+          "vep": "0.004669",
+          "vepyr": ""
+        },
+        "gnomADg_AMI_AF": {
+          "vep": "0",
+          "vepyr": ""
+        },
+        "gnomADg_AMR_AF": {
+          "vep": "0.0002616",
+          "vepyr": ""
+        },
+        "gnomADg_ASJ_AF": {
+          "vep": "0",
+          "vepyr": ""
+        },
+        "gnomADg_EAS_AF": {
+          "vep": "0",
+          "vepyr": ""
+        },
+        "gnomADg_FIN_AF": {
+          "vep": "0",
+          "vepyr": ""
+        },
+        "gnomADg_MID_AF": {
+          "vep": "0",
+          "vepyr": ""
+        },
+        "gnomADg_NFE_AF": {
+          "vep": "1.471e-05",
+          "vepyr": ""
+        },
+        "gnomADg_REMAINING_AF": {
+          "vep": "0",
+          "vepyr": ""
+        },
+        "gnomADg_SAS_AF": {
+          "vep": "0",
+          "vepyr": ""
+        },
+        "MAX_AF": {
+          "vep": "0.004669",
+          "vepyr": ""
+        },
+        "MAX_AF_POPS": {
+          "vep": "gnomADg_AFR",
+          "vepyr": ""
+        }
+      }
+    },
+    {
+      "feature": "ENST00000985908",
+      "differences": {
+        "Allele": {
+          "vep": "T",
+          "vepyr": "t"
+        },
+        "Existing_variation": {
+          "vep": "rs142513484",
+          "vepyr": ""
+        },
+        "AF": {
+          "vep": "0.0010",
+          "vepyr": ""
+        },
+        "AFR_AF": {
+          "vep": "0.003",
+          "vepyr": ""
+        },
+        "AMR_AF": {
+          "vep": "0.0014",
+          "vepyr": ""
+        },
+        "EAS_AF": {
+          "vep": "0",
+          "vepyr": ""
+        },
+        "EUR_AF": {
+          "vep": "0",
+          "vepyr": ""
+        },
+        "SAS_AF": {
+          "vep": "0",
+          "vepyr": ""
+        },
+        "gnomADe_AF": {
+          "vep": "9.481e-05",
+          "vepyr": ""
+        },
+        "gnomADe_AFR_AF": {
+          "vep": "0.003061",
+          "vepyr": ""
+        },
+        "gnomADe_AMR_AF": {
+          "vep": "0.0002375",
+          "vepyr": ""
+        },
+        "gnomADe_ASJ_AF": {
+          "vep": "0",
+          "vepyr": ""
+        },
+        "gnomADe_EAS_AF": {
+          "vep": "0",
+          "vepyr": ""
+        },
+        "gnomADe_FIN_AF": {
+          "vep": "0",
+          "vepyr": ""
+        },
+        "gnomADe_MID_AF": {
+          "vep": "0.0001759",
+          "vepyr": ""
+        },
+        "gnomADe_NFE_AF": {
+          "vep": "1.195e-05",
+          "vepyr": ""
+        },
+        "gnomADe_REMAINING_AF": {
+          "vep": "0.0002031",
+          "vepyr": ""
+        },
+        "gnomADe_SAS_AF": {
+          "vep": "0",
+          "vepyr": ""
+        },
+        "gnomADg_AF": {
+          "vep": "0.001307",
+          "vepyr": ""
+        },
+        "gnomADg_AFR_AF": {
+          "vep": "0.004669",
+          "vepyr": ""
+        },
+        "gnomADg_AMI_AF": {
+          "vep": "0",
+          "vepyr": ""
+        },
+        "gnomADg_AMR_AF": {
+          "vep": "0.0002616",
+          "vepyr": ""
+        },
+        "gnomADg_ASJ_AF": {
+          "vep": "0",
+          "vepyr": ""
+        },
+        "gnomADg_EAS_AF": {
+          "vep": "0",
+          "vepyr": ""
+        },
+        "gnomADg_FIN_AF": {
+          "vep": "0",
+          "vepyr": ""
+        },
+        "gnomADg_MID_AF": {
+          "vep": "0",
+          "vepyr": ""
+        },
+        "gnomADg_NFE_AF": {
+          "vep": "1.471e-05",
+          "vepyr": ""
+        },
+        "gnomADg_REMAINING_AF": {
+          "vep": "0",
+          "vepyr": ""
+        },
+        "gnomADg_SAS_AF": {
+          "vep": "0",
+          "vepyr": ""
+        },
+        "MAX_AF": {
+          "vep": "0.004669",
+          "vepyr": ""
+        },
+        "MAX_AF_POPS": {
+          "vep": "gnomADg_AFR",
+          "vepyr": ""
+        }
+      }
+    },
+    {
+      "feature": "ENST00000985909",
+      "differences": {
+        "Allele": {
+          "vep": "T",
+          "vepyr": "t"
+        },
+        "Existing_variation": {
+          "vep": "rs142513484",
+          "vepyr": ""
+        },
+        "AF": {
+          "vep": "0.0010",
+          "vepyr": ""
+        },
+        "AFR_AF": {
+          "vep": "0.003",
+          "vepyr": ""
+        },
+        "AMR_AF": {
+          "vep": "0.0014",
+          "vepyr": ""
+        },
+        "EAS_AF": {
+          "vep": "0",
+          "vepyr": ""
+        },
+        "EUR_AF": {
+          "vep": "0",
+          "vepyr": ""
+        },
+        "SAS_AF": {
+          "vep": "0",
+          "vepyr": ""
+        },
+        "gnomADe_AF": {
+          "vep": "9.481e-05",
+          "vepyr": ""
+        },
+        "gnomADe_AFR_AF": {
+          "vep": "0.003061",
+          "vepyr": ""
+        },
+        "gnomADe_AMR_AF": {
+          "vep": "0.0002375",
+          "vepyr": ""
+        },
+        "gnomADe_ASJ_AF": {
+          "vep": "0",
+          "vepyr": ""
+        },
+        "gnomADe_EAS_AF": {
+          "vep": "0",
+          "vepyr": ""
+        },
+        "gnomADe_FIN_AF": {
+          "vep": "0",
+          "vepyr": ""
+        },
+        "gnomADe_MID_AF": {
+          "vep": "0.0001759",
+          "vepyr": ""
+        },
+        "gnomADe_NFE_AF": {
+          "vep": "1.195e-05",
+          "vepyr": ""
+        },
+        "gnomADe_REMAINING_AF": {
+          "vep": "0.0002031",
+          "vepyr": ""
+        },
+        "gnomADe_SAS_AF": {
+          "vep": "0",
+          "vepyr": ""
+        },
+        "gnomADg_AF": {
+          "vep": "0.001307",
+          "vepyr": ""
+        },
+        "gnomADg_AFR_AF": {
+          "vep": "0.004669",
+          "vepyr": ""
+        },
+        "gnomADg_AMI_AF": {
+          "vep": "0",
+          "vepyr": ""
+        },
+        "gnomADg_AMR_AF": {
+          "vep": "0.0002616",
+          "vepyr": ""
+        },
+        "gnomADg_ASJ_AF": {
+          "vep": "0",
+          "vepyr": ""
+        },
+        "gnomADg_EAS_AF": {
+          "vep": "0",
+          "vepyr": ""
+        },
+        "gnomADg_FIN_AF": {
+          "vep": "0",
+          "vepyr": ""
+        },
+        "gnomADg_MID_AF": {
+          "vep": "0",
+          "vepyr": ""
+        },
+        "gnomADg_NFE_AF": {
+          "vep": "1.471e-05",
+          "vepyr": ""
+        },
+        "gnomADg_REMAINING_AF": {
+          "vep": "0",
+          "vepyr": ""
+        },
+        "gnomADg_SAS_AF": {
+          "vep": "0",
+          "vepyr": ""
+        },
+        "MAX_AF": {
+          "vep": "0.004669",
+          "vepyr": ""
+        },
+        "MAX_AF_POPS": {
+          "vep": "gnomADg_AFR",
+          "vepyr": ""
+        }
+      }
+    },
+    {
+      "feature": "ENST00000985910",
+      "differences": {
+        "Allele": {
+          "vep": "T",
+          "vepyr": "t"
+        },
+        "Existing_variation": {
+          "vep": "rs142513484",
+          "vepyr": ""
+        },
+        "AF": {
+          "vep": "0.0010",
+          "vepyr": ""
+        },
+        "AFR_AF": {
+          "vep": "0.003",
+          "vepyr": ""
+        },
+        "AMR_AF": {
+          "vep": "0.0014",
+          "vepyr": ""
+        },
+        "EAS_AF": {
+          "vep": "0",
+          "vepyr": ""
+        },
+        "EUR_AF": {
+          "vep": "0",
+          "vepyr": ""
+        },
+        "SAS_AF": {
+          "vep": "0",
+          "vepyr": ""
+        },
+        "gnomADe_AF": {
+          "vep": "9.481e-05",
+          "vepyr": ""
+        },
+        "gnomADe_AFR_AF": {
+          "vep": "0.003061",
+          "vepyr": ""
+        },
+        "gnomADe_AMR_AF": {
+          "vep": "0.0002375",
+          "vepyr": ""
+        },
+        "gnomADe_ASJ_AF": {
+          "vep": "0",
+          "vepyr": ""
+        },
+        "gnomADe_EAS_AF": {
+          "vep": "0",
+          "vepyr": ""
+        },
+        "gnomADe_FIN_AF": {
+          "vep": "0",
+          "vepyr": ""
+        },
+        "gnomADe_MID_AF": {
+          "vep": "0.0001759",
+          "vepyr": ""
+        },
+        "gnomADe_NFE_AF": {
+          "vep": "1.195e-05",
+          "vepyr": ""
+        },
+        "gnomADe_REMAINING_AF": {
+          "vep": "0.0002031",
+          "vepyr": ""
+        },
+        "gnomADe_SAS_AF": {
+          "vep": "0",
+          "vepyr": ""
+        },
+        "gnomADg_AF": {
+          "vep": "0.001307",
+          "vepyr": ""
+        },
+        "gnomADg_AFR_AF": {
+          "vep": "0.004669",
+          "vepyr": ""
+        },
+        "gnomADg_AMI_AF": {
+          "vep": "0",
+          "vepyr": ""
+        },
+        "gnomADg_AMR_AF": {
+          "vep": "0.0002616",
+          "vepyr": ""
+        },
+        "gnomADg_ASJ_AF": {
+          "vep": "0",
+          "vepyr": ""
+        },
+        "gnomADg_EAS_AF": {
+          "vep": "0",
+          "vepyr": ""
+        },
+        "gnomADg_FIN_AF": {
+          "vep": "0",
+          "vepyr": ""
+        },
+        "gnomADg_MID_AF": {
+          "vep": "0",
+          "vepyr": ""
+        },
+        "gnomADg_NFE_AF": {
+          "vep": "1.471e-05",
+          "vepyr": ""
+        },
+        "gnomADg_REMAINING_AF": {
+          "vep": "0",
+          "vepyr": ""
+        },
+        "gnomADg_SAS_AF": {
+          "vep": "0",
+          "vepyr": ""
+        },
+        "MAX_AF": {
+          "vep": "0.004669",
+          "vepyr": ""
+        },
+        "MAX_AF_POPS": {
+          "vep": "gnomADg_AFR",
+          "vepyr": ""
+        }
+      }
+    },
+    {
+      "feature": "ENST00001019016",
+      "differences": {
+        "Allele": {
+          "vep": "T",
+          "vepyr": "t"
+        },
+        "Existing_variation": {
+          "vep": "rs142513484",
+          "vepyr": ""
+        },
+        "AF": {
+          "vep": "0.0010",
+          "vepyr": ""
+        },
+        "AFR_AF": {
+          "vep": "0.003",
+          "vepyr": ""
+        },
+        "AMR_AF": {
+          "vep": "0.0014",
+          "vepyr": ""
+        },
+        "EAS_AF": {
+          "vep": "0",
+          "vepyr": ""
+        },
+        "EUR_AF": {
+          "vep": "0",
+          "vepyr": ""
+        },
+        "SAS_AF": {
+          "vep": "0",
+          "vepyr": ""
+        },
+        "gnomADe_AF": {
+          "vep": "9.481e-05",
+          "vepyr": ""
+        },
+        "gnomADe_AFR_AF": {
+          "vep": "0.003061",
+          "vepyr": ""
+        },
+        "gnomADe_AMR_AF": {
+          "vep": "0.0002375",
+          "vepyr": ""
+        },
+        "gnomADe_ASJ_AF": {
+          "vep": "0",
+          "vepyr": ""
+        },
+        "gnomADe_EAS_AF": {
+          "vep": "0",
+          "vepyr": ""
+        },
+        "gnomADe_FIN_AF": {
+          "vep": "0",
+          "vepyr": ""
+        },
+        "gnomADe_MID_AF": {
+          "vep": "0.0001759",
+          "vepyr": ""
+        },
+        "gnomADe_NFE_AF": {
+          "vep": "1.195e-05",
+          "vepyr": ""
+        },
+        "gnomADe_REMAINING_AF": {
+          "vep": "0.0002031",
+          "vepyr": ""
+        },
+        "gnomADe_SAS_AF": {
+          "vep": "0",
+          "vepyr": ""
+        },
+        "gnomADg_AF": {
+          "vep": "0.001307",
+          "vepyr": ""
+        },
+        "gnomADg_AFR_AF": {
+          "vep": "0.004669",
+          "vepyr": ""
+        },
+        "gnomADg_AMI_AF": {
+          "vep": "0",
+          "vepyr": ""
+        },
+        "gnomADg_AMR_AF": {
+          "vep": "0.0002616",
+          "vepyr": ""
+        },
+        "gnomADg_ASJ_AF": {
+          "vep": "0",
+          "vepyr": ""
+        },
+        "gnomADg_EAS_AF": {
+          "vep": "0",
+          "vepyr": ""
+        },
+        "gnomADg_FIN_AF": {
+          "vep": "0",
+          "vepyr": ""
+        },
+        "gnomADg_MID_AF": {
+          "vep": "0",
+          "vepyr": ""
+        },
+        "gnomADg_NFE_AF": {
+          "vep": "1.471e-05",
+          "vepyr": ""
+        },
+        "gnomADg_REMAINING_AF": {
+          "vep": "0",
+          "vepyr": ""
+        },
+        "gnomADg_SAS_AF": {
+          "vep": "0",
+          "vepyr": ""
+        },
+        "MAX_AF": {
+          "vep": "0.004669",
+          "vepyr": ""
+        },
+        "MAX_AF_POPS": {
+          "vep": "gnomADg_AFR",
+          "vepyr": ""
+        }
+      }
+    },
+    {
+      "feature": "ENST00001019018",
+      "differences": {
+        "Allele": {
+          "vep": "T",
+          "vepyr": "t"
+        },
+        "Existing_variation": {
+          "vep": "rs142513484",
+          "vepyr": ""
+        },
+        "AF": {
+          "vep": "0.0010",
+          "vepyr": ""
+        },
+        "AFR_AF": {
+          "vep": "0.003",
+          "vepyr": ""
+        },
+        "AMR_AF": {
+          "vep": "0.0014",
+          "vepyr": ""
+        },
+        "EAS_AF": {
+          "vep": "0",
+          "vepyr": ""
+        },
+        "EUR_AF": {
+          "vep": "0",
+          "vepyr": ""
+        },
+        "SAS_AF": {
+          "vep": "0",
+          "vepyr": ""
+        },
+        "gnomADe_AF": {
+          "vep": "9.481e-05",
+          "vepyr": ""
+        },
+        "gnomADe_AFR_AF": {
+          "vep": "0.003061",
+          "vepyr": ""
+        },
+        "gnomADe_AMR_AF": {
+          "vep": "0.0002375",
+          "vepyr": ""
+        },
+        "gnomADe_ASJ_AF": {
+          "vep": "0",
+          "vepyr": ""
+        },
+        "gnomADe_EAS_AF": {
+          "vep": "0",
+          "vepyr": ""
+        },
+        "gnomADe_FIN_AF": {
+          "vep": "0",
+          "vepyr": ""
+        },
+        "gnomADe_MID_AF": {
+          "vep": "0.0001759",
+          "vepyr": ""
+        },
+        "gnomADe_NFE_AF": {
+          "vep": "1.195e-05",
+          "vepyr": ""
+        },
+        "gnomADe_REMAINING_AF": {
+          "vep": "0.0002031",
+          "vepyr": ""
+        },
+        "gnomADe_SAS_AF": {
+          "vep": "0",
+          "vepyr": ""
+        },
+        "gnomADg_AF": {
+          "vep": "0.001307",
+          "vepyr": ""
+        },
+        "gnomADg_AFR_AF": {
+          "vep": "0.004669",
+          "vepyr": ""
+        },
+        "gnomADg_AMI_AF": {
+          "vep": "0",
+          "vepyr": ""
+        },
+        "gnomADg_AMR_AF": {
+          "vep": "0.0002616",
+          "vepyr": ""
+        },
+        "gnomADg_ASJ_AF": {
+          "vep": "0",
+          "vepyr": ""
+        },
+        "gnomADg_EAS_AF": {
+          "vep": "0",
+          "vepyr": ""
+        },
+        "gnomADg_FIN_AF": {
+          "vep": "0",
+          "vepyr": ""
+        },
+        "gnomADg_MID_AF": {
+          "vep": "0",
+          "vepyr": ""
+        },
+        "gnomADg_NFE_AF": {
+          "vep": "1.471e-05",
+          "vepyr": ""
+        },
+        "gnomADg_REMAINING_AF": {
+          "vep": "0",
+          "vepyr": ""
+        },
+        "gnomADg_SAS_AF": {
+          "vep": "0",
+          "vepyr": ""
+        },
+        "MAX_AF": {
+          "vep": "0.004669",
+          "vepyr": ""
+        },
+        "MAX_AF_POPS": {
+          "vep": "gnomADg_AFR",
+          "vepyr": ""
+        }
+      }
+    },
+    {
+      "feature": "ENST00001078748",
+      "differences": {
+        "Allele": {
+          "vep": "T",
+          "vepyr": "t"
+        },
+        "Existing_variation": {
+          "vep": "rs142513484",
+          "vepyr": ""
+        },
+        "AF": {
+          "vep": "0.0010",
+          "vepyr": ""
+        },
+        "AFR_AF": {
+          "vep": "0.003",
+          "vepyr": ""
+        },
+        "AMR_AF": {
+          "vep": "0.0014",
+          "vepyr": ""
+        },
+        "EAS_AF": {
+          "vep": "0",
+          "vepyr": ""
+        },
+        "EUR_AF": {
+          "vep": "0",
+          "vepyr": ""
+        },
+        "SAS_AF": {
+          "vep": "0",
+          "vepyr": ""
+        },
+        "gnomADe_AF": {
+          "vep": "9.481e-05",
+          "vepyr": ""
+        },
+        "gnomADe_AFR_AF": {
+          "vep": "0.003061",
+          "vepyr": ""
+        },
+        "gnomADe_AMR_AF": {
+          "vep": "0.0002375",
+          "vepyr": ""
+        },
+        "gnomADe_ASJ_AF": {
+          "vep": "0",
+          "vepyr": ""
+        },
+        "gnomADe_EAS_AF": {
+          "vep": "0",
+          "vepyr": ""
+        },
+        "gnomADe_FIN_AF": {
+          "vep": "0",
+          "vepyr": ""
+        },
+        "gnomADe_MID_AF": {
+          "vep": "0.0001759",
+          "vepyr": ""
+        },
+        "gnomADe_NFE_AF": {
+          "vep": "1.195e-05",
+          "vepyr": ""
+        },
+        "gnomADe_REMAINING_AF": {
+          "vep": "0.0002031",
+          "vepyr": ""
+        },
+        "gnomADe_SAS_AF": {
+          "vep": "0",
+          "vepyr": ""
+        },
+        "gnomADg_AF": {
+          "vep": "0.001307",
+          "vepyr": ""
+        },
+        "gnomADg_AFR_AF": {
+          "vep": "0.004669",
+          "vepyr": ""
+        },
+        "gnomADg_AMI_AF": {
+          "vep": "0",
+          "vepyr": ""
+        },
+        "gnomADg_AMR_AF": {
+          "vep": "0.0002616",
+          "vepyr": ""
+        },
+        "gnomADg_ASJ_AF": {
+          "vep": "0",
+          "vepyr": ""
+        },
+        "gnomADg_EAS_AF": {
+          "vep": "0",
+          "vepyr": ""
+        },
+        "gnomADg_FIN_AF": {
+          "vep": "0",
+          "vepyr": ""
+        },
+        "gnomADg_MID_AF": {
+          "vep": "0",
+          "vepyr": ""
+        },
+        "gnomADg_NFE_AF": {
+          "vep": "1.471e-05",
+          "vepyr": ""
+        },
+        "gnomADg_REMAINING_AF": {
+          "vep": "0",
+          "vepyr": ""
+        },
+        "gnomADg_SAS_AF": {
+          "vep": "0",
+          "vepyr": ""
+        },
+        "MAX_AF": {
+          "vep": "0.004669",
+          "vepyr": ""
+        },
+        "MAX_AF_POPS": {
+          "vep": "gnomADg_AFR",
+          "vepyr": ""
+        }
+      }
+    },
+    {
+      "feature": "ENST00001078749",
+      "differences": {
+        "Allele": {
+          "vep": "T",
+          "vepyr": "t"
+        },
+        "Existing_variation": {
+          "vep": "rs142513484",
+          "vepyr": ""
+        },
+        "AF": {
+          "vep": "0.0010",
+          "vepyr": ""
+        },
+        "AFR_AF": {
+          "vep": "0.003",
+          "vepyr": ""
+        },
+        "AMR_AF": {
+          "vep": "0.0014",
+          "vepyr": ""
+        },
+        "EAS_AF": {
+          "vep": "0",
+          "vepyr": ""
+        },
+        "EUR_AF": {
+          "vep": "0",
+          "vepyr": ""
+        },
+        "SAS_AF": {
+          "vep": "0",
+          "vepyr": ""
+        },
+        "gnomADe_AF": {
+          "vep": "9.481e-05",
+          "vepyr": ""
+        },
+        "gnomADe_AFR_AF": {
+          "vep": "0.003061",
+          "vepyr": ""
+        },
+        "gnomADe_AMR_AF": {
+          "vep": "0.0002375",
+          "vepyr": ""
+        },
+        "gnomADe_ASJ_AF": {
+          "vep": "0",
+          "vepyr": ""
+        },
+        "gnomADe_EAS_AF": {
+          "vep": "0",
+          "vepyr": ""
+        },
+        "gnomADe_FIN_AF": {
+          "vep": "0",
+          "vepyr": ""
+        },
+        "gnomADe_MID_AF": {
+          "vep": "0.0001759",
+          "vepyr": ""
+        },
+        "gnomADe_NFE_AF": {
+          "vep": "1.195e-05",
+          "vepyr": ""
+        },
+        "gnomADe_REMAINING_AF": {
+          "vep": "0.0002031",
+          "vepyr": ""
+        },
+        "gnomADe_SAS_AF": {
+          "vep": "0",
+          "vepyr": ""
+        },
+        "gnomADg_AF": {
+          "vep": "0.001307",
+          "vepyr": ""
+        },
+        "gnomADg_AFR_AF": {
+          "vep": "0.004669",
+          "vepyr": ""
+        },
+        "gnomADg_AMI_AF": {
+          "vep": "0",
+          "vepyr": ""
+        },
+        "gnomADg_AMR_AF": {
+          "vep": "0.0002616",
+          "vepyr": ""
+        },
+        "gnomADg_ASJ_AF": {
+          "vep": "0",
+          "vepyr": ""
+        },
+        "gnomADg_EAS_AF": {
+          "vep": "0",
+          "vepyr": ""
+        },
+        "gnomADg_FIN_AF": {
+          "vep": "0",
+          "vepyr": ""
+        },
+        "gnomADg_MID_AF": {
+          "vep": "0",
+          "vepyr": ""
+        },
+        "gnomADg_NFE_AF": {
+          "vep": "1.471e-05",
+          "vepyr": ""
+        },
+        "gnomADg_REMAINING_AF": {
+          "vep": "0",
+          "vepyr": ""
+        },
+        "gnomADg_SAS_AF": {
+          "vep": "0",
+          "vepyr": ""
+        },
+        "MAX_AF": {
+          "vep": "0.004669",
+          "vepyr": ""
+        },
+        "MAX_AF_POPS": {
+          "vep": "gnomADg_AFR",
+          "vepyr": ""
+        }
+      }
+    },
+    {
+      "feature": "ENST00001078750",
+      "differences": {
+        "Allele": {
+          "vep": "T",
+          "vepyr": "t"
+        },
+        "Existing_variation": {
+          "vep": "rs142513484",
+          "vepyr": ""
+        },
+        "AF": {
+          "vep": "0.0010",
+          "vepyr": ""
+        },
+        "AFR_AF": {
+          "vep": "0.003",
+          "vepyr": ""
+        },
+        "AMR_AF": {
+          "vep": "0.0014",
+          "vepyr": ""
+        },
+        "EAS_AF": {
+          "vep": "0",
+          "vepyr": ""
+        },
+        "EUR_AF": {
+          "vep": "0",
+          "vepyr": ""
+        },
+        "SAS_AF": {
+          "vep": "0",
+          "vepyr": ""
+        },
+        "gnomADe_AF": {
+          "vep": "9.481e-05",
+          "vepyr": ""
+        },
+        "gnomADe_AFR_AF": {
+          "vep": "0.003061",
+          "vepyr": ""
+        },
+        "gnomADe_AMR_AF": {
+          "vep": "0.0002375",
+          "vepyr": ""
+        },
+        "gnomADe_ASJ_AF": {
+          "vep": "0",
+          "vepyr": ""
+        },
+        "gnomADe_EAS_AF": {
+          "vep": "0",
+          "vepyr": ""
+        },
+        "gnomADe_FIN_AF": {
+          "vep": "0",
+          "vepyr": ""
+        },
+        "gnomADe_MID_AF": {
+          "vep": "0.0001759",
+          "vepyr": ""
+        },
+        "gnomADe_NFE_AF": {
+          "vep": "1.195e-05",
+          "vepyr": ""
+        },
+        "gnomADe_REMAINING_AF": {
+          "vep": "0.0002031",
+          "vepyr": ""
+        },
+        "gnomADe_SAS_AF": {
+          "vep": "0",
+          "vepyr": ""
+        },
+        "gnomADg_AF": {
+          "vep": "0.001307",
+          "vepyr": ""
+        },
+        "gnomADg_AFR_AF": {
+          "vep": "0.004669",
+          "vepyr": ""
+        },
+        "gnomADg_AMI_AF": {
+          "vep": "0",
+          "vepyr": ""
+        },
+        "gnomADg_AMR_AF": {
+          "vep": "0.0002616",
+          "vepyr": ""
+        },
+        "gnomADg_ASJ_AF": {
+          "vep": "0",
+          "vepyr": ""
+        },
+        "gnomADg_EAS_AF": {
+          "vep": "0",
+          "vepyr": ""
+        },
+        "gnomADg_FIN_AF": {
+          "vep": "0",
+          "vepyr": ""
+        },
+        "gnomADg_MID_AF": {
+          "vep": "0",
+          "vepyr": ""
+        },
+        "gnomADg_NFE_AF": {
+          "vep": "1.471e-05",
+          "vepyr": ""
+        },
+        "gnomADg_REMAINING_AF": {
+          "vep": "0",
+          "vepyr": ""
+        },
+        "gnomADg_SAS_AF": {
+          "vep": "0",
+          "vepyr": ""
+        },
+        "MAX_AF": {
+          "vep": "0.004669",
+          "vepyr": ""
+        },
+        "MAX_AF_POPS": {
+          "vep": "gnomADg_AFR",
+          "vepyr": ""
+        }
+      }
+    },
+    {
+      "feature": "ENST00001078754",
+      "differences": {
+        "Allele": {
+          "vep": "T",
+          "vepyr": "t"
+        },
+        "Existing_variation": {
+          "vep": "rs142513484",
+          "vepyr": ""
+        },
+        "AF": {
+          "vep": "0.0010",
+          "vepyr": ""
+        },
+        "AFR_AF": {
+          "vep": "0.003",
+          "vepyr": ""
+        },
+        "AMR_AF": {
+          "vep": "0.0014",
+          "vepyr": ""
+        },
+        "EAS_AF": {
+          "vep": "0",
+          "vepyr": ""
+        },
+        "EUR_AF": {
+          "vep": "0",
+          "vepyr": ""
+        },
+        "SAS_AF": {
+          "vep": "0",
+          "vepyr": ""
+        },
+        "gnomADe_AF": {
+          "vep": "9.481e-05",
+          "vepyr": ""
+        },
+        "gnomADe_AFR_AF": {
+          "vep": "0.003061",
+          "vepyr": ""
+        },
+        "gnomADe_AMR_AF": {
+          "vep": "0.0002375",
+          "vepyr": ""
+        },
+        "gnomADe_ASJ_AF": {
+          "vep": "0",
+          "vepyr": ""
+        },
+        "gnomADe_EAS_AF": {
+          "vep": "0",
+          "vepyr": ""
+        },
+        "gnomADe_FIN_AF": {
+          "vep": "0",
+          "vepyr": ""
+        },
+        "gnomADe_MID_AF": {
+          "vep": "0.0001759",
+          "vepyr": ""
+        },
+        "gnomADe_NFE_AF": {
+          "vep": "1.195e-05",
+          "vepyr": ""
+        },
+        "gnomADe_REMAINING_AF": {
+          "vep": "0.0002031",
+          "vepyr": ""
+        },
+        "gnomADe_SAS_AF": {
+          "vep": "0",
+          "vepyr": ""
+        },
+        "gnomADg_AF": {
+          "vep": "0.001307",
+          "vepyr": ""
+        },
+        "gnomADg_AFR_AF": {
+          "vep": "0.004669",
+          "vepyr": ""
+        },
+        "gnomADg_AMI_AF": {
+          "vep": "0",
+          "vepyr": ""
+        },
+        "gnomADg_AMR_AF": {
+          "vep": "0.0002616",
+          "vepyr": ""
+        },
+        "gnomADg_ASJ_AF": {
+          "vep": "0",
+          "vepyr": ""
+        },
+        "gnomADg_EAS_AF": {
+          "vep": "0",
+          "vepyr": ""
+        },
+        "gnomADg_FIN_AF": {
+          "vep": "0",
+          "vepyr": ""
+        },
+        "gnomADg_MID_AF": {
+          "vep": "0",
+          "vepyr": ""
+        },
+        "gnomADg_NFE_AF": {
+          "vep": "1.471e-05",
+          "vepyr": ""
+        },
+        "gnomADg_REMAINING_AF": {
+          "vep": "0",
+          "vepyr": ""
+        },
+        "gnomADg_SAS_AF": {
+          "vep": "0",
+          "vepyr": ""
+        },
+        "MAX_AF": {
+          "vep": "0.004669",
+          "vepyr": ""
+        },
+        "MAX_AF_POPS": {
+          "vep": "gnomADg_AFR",
+          "vepyr": ""
+        }
+      }
+    },
+    {
+      "feature": "ENST00001078757",
+      "differences": {
+        "Allele": {
+          "vep": "T",
+          "vepyr": "t"
+        },
+        "Existing_variation": {
+          "vep": "rs142513484",
+          "vepyr": ""
+        },
+        "AF": {
+          "vep": "0.0010",
+          "vepyr": ""
+        },
+        "AFR_AF": {
+          "vep": "0.003",
+          "vepyr": ""
+        },
+        "AMR_AF": {
+          "vep": "0.0014",
+          "vepyr": ""
+        },
+        "EAS_AF": {
+          "vep": "0",
+          "vepyr": ""
+        },
+        "EUR_AF": {
+          "vep": "0",
+          "vepyr": ""
+        },
+        "SAS_AF": {
+          "vep": "0",
+          "vepyr": ""
+        },
+        "gnomADe_AF": {
+          "vep": "9.481e-05",
+          "vepyr": ""
+        },
+        "gnomADe_AFR_AF": {
+          "vep": "0.003061",
+          "vepyr": ""
+        },
+        "gnomADe_AMR_AF": {
+          "vep": "0.0002375",
+          "vepyr": ""
+        },
+        "gnomADe_ASJ_AF": {
+          "vep": "0",
+          "vepyr": ""
+        },
+        "gnomADe_EAS_AF": {
+          "vep": "0",
+          "vepyr": ""
+        },
+        "gnomADe_FIN_AF": {
+          "vep": "0",
+          "vepyr": ""
+        },
+        "gnomADe_MID_AF": {
+          "vep": "0.0001759",
+          "vepyr": ""
+        },
+        "gnomADe_NFE_AF": {
+          "vep": "1.195e-05",
+          "vepyr": ""
+        },
+        "gnomADe_REMAINING_AF": {
+          "vep": "0.0002031",
+          "vepyr": ""
+        },
+        "gnomADe_SAS_AF": {
+          "vep": "0",
+          "vepyr": ""
+        },
+        "gnomADg_AF": {
+          "vep": "0.001307",
+          "vepyr": ""
+        },
+        "gnomADg_AFR_AF": {
+          "vep": "0.004669",
+          "vepyr": ""
+        },
+        "gnomADg_AMI_AF": {
+          "vep": "0",
+          "vepyr": ""
+        },
+        "gnomADg_AMR_AF": {
+          "vep": "0.0002616",
+          "vepyr": ""
+        },
+        "gnomADg_ASJ_AF": {
+          "vep": "0",
+          "vepyr": ""
+        },
+        "gnomADg_EAS_AF": {
+          "vep": "0",
+          "vepyr": ""
+        },
+        "gnomADg_FIN_AF": {
+          "vep": "0",
+          "vepyr": ""
+        },
+        "gnomADg_MID_AF": {
+          "vep": "0",
+          "vepyr": ""
+        },
+        "gnomADg_NFE_AF": {
+          "vep": "1.471e-05",
+          "vepyr": ""
+        },
+        "gnomADg_REMAINING_AF": {
+          "vep": "0",
+          "vepyr": ""
+        },
+        "gnomADg_SAS_AF": {
+          "vep": "0",
+          "vepyr": ""
+        },
+        "MAX_AF": {
+          "vep": "0.004669",
+          "vepyr": ""
+        },
+        "MAX_AF_POPS": {
+          "vep": "gnomADg_AFR",
+          "vepyr": ""
+        }
+      }
+    },
+    {
+      "feature": "ENST00001078759",
+      "differences": {
+        "Allele": {
+          "vep": "T",
+          "vepyr": "t"
+        },
+        "Existing_variation": {
+          "vep": "rs142513484",
+          "vepyr": ""
+        },
+        "AF": {
+          "vep": "0.0010",
+          "vepyr": ""
+        },
+        "AFR_AF": {
+          "vep": "0.003",
+          "vepyr": ""
+        },
+        "AMR_AF": {
+          "vep": "0.0014",
+          "vepyr": ""
+        },
+        "EAS_AF": {
+          "vep": "0",
+          "vepyr": ""
+        },
+        "EUR_AF": {
+          "vep": "0",
+          "vepyr": ""
+        },
+        "SAS_AF": {
+          "vep": "0",
+          "vepyr": ""
+        },
+        "gnomADe_AF": {
+          "vep": "9.481e-05",
+          "vepyr": ""
+        },
+        "gnomADe_AFR_AF": {
+          "vep": "0.003061",
+          "vepyr": ""
+        },
+        "gnomADe_AMR_AF": {
+          "vep": "0.0002375",
+          "vepyr": ""
+        },
+        "gnomADe_ASJ_AF": {
+          "vep": "0",
+          "vepyr": ""
+        },
+        "gnomADe_EAS_AF": {
+          "vep": "0",
+          "vepyr": ""
+        },
+        "gnomADe_FIN_AF": {
+          "vep": "0",
+          "vepyr": ""
+        },
+        "gnomADe_MID_AF": {
+          "vep": "0.0001759",
+          "vepyr": ""
+        },
+        "gnomADe_NFE_AF": {
+          "vep": "1.195e-05",
+          "vepyr": ""
+        },
+        "gnomADe_REMAINING_AF": {
+          "vep": "0.0002031",
+          "vepyr": ""
+        },
+        "gnomADe_SAS_AF": {
+          "vep": "0",
+          "vepyr": ""
+        },
+        "gnomADg_AF": {
+          "vep": "0.001307",
+          "vepyr": ""
+        },
+        "gnomADg_AFR_AF": {
+          "vep": "0.004669",
+          "vepyr": ""
+        },
+        "gnomADg_AMI_AF": {
+          "vep": "0",
+          "vepyr": ""
+        },
+        "gnomADg_AMR_AF": {
+          "vep": "0.0002616",
+          "vepyr": ""
+        },
+        "gnomADg_ASJ_AF": {
+          "vep": "0",
+          "vepyr": ""
+        },
+        "gnomADg_EAS_AF": {
+          "vep": "0",
+          "vepyr": ""
+        },
+        "gnomADg_FIN_AF": {
+          "vep": "0",
+          "vepyr": ""
+        },
+        "gnomADg_MID_AF": {
+          "vep": "0",
+          "vepyr": ""
+        },
+        "gnomADg_NFE_AF": {
+          "vep": "1.471e-05",
+          "vepyr": ""
+        },
+        "gnomADg_REMAINING_AF": {
+          "vep": "0",
+          "vepyr": ""
+        },
+        "gnomADg_SAS_AF": {
+          "vep": "0",
+          "vepyr": ""
+        },
+        "MAX_AF": {
+          "vep": "0.004669",
+          "vepyr": ""
+        },
+        "MAX_AF_POPS": {
+          "vep": "gnomADg_AFR",
+          "vepyr": ""
+        }
+      }
+    },
+    {
+      "feature": "ENST00001101473",
+      "differences": {
+        "Allele": {
+          "vep": "T",
+          "vepyr": "t"
+        },
+        "Existing_variation": {
+          "vep": "rs142513484",
+          "vepyr": ""
+        },
+        "AF": {
+          "vep": "0.0010",
+          "vepyr": ""
+        },
+        "AFR_AF": {
+          "vep": "0.003",
+          "vepyr": ""
+        },
+        "AMR_AF": {
+          "vep": "0.0014",
+          "vepyr": ""
+        },
+        "EAS_AF": {
+          "vep": "0",
+          "vepyr": ""
+        },
+        "EUR_AF": {
+          "vep": "0",
+          "vepyr": ""
+        },
+        "SAS_AF": {
+          "vep": "0",
+          "vepyr": ""
+        },
+        "gnomADe_AF": {
+          "vep": "9.481e-05",
+          "vepyr": ""
+        },
+        "gnomADe_AFR_AF": {
+          "vep": "0.003061",
+          "vepyr": ""
+        },
+        "gnomADe_AMR_AF": {
+          "vep": "0.0002375",
+          "vepyr": ""
+        },
+        "gnomADe_ASJ_AF": {
+          "vep": "0",
+          "vepyr": ""
+        },
+        "gnomADe_EAS_AF": {
+          "vep": "0",
+          "vepyr": ""
+        },
+        "gnomADe_FIN_AF": {
+          "vep": "0",
+          "vepyr": ""
+        },
+        "gnomADe_MID_AF": {
+          "vep": "0.0001759",
+          "vepyr": ""
+        },
+        "gnomADe_NFE_AF": {
+          "vep": "1.195e-05",
+          "vepyr": ""
+        },
+        "gnomADe_REMAINING_AF": {
+          "vep": "0.0002031",
+          "vepyr": ""
+        },
+        "gnomADe_SAS_AF": {
+          "vep": "0",
+          "vepyr": ""
+        },
+        "gnomADg_AF": {
+          "vep": "0.001307",
+          "vepyr": ""
+        },
+        "gnomADg_AFR_AF": {
+          "vep": "0.004669",
+          "vepyr": ""
+        },
+        "gnomADg_AMI_AF": {
+          "vep": "0",
+          "vepyr": ""
+        },
+        "gnomADg_AMR_AF": {
+          "vep": "0.0002616",
+          "vepyr": ""
+        },
+        "gnomADg_ASJ_AF": {
+          "vep": "0",
+          "vepyr": ""
+        },
+        "gnomADg_EAS_AF": {
+          "vep": "0",
+          "vepyr": ""
+        },
+        "gnomADg_FIN_AF": {
+          "vep": "0",
+          "vepyr": ""
+        },
+        "gnomADg_MID_AF": {
+          "vep": "0",
+          "vepyr": ""
+        },
+        "gnomADg_NFE_AF": {
+          "vep": "1.471e-05",
+          "vepyr": ""
+        },
+        "gnomADg_REMAINING_AF": {
+          "vep": "0",
+          "vepyr": ""
+        },
+        "gnomADg_SAS_AF": {
+          "vep": "0",
+          "vepyr": ""
+        },
+        "MAX_AF": {
+          "vep": "0.004669",
+          "vepyr": ""
+        },
+        "MAX_AF_POPS": {
+          "vep": "gnomADg_AFR",
+          "vepyr": ""
+        }
+      }
+    },
+    {
+      "feature": "ENST00001101474",
+      "differences": {
+        "Allele": {
+          "vep": "T",
+          "vepyr": "t"
+        },
+        "Existing_variation": {
+          "vep": "rs142513484",
+          "vepyr": ""
+        },
+        "AF": {
+          "vep": "0.0010",
+          "vepyr": ""
+        },
+        "AFR_AF": {
+          "vep": "0.003",
+          "vepyr": ""
+        },
+        "AMR_AF": {
+          "vep": "0.0014",
+          "vepyr": ""
+        },
+        "EAS_AF": {
+          "vep": "0",
+          "vepyr": ""
+        },
+        "EUR_AF": {
+          "vep": "0",
+          "vepyr": ""
+        },
+        "SAS_AF": {
+          "vep": "0",
+          "vepyr": ""
+        },
+        "gnomADe_AF": {
+          "vep": "9.481e-05",
+          "vepyr": ""
+        },
+        "gnomADe_AFR_AF": {
+          "vep": "0.003061",
+          "vepyr": ""
+        },
+        "gnomADe_AMR_AF": {
+          "vep": "0.0002375",
+          "vepyr": ""
+        },
+        "gnomADe_ASJ_AF": {
+          "vep": "0",
+          "vepyr": ""
+        },
+        "gnomADe_EAS_AF": {
+          "vep": "0",
+          "vepyr": ""
+        },
+        "gnomADe_FIN_AF": {
+          "vep": "0",
+          "vepyr": ""
+        },
+        "gnomADe_MID_AF": {
+          "vep": "0.0001759",
+          "vepyr": ""
+        },
+        "gnomADe_NFE_AF": {
+          "vep": "1.195e-05",
+          "vepyr": ""
+        },
+        "gnomADe_REMAINING_AF": {
+          "vep": "0.0002031",
+          "vepyr": ""
+        },
+        "gnomADe_SAS_AF": {
+          "vep": "0",
+          "vepyr": ""
+        },
+        "gnomADg_AF": {
+          "vep": "0.001307",
+          "vepyr": ""
+        },
+        "gnomADg_AFR_AF": {
+          "vep": "0.004669",
+          "vepyr": ""
+        },
+        "gnomADg_AMI_AF": {
+          "vep": "0",
+          "vepyr": ""
+        },
+        "gnomADg_AMR_AF": {
+          "vep": "0.0002616",
+          "vepyr": ""
+        },
+        "gnomADg_ASJ_AF": {
+          "vep": "0",
+          "vepyr": ""
+        },
+        "gnomADg_EAS_AF": {
+          "vep": "0",
+          "vepyr": ""
+        },
+        "gnomADg_FIN_AF": {
+          "vep": "0",
+          "vepyr": ""
+        },
+        "gnomADg_MID_AF": {
+          "vep": "0",
+          "vepyr": ""
+        },
+        "gnomADg_NFE_AF": {
+          "vep": "1.471e-05",
+          "vepyr": ""
+        },
+        "gnomADg_REMAINING_AF": {
+          "vep": "0",
+          "vepyr": ""
+        },
+        "gnomADg_SAS_AF": {
+          "vep": "0",
+          "vepyr": ""
+        },
+        "MAX_AF": {
+          "vep": "0.004669",
+          "vepyr": ""
+        },
+        "MAX_AF_POPS": {
+          "vep": "gnomADg_AFR",
+          "vepyr": ""
+        }
+      }
+    },
+    {
+      "feature": "ENST00001110240",
+      "differences": {
+        "Allele": {
+          "vep": "T",
+          "vepyr": "t"
+        },
+        "Existing_variation": {
+          "vep": "rs142513484",
+          "vepyr": ""
+        },
+        "AF": {
+          "vep": "0.0010",
+          "vepyr": ""
+        },
+        "AFR_AF": {
+          "vep": "0.003",
+          "vepyr": ""
+        },
+        "AMR_AF": {
+          "vep": "0.0014",
+          "vepyr": ""
+        },
+        "EAS_AF": {
+          "vep": "0",
+          "vepyr": ""
+        },
+        "EUR_AF": {
+          "vep": "0",
+          "vepyr": ""
+        },
+        "SAS_AF": {
+          "vep": "0",
+          "vepyr": ""
+        },
+        "gnomADe_AF": {
+          "vep": "9.481e-05",
+          "vepyr": ""
+        },
+        "gnomADe_AFR_AF": {
+          "vep": "0.003061",
+          "vepyr": ""
+        },
+        "gnomADe_AMR_AF": {
+          "vep": "0.0002375",
+          "vepyr": ""
+        },
+        "gnomADe_ASJ_AF": {
+          "vep": "0",
+          "vepyr": ""
+        },
+        "gnomADe_EAS_AF": {
+          "vep": "0",
+          "vepyr": ""
+        },
+        "gnomADe_FIN_AF": {
+          "vep": "0",
+          "vepyr": ""
+        },
+        "gnomADe_MID_AF": {
+          "vep": "0.0001759",
+          "vepyr": ""
+        },
+        "gnomADe_NFE_AF": {
+          "vep": "1.195e-05",
+          "vepyr": ""
+        },
+        "gnomADe_REMAINING_AF": {
+          "vep": "0.0002031",
+          "vepyr": ""
+        },
+        "gnomADe_SAS_AF": {
+          "vep": "0",
+          "vepyr": ""
+        },
+        "gnomADg_AF": {
+          "vep": "0.001307",
+          "vepyr": ""
+        },
+        "gnomADg_AFR_AF": {
+          "vep": "0.004669",
+          "vepyr": ""
+        },
+        "gnomADg_AMI_AF": {
+          "vep": "0",
+          "vepyr": ""
+        },
+        "gnomADg_AMR_AF": {
+          "vep": "0.0002616",
+          "vepyr": ""
+        },
+        "gnomADg_ASJ_AF": {
+          "vep": "0",
+          "vepyr": ""
+        },
+        "gnomADg_EAS_AF": {
+          "vep": "0",
+          "vepyr": ""
+        },
+        "gnomADg_FIN_AF": {
+          "vep": "0",
+          "vepyr": ""
+        },
+        "gnomADg_MID_AF": {
+          "vep": "0",
+          "vepyr": ""
+        },
+        "gnomADg_NFE_AF": {
+          "vep": "1.471e-05",
+          "vepyr": ""
+        },
+        "gnomADg_REMAINING_AF": {
+          "vep": "0",
+          "vepyr": ""
+        },
+        "gnomADg_SAS_AF": {
+          "vep": "0",
+          "vepyr": ""
+        },
+        "MAX_AF": {
+          "vep": "0.004669",
+          "vepyr": ""
+        },
+        "MAX_AF_POPS": {
+          "vep": "gnomADg_AFR",
+          "vepyr": ""
+        }
+      }
+    },
+    {
+      "feature": "ENST00001110241",
+      "differences": {
+        "Allele": {
+          "vep": "T",
+          "vepyr": "t"
+        },
+        "Existing_variation": {
+          "vep": "rs142513484",
+          "vepyr": ""
+        },
+        "AF": {
+          "vep": "0.0010",
+          "vepyr": ""
+        },
+        "AFR_AF": {
+          "vep": "0.003",
+          "vepyr": ""
+        },
+        "AMR_AF": {
+          "vep": "0.0014",
+          "vepyr": ""
+        },
+        "EAS_AF": {
+          "vep": "0",
+          "vepyr": ""
+        },
+        "EUR_AF": {
+          "vep": "0",
+          "vepyr": ""
+        },
+        "SAS_AF": {
+          "vep": "0",
+          "vepyr": ""
+        },
+        "gnomADe_AF": {
+          "vep": "9.481e-05",
+          "vepyr": ""
+        },
+        "gnomADe_AFR_AF": {
+          "vep": "0.003061",
+          "vepyr": ""
+        },
+        "gnomADe_AMR_AF": {
+          "vep": "0.0002375",
+          "vepyr": ""
+        },
+        "gnomADe_ASJ_AF": {
+          "vep": "0",
+          "vepyr": ""
+        },
+        "gnomADe_EAS_AF": {
+          "vep": "0",
+          "vepyr": ""
+        },
+        "gnomADe_FIN_AF": {
+          "vep": "0",
+          "vepyr": ""
+        },
+        "gnomADe_MID_AF": {
+          "vep": "0.0001759",
+          "vepyr": ""
+        },
+        "gnomADe_NFE_AF": {
+          "vep": "1.195e-05",
+          "vepyr": ""
+        },
+        "gnomADe_REMAINING_AF": {
+          "vep": "0.0002031",
+          "vepyr": ""
+        },
+        "gnomADe_SAS_AF": {
+          "vep": "0",
+          "vepyr": ""
+        },
+        "gnomADg_AF": {
+          "vep": "0.001307",
+          "vepyr": ""
+        },
+        "gnomADg_AFR_AF": {
+          "vep": "0.004669",
+          "vepyr": ""
+        },
+        "gnomADg_AMI_AF": {
+          "vep": "0",
+          "vepyr": ""
+        },
+        "gnomADg_AMR_AF": {
+          "vep": "0.0002616",
+          "vepyr": ""
+        },
+        "gnomADg_ASJ_AF": {
+          "vep": "0",
+          "vepyr": ""
+        },
+        "gnomADg_EAS_AF": {
+          "vep": "0",
+          "vepyr": ""
+        },
+        "gnomADg_FIN_AF": {
+          "vep": "0",
+          "vepyr": ""
+        },
+        "gnomADg_MID_AF": {
+          "vep": "0",
+          "vepyr": ""
+        },
+        "gnomADg_NFE_AF": {
+          "vep": "1.471e-05",
+          "vepyr": ""
+        },
+        "gnomADg_REMAINING_AF": {
+          "vep": "0",
+          "vepyr": ""
+        },
+        "gnomADg_SAS_AF": {
+          "vep": "0",
+          "vepyr": ""
+        },
+        "MAX_AF": {
+          "vep": "0.004669",
+          "vepyr": ""
+        },
+        "MAX_AF_POPS": {
+          "vep": "gnomADg_AFR",
+          "vepyr": ""
+        }
+      }
+    },
+    {
+      "feature": "ENST00001110242",
+      "differences": {
+        "Allele": {
+          "vep": "T",
+          "vepyr": "t"
+        },
+        "Existing_variation": {
+          "vep": "rs142513484",
+          "vepyr": ""
+        },
+        "AF": {
+          "vep": "0.0010",
+          "vepyr": ""
+        },
+        "AFR_AF": {
+          "vep": "0.003",
+          "vepyr": ""
+        },
+        "AMR_AF": {
+          "vep": "0.0014",
+          "vepyr": ""
+        },
+        "EAS_AF": {
+          "vep": "0",
+          "vepyr": ""
+        },
+        "EUR_AF": {
+          "vep": "0",
+          "vepyr": ""
+        },
+        "SAS_AF": {
+          "vep": "0",
+          "vepyr": ""
+        },
+        "gnomADe_AF": {
+          "vep": "9.481e-05",
+          "vepyr": ""
+        },
+        "gnomADe_AFR_AF": {
+          "vep": "0.003061",
+          "vepyr": ""
+        },
+        "gnomADe_AMR_AF": {
+          "vep": "0.0002375",
+          "vepyr": ""
+        },
+        "gnomADe_ASJ_AF": {
+          "vep": "0",
+          "vepyr": ""
+        },
+        "gnomADe_EAS_AF": {
+          "vep": "0",
+          "vepyr": ""
+        },
+        "gnomADe_FIN_AF": {
+          "vep": "0",
+          "vepyr": ""
+        },
+        "gnomADe_MID_AF": {
+          "vep": "0.0001759",
+          "vepyr": ""
+        },
+        "gnomADe_NFE_AF": {
+          "vep": "1.195e-05",
+          "vepyr": ""
+        },
+        "gnomADe_REMAINING_AF": {
+          "vep": "0.0002031",
+          "vepyr": ""
+        },
+        "gnomADe_SAS_AF": {
+          "vep": "0",
+          "vepyr": ""
+        },
+        "gnomADg_AF": {
+          "vep": "0.001307",
+          "vepyr": ""
+        },
+        "gnomADg_AFR_AF": {
+          "vep": "0.004669",
+          "vepyr": ""
+        },
+        "gnomADg_AMI_AF": {
+          "vep": "0",
+          "vepyr": ""
+        },
+        "gnomADg_AMR_AF": {
+          "vep": "0.0002616",
+          "vepyr": ""
+        },
+        "gnomADg_ASJ_AF": {
+          "vep": "0",
+          "vepyr": ""
+        },
+        "gnomADg_EAS_AF": {
+          "vep": "0",
+          "vepyr": ""
+        },
+        "gnomADg_FIN_AF": {
+          "vep": "0",
+          "vepyr": ""
+        },
+        "gnomADg_MID_AF": {
+          "vep": "0",
+          "vepyr": ""
+        },
+        "gnomADg_NFE_AF": {
+          "vep": "1.471e-05",
+          "vepyr": ""
+        },
+        "gnomADg_REMAINING_AF": {
+          "vep": "0",
+          "vepyr": ""
+        },
+        "gnomADg_SAS_AF": {
+          "vep": "0",
+          "vepyr": ""
+        },
+        "MAX_AF": {
+          "vep": "0.004669",
+          "vepyr": ""
+        },
+        "MAX_AF_POPS": {
+          "vep": "gnomADg_AFR",
+          "vepyr": ""
+        }
+      }
+    },
+    {
+      "feature": "ENST00001124854",
+      "differences": {
+        "Allele": {
+          "vep": "T",
+          "vepyr": "t"
+        },
+        "Existing_variation": {
+          "vep": "rs142513484",
+          "vepyr": ""
+        },
+        "AF": {
+          "vep": "0.0010",
+          "vepyr": ""
+        },
+        "AFR_AF": {
+          "vep": "0.003",
+          "vepyr": ""
+        },
+        "AMR_AF": {
+          "vep": "0.0014",
+          "vepyr": ""
+        },
+        "EAS_AF": {
+          "vep": "0",
+          "vepyr": ""
+        },
+        "EUR_AF": {
+          "vep": "0",
+          "vepyr": ""
+        },
+        "SAS_AF": {
+          "vep": "0",
+          "vepyr": ""
+        },
+        "gnomADe_AF": {
+          "vep": "9.481e-05",
+          "vepyr": ""
+        },
+        "gnomADe_AFR_AF": {
+          "vep": "0.003061",
+          "vepyr": ""
+        },
+        "gnomADe_AMR_AF": {
+          "vep": "0.0002375",
+          "vepyr": ""
+        },
+        "gnomADe_ASJ_AF": {
+          "vep": "0",
+          "vepyr": ""
+        },
+        "gnomADe_EAS_AF": {
+          "vep": "0",
+          "vepyr": ""
+        },
+        "gnomADe_FIN_AF": {
+          "vep": "0",
+          "vepyr": ""
+        },
+        "gnomADe_MID_AF": {
+          "vep": "0.0001759",
+          "vepyr": ""
+        },
+        "gnomADe_NFE_AF": {
+          "vep": "1.195e-05",
+          "vepyr": ""
+        },
+        "gnomADe_REMAINING_AF": {
+          "vep": "0.0002031",
+          "vepyr": ""
+        },
+        "gnomADe_SAS_AF": {
+          "vep": "0",
+          "vepyr": ""
+        },
+        "gnomADg_AF": {
+          "vep": "0.001307",
+          "vepyr": ""
+        },
+        "gnomADg_AFR_AF": {
+          "vep": "0.004669",
+          "vepyr": ""
+        },
+        "gnomADg_AMI_AF": {
+          "vep": "0",
+          "vepyr": ""
+        },
+        "gnomADg_AMR_AF": {
+          "vep": "0.0002616",
+          "vepyr": ""
+        },
+        "gnomADg_ASJ_AF": {
+          "vep": "0",
+          "vepyr": ""
+        },
+        "gnomADg_EAS_AF": {
+          "vep": "0",
+          "vepyr": ""
+        },
+        "gnomADg_FIN_AF": {
+          "vep": "0",
+          "vepyr": ""
+        },
+        "gnomADg_MID_AF": {
+          "vep": "0",
+          "vepyr": ""
+        },
+        "gnomADg_NFE_AF": {
+          "vep": "1.471e-05",
+          "vepyr": ""
+        },
+        "gnomADg_REMAINING_AF": {
+          "vep": "0",
+          "vepyr": ""
+        },
+        "gnomADg_SAS_AF": {
+          "vep": "0",
+          "vepyr": ""
+        },
+        "MAX_AF": {
+          "vep": "0.004669",
+          "vepyr": ""
+        },
+        "MAX_AF_POPS": {
+          "vep": "gnomADg_AFR",
+          "vepyr": ""
+        }
+      }
+    },
+    {
+      "feature": "ENST00001129323",
+      "differences": {
+        "Allele": {
+          "vep": "T",
+          "vepyr": "t"
+        },
+        "Existing_variation": {
+          "vep": "rs142513484",
+          "vepyr": ""
+        },
+        "AF": {
+          "vep": "0.0010",
+          "vepyr": ""
+        },
+        "AFR_AF": {
+          "vep": "0.003",
+          "vepyr": ""
+        },
+        "AMR_AF": {
+          "vep": "0.0014",
+          "vepyr": ""
+        },
+        "EAS_AF": {
+          "vep": "0",
+          "vepyr": ""
+        },
+        "EUR_AF": {
+          "vep": "0",
+          "vepyr": ""
+        },
+        "SAS_AF": {
+          "vep": "0",
+          "vepyr": ""
+        },
+        "gnomADe_AF": {
+          "vep": "9.481e-05",
+          "vepyr": ""
+        },
+        "gnomADe_AFR_AF": {
+          "vep": "0.003061",
+          "vepyr": ""
+        },
+        "gnomADe_AMR_AF": {
+          "vep": "0.0002375",
+          "vepyr": ""
+        },
+        "gnomADe_ASJ_AF": {
+          "vep": "0",
+          "vepyr": ""
+        },
+        "gnomADe_EAS_AF": {
+          "vep": "0",
+          "vepyr": ""
+        },
+        "gnomADe_FIN_AF": {
+          "vep": "0",
+          "vepyr": ""
+        },
+        "gnomADe_MID_AF": {
+          "vep": "0.0001759",
+          "vepyr": ""
+        },
+        "gnomADe_NFE_AF": {
+          "vep": "1.195e-05",
+          "vepyr": ""
+        },
+        "gnomADe_REMAINING_AF": {
+          "vep": "0.0002031",
+          "vepyr": ""
+        },
+        "gnomADe_SAS_AF": {
+          "vep": "0",
+          "vepyr": ""
+        },
+        "gnomADg_AF": {
+          "vep": "0.001307",
+          "vepyr": ""
+        },
+        "gnomADg_AFR_AF": {
+          "vep": "0.004669",
+          "vepyr": ""
+        },
+        "gnomADg_AMI_AF": {
+          "vep": "0",
+          "vepyr": ""
+        },
+        "gnomADg_AMR_AF": {
+          "vep": "0.0002616",
+          "vepyr": ""
+        },
+        "gnomADg_ASJ_AF": {
+          "vep": "0",
+          "vepyr": ""
+        },
+        "gnomADg_EAS_AF": {
+          "vep": "0",
+          "vepyr": ""
+        },
+        "gnomADg_FIN_AF": {
+          "vep": "0",
+          "vepyr": ""
+        },
+        "gnomADg_MID_AF": {
+          "vep": "0",
+          "vepyr": ""
+        },
+        "gnomADg_NFE_AF": {
+          "vep": "1.471e-05",
+          "vepyr": ""
+        },
+        "gnomADg_REMAINING_AF": {
+          "vep": "0",
+          "vepyr": ""
+        },
+        "gnomADg_SAS_AF": {
+          "vep": "0",
+          "vepyr": ""
+        },
+        "MAX_AF": {
+          "vep": "0.004669",
+          "vepyr": ""
+        },
+        "MAX_AF_POPS": {
+          "vep": "gnomADg_AFR",
+          "vepyr": ""
+        }
+      }
+    },
+    {
+      "feature": "ENST00001131846",
+      "differences": {
+        "Allele": {
+          "vep": "T",
+          "vepyr": "t"
+        },
+        "Existing_variation": {
+          "vep": "rs142513484",
+          "vepyr": ""
+        },
+        "AF": {
+          "vep": "0.0010",
+          "vepyr": ""
+        },
+        "AFR_AF": {
+          "vep": "0.003",
+          "vepyr": ""
+        },
+        "AMR_AF": {
+          "vep": "0.0014",
+          "vepyr": ""
+        },
+        "EAS_AF": {
+          "vep": "0",
+          "vepyr": ""
+        },
+        "EUR_AF": {
+          "vep": "0",
+          "vepyr": ""
+        },
+        "SAS_AF": {
+          "vep": "0",
+          "vepyr": ""
+        },
+        "gnomADe_AF": {
+          "vep": "9.481e-05",
+          "vepyr": ""
+        },
+        "gnomADe_AFR_AF": {
+          "vep": "0.003061",
+          "vepyr": ""
+        },
+        "gnomADe_AMR_AF": {
+          "vep": "0.0002375",
+          "vepyr": ""
+        },
+        "gnomADe_ASJ_AF": {
+          "vep": "0",
+          "vepyr": ""
+        },
+        "gnomADe_EAS_AF": {
+          "vep": "0",
+          "vepyr": ""
+        },
+        "gnomADe_FIN_AF": {
+          "vep": "0",
+          "vepyr": ""
+        },
+        "gnomADe_MID_AF": {
+          "vep": "0.0001759",
+          "vepyr": ""
+        },
+        "gnomADe_NFE_AF": {
+          "vep": "1.195e-05",
+          "vepyr": ""
+        },
+        "gnomADe_REMAINING_AF": {
+          "vep": "0.0002031",
+          "vepyr": ""
+        },
+        "gnomADe_SAS_AF": {
+          "vep": "0",
+          "vepyr": ""
+        },
+        "gnomADg_AF": {
+          "vep": "0.001307",
+          "vepyr": ""
+        },
+        "gnomADg_AFR_AF": {
+          "vep": "0.004669",
+          "vepyr": ""
+        },
+        "gnomADg_AMI_AF": {
+          "vep": "0",
+          "vepyr": ""
+        },
+        "gnomADg_AMR_AF": {
+          "vep": "0.0002616",
+          "vepyr": ""
+        },
+        "gnomADg_ASJ_AF": {
+          "vep": "0",
+          "vepyr": ""
+        },
+        "gnomADg_EAS_AF": {
+          "vep": "0",
+          "vepyr": ""
+        },
+        "gnomADg_FIN_AF": {
+          "vep": "0",
+          "vepyr": ""
+        },
+        "gnomADg_MID_AF": {
+          "vep": "0",
+          "vepyr": ""
+        },
+        "gnomADg_NFE_AF": {
+          "vep": "1.471e-05",
+          "vepyr": ""
+        },
+        "gnomADg_REMAINING_AF": {
+          "vep": "0",
+          "vepyr": ""
+        },
+        "gnomADg_SAS_AF": {
+          "vep": "0",
+          "vepyr": ""
+        },
+        "MAX_AF": {
+          "vep": "0.004669",
+          "vepyr": ""
+        },
+        "MAX_AF_POPS": {
+          "vep": "gnomADg_AFR",
+          "vepyr": ""
+        }
+      }
+    },
+    {
+      "feature": "NM_017446.4",
+      "differences": {
+        "Allele": {
+          "vep": "T",
+          "vepyr": "t"
+        },
+        "Existing_variation": {
+          "vep": "rs142513484",
+          "vepyr": ""
+        },
+        "AF": {
+          "vep": "0.0010",
+          "vepyr": ""
+        },
+        "AFR_AF": {
+          "vep": "0.003",
+          "vepyr": ""
+        },
+        "AMR_AF": {
+          "vep": "0.0014",
+          "vepyr": ""
+        },
+        "EAS_AF": {
+          "vep": "0",
+          "vepyr": ""
+        },
+        "EUR_AF": {
+          "vep": "0",
+          "vepyr": ""
+        },
+        "SAS_AF": {
+          "vep": "0",
+          "vepyr": ""
+        },
+        "gnomADe_AF": {
+          "vep": "9.481e-05",
+          "vepyr": ""
+        },
+        "gnomADe_AFR_AF": {
+          "vep": "0.003061",
+          "vepyr": ""
+        },
+        "gnomADe_AMR_AF": {
+          "vep": "0.0002375",
+          "vepyr": ""
+        },
+        "gnomADe_ASJ_AF": {
+          "vep": "0",
+          "vepyr": ""
+        },
+        "gnomADe_EAS_AF": {
+          "vep": "0",
+          "vepyr": ""
+        },
+        "gnomADe_FIN_AF": {
+          "vep": "0",
+          "vepyr": ""
+        },
+        "gnomADe_MID_AF": {
+          "vep": "0.0001759",
+          "vepyr": ""
+        },
+        "gnomADe_NFE_AF": {
+          "vep": "1.195e-05",
+          "vepyr": ""
+        },
+        "gnomADe_REMAINING_AF": {
+          "vep": "0.0002031",
+          "vepyr": ""
+        },
+        "gnomADe_SAS_AF": {
+          "vep": "0",
+          "vepyr": ""
+        },
+        "gnomADg_AF": {
+          "vep": "0.001307",
+          "vepyr": ""
+        },
+        "gnomADg_AFR_AF": {
+          "vep": "0.004669",
+          "vepyr": ""
+        },
+        "gnomADg_AMI_AF": {
+          "vep": "0",
+          "vepyr": ""
+        },
+        "gnomADg_AMR_AF": {
+          "vep": "0.0002616",
+          "vepyr": ""
+        },
+        "gnomADg_ASJ_AF": {
+          "vep": "0",
+          "vepyr": ""
+        },
+        "gnomADg_EAS_AF": {
+          "vep": "0",
+          "vepyr": ""
+        },
+        "gnomADg_FIN_AF": {
+          "vep": "0",
+          "vepyr": ""
+        },
+        "gnomADg_MID_AF": {
+          "vep": "0",
+          "vepyr": ""
+        },
+        "gnomADg_NFE_AF": {
+          "vep": "1.471e-05",
+          "vepyr": ""
+        },
+        "gnomADg_REMAINING_AF": {
+          "vep": "0",
+          "vepyr": ""
+        },
+        "gnomADg_SAS_AF": {
+          "vep": "0",
+          "vepyr": ""
+        },
+        "MAX_AF": {
+          "vep": "0.004669",
+          "vepyr": ""
+        },
+        "MAX_AF_POPS": {
+          "vep": "gnomADg_AFR",
+          "vepyr": ""
+        }
+      }
+    },
+    {
+      "feature": "NM_080794.4",
+      "differences": {
+        "Allele": {
+          "vep": "T",
+          "vepyr": "t"
+        },
+        "Existing_variation": {
+          "vep": "rs142513484",
+          "vepyr": ""
+        },
+        "AF": {
+          "vep": "0.0010",
+          "vepyr": ""
+        },
+        "AFR_AF": {
+          "vep": "0.003",
+          "vepyr": ""
+        },
+        "AMR_AF": {
+          "vep": "0.0014",
+          "vepyr": ""
+        },
+        "EAS_AF": {
+          "vep": "0",
+          "vepyr": ""
+        },
+        "EUR_AF": {
+          "vep": "0",
+          "vepyr": ""
+        },
+        "SAS_AF": {
+          "vep": "0",
+          "vepyr": ""
+        },
+        "gnomADe_AF": {
+          "vep": "9.481e-05",
+          "vepyr": ""
+        },
+        "gnomADe_AFR_AF": {
+          "vep": "0.003061",
+          "vepyr": ""
+        },
+        "gnomADe_AMR_AF": {
+          "vep": "0.0002375",
+          "vepyr": ""
+        },
+        "gnomADe_ASJ_AF": {
+          "vep": "0",
+          "vepyr": ""
+        },
+        "gnomADe_EAS_AF": {
+          "vep": "0",
+          "vepyr": ""
+        },
+        "gnomADe_FIN_AF": {
+          "vep": "0",
+          "vepyr": ""
+        },
+        "gnomADe_MID_AF": {
+          "vep": "0.0001759",
+          "vepyr": ""
+        },
+        "gnomADe_NFE_AF": {
+          "vep": "1.195e-05",
+          "vepyr": ""
+        },
+        "gnomADe_REMAINING_AF": {
+          "vep": "0.0002031",
+          "vepyr": ""
+        },
+        "gnomADe_SAS_AF": {
+          "vep": "0",
+          "vepyr": ""
+        },
+        "gnomADg_AF": {
+          "vep": "0.001307",
+          "vepyr": ""
+        },
+        "gnomADg_AFR_AF": {
+          "vep": "0.004669",
+          "vepyr": ""
+        },
+        "gnomADg_AMI_AF": {
+          "vep": "0",
+          "vepyr": ""
+        },
+        "gnomADg_AMR_AF": {
+          "vep": "0.0002616",
+          "vepyr": ""
+        },
+        "gnomADg_ASJ_AF": {
+          "vep": "0",
+          "vepyr": ""
+        },
+        "gnomADg_EAS_AF": {
+          "vep": "0",
+          "vepyr": ""
+        },
+        "gnomADg_FIN_AF": {
+          "vep": "0",
+          "vepyr": ""
+        },
+        "gnomADg_MID_AF": {
+          "vep": "0",
+          "vepyr": ""
+        },
+        "gnomADg_NFE_AF": {
+          "vep": "1.471e-05",
+          "vepyr": ""
+        },
+        "gnomADg_REMAINING_AF": {
+          "vep": "0",
+          "vepyr": ""
+        },
+        "gnomADg_SAS_AF": {
+          "vep": "0",
+          "vepyr": ""
+        },
+        "MAX_AF": {
+          "vep": "0.004669",
+          "vepyr": ""
+        },
+        "MAX_AF_POPS": {
+          "vep": "gnomADg_AFR",
+          "vepyr": ""
+        }
+      }
+    },
+    {
+      "feature": "NR_024092.2",
+      "differences": {
+        "Allele": {
+          "vep": "T",
+          "vepyr": "t"
+        },
+        "Existing_variation": {
+          "vep": "rs142513484",
+          "vepyr": ""
+        },
+        "AF": {
+          "vep": "0.0010",
+          "vepyr": ""
+        },
+        "AFR_AF": {
+          "vep": "0.003",
+          "vepyr": ""
+        },
+        "AMR_AF": {
+          "vep": "0.0014",
+          "vepyr": ""
+        },
+        "EAS_AF": {
+          "vep": "0",
+          "vepyr": ""
+        },
+        "EUR_AF": {
+          "vep": "0",
+          "vepyr": ""
+        },
+        "SAS_AF": {
+          "vep": "0",
+          "vepyr": ""
+        },
+        "gnomADe_AF": {
+          "vep": "9.481e-05",
+          "vepyr": ""
+        },
+        "gnomADe_AFR_AF": {
+          "vep": "0.003061",
+          "vepyr": ""
+        },
+        "gnomADe_AMR_AF": {
+          "vep": "0.0002375",
+          "vepyr": ""
+        },
+        "gnomADe_ASJ_AF": {
+          "vep": "0",
+          "vepyr": ""
+        },
+        "gnomADe_EAS_AF": {
+          "vep": "0",
+          "vepyr": ""
+        },
+        "gnomADe_FIN_AF": {
+          "vep": "0",
+          "vepyr": ""
+        },
+        "gnomADe_MID_AF": {
+          "vep": "0.0001759",
+          "vepyr": ""
+        },
+        "gnomADe_NFE_AF": {
+          "vep": "1.195e-05",
+          "vepyr": ""
+        },
+        "gnomADe_REMAINING_AF": {
+          "vep": "0.0002031",
+          "vepyr": ""
+        },
+        "gnomADe_SAS_AF": {
+          "vep": "0",
+          "vepyr": ""
+        },
+        "gnomADg_AF": {
+          "vep": "0.001307",
+          "vepyr": ""
+        },
+        "gnomADg_AFR_AF": {
+          "vep": "0.004669",
+          "vepyr": ""
+        },
+        "gnomADg_AMI_AF": {
+          "vep": "0",
+          "vepyr": ""
+        },
+        "gnomADg_AMR_AF": {
+          "vep": "0.0002616",
+          "vepyr": ""
+        },
+        "gnomADg_ASJ_AF": {
+          "vep": "0",
+          "vepyr": ""
+        },
+        "gnomADg_EAS_AF": {
+          "vep": "0",
+          "vepyr": ""
+        },
+        "gnomADg_FIN_AF": {
+          "vep": "0",
+          "vepyr": ""
+        },
+        "gnomADg_MID_AF": {
+          "vep": "0",
+          "vepyr": ""
+        },
+        "gnomADg_NFE_AF": {
+          "vep": "1.471e-05",
+          "vepyr": ""
+        },
+        "gnomADg_REMAINING_AF": {
+          "vep": "0",
+          "vepyr": ""
+        },
+        "gnomADg_SAS_AF": {
+          "vep": "0",
+          "vepyr": ""
+        },
+        "MAX_AF": {
+          "vep": "0.004669",
+          "vepyr": ""
+        },
+        "MAX_AF_POPS": {
+          "vep": "gnomADg_AFR",
+          "vepyr": ""
+        }
+      }
+    },
+    {
+      "feature": "XM_006724026.5",
+      "differences": {
+        "Allele": {
+          "vep": "T",
+          "vepyr": "t"
+        },
+        "Existing_variation": {
+          "vep": "rs142513484",
+          "vepyr": ""
+        },
+        "AF": {
+          "vep": "0.0010",
+          "vepyr": ""
+        },
+        "AFR_AF": {
+          "vep": "0.003",
+          "vepyr": ""
+        },
+        "AMR_AF": {
+          "vep": "0.0014",
+          "vepyr": ""
+        },
+        "EAS_AF": {
+          "vep": "0",
+          "vepyr": ""
+        },
+        "EUR_AF": {
+          "vep": "0",
+          "vepyr": ""
+        },
+        "SAS_AF": {
+          "vep": "0",
+          "vepyr": ""
+        },
+        "gnomADe_AF": {
+          "vep": "9.481e-05",
+          "vepyr": ""
+        },
+        "gnomADe_AFR_AF": {
+          "vep": "0.003061",
+          "vepyr": ""
+        },
+        "gnomADe_AMR_AF": {
+          "vep": "0.0002375",
+          "vepyr": ""
+        },
+        "gnomADe_ASJ_AF": {
+          "vep": "0",
+          "vepyr": ""
+        },
+        "gnomADe_EAS_AF": {
+          "vep": "0",
+          "vepyr": ""
+        },
+        "gnomADe_FIN_AF": {
+          "vep": "0",
+          "vepyr": ""
+        },
+        "gnomADe_MID_AF": {
+          "vep": "0.0001759",
+          "vepyr": ""
+        },
+        "gnomADe_NFE_AF": {
+          "vep": "1.195e-05",
+          "vepyr": ""
+        },
+        "gnomADe_REMAINING_AF": {
+          "vep": "0.0002031",
+          "vepyr": ""
+        },
+        "gnomADe_SAS_AF": {
+          "vep": "0",
+          "vepyr": ""
+        },
+        "gnomADg_AF": {
+          "vep": "0.001307",
+          "vepyr": ""
+        },
+        "gnomADg_AFR_AF": {
+          "vep": "0.004669",
+          "vepyr": ""
+        },
+        "gnomADg_AMI_AF": {
+          "vep": "0",
+          "vepyr": ""
+        },
+        "gnomADg_AMR_AF": {
+          "vep": "0.0002616",
+          "vepyr": ""
+        },
+        "gnomADg_ASJ_AF": {
+          "vep": "0",
+          "vepyr": ""
+        },
+        "gnomADg_EAS_AF": {
+          "vep": "0",
+          "vepyr": ""
+        },
+        "gnomADg_FIN_AF": {
+          "vep": "0",
+          "vepyr": ""
+        },
+        "gnomADg_MID_AF": {
+          "vep": "0",
+          "vepyr": ""
+        },
+        "gnomADg_NFE_AF": {
+          "vep": "1.471e-05",
+          "vepyr": ""
+        },
+        "gnomADg_REMAINING_AF": {
+          "vep": "0",
+          "vepyr": ""
+        },
+        "gnomADg_SAS_AF": {
+          "vep": "0",
+          "vepyr": ""
+        },
+        "MAX_AF": {
+          "vep": "0.004669",
+          "vepyr": ""
+        },
+        "MAX_AF_POPS": {
+          "vep": "gnomADg_AFR",
+          "vepyr": ""
+        }
+      }
+    },
+    {
+      "feature": "XM_011529651.3",
+      "differences": {
+        "Allele": {
+          "vep": "T",
+          "vepyr": "t"
+        },
+        "Existing_variation": {
+          "vep": "rs142513484",
+          "vepyr": ""
+        },
+        "AF": {
+          "vep": "0.0010",
+          "vepyr": ""
+        },
+        "AFR_AF": {
+          "vep": "0.003",
+          "vepyr": ""
+        },
+        "AMR_AF": {
+          "vep": "0.0014",
+          "vepyr": ""
+        },
+        "EAS_AF": {
+          "vep": "0",
+          "vepyr": ""
+        },
+        "EUR_AF": {
+          "vep": "0",
+          "vepyr": ""
+        },
+        "SAS_AF": {
+          "vep": "0",
+          "vepyr": ""
+        },
+        "gnomADe_AF": {
+          "vep": "9.481e-05",
+          "vepyr": ""
+        },
+        "gnomADe_AFR_AF": {
+          "vep": "0.003061",
+          "vepyr": ""
+        },
+        "gnomADe_AMR_AF": {
+          "vep": "0.0002375",
+          "vepyr": ""
+        },
+        "gnomADe_ASJ_AF": {
+          "vep": "0",
+          "vepyr": ""
+        },
+        "gnomADe_EAS_AF": {
+          "vep": "0",
+          "vepyr": ""
+        },
+        "gnomADe_FIN_AF": {
+          "vep": "0",
+          "vepyr": ""
+        },
+        "gnomADe_MID_AF": {
+          "vep": "0.0001759",
+          "vepyr": ""
+        },
+        "gnomADe_NFE_AF": {
+          "vep": "1.195e-05",
+          "vepyr": ""
+        },
+        "gnomADe_REMAINING_AF": {
+          "vep": "0.0002031",
+          "vepyr": ""
+        },
+        "gnomADe_SAS_AF": {
+          "vep": "0",
+          "vepyr": ""
+        },
+        "gnomADg_AF": {
+          "vep": "0.001307",
+          "vepyr": ""
+        },
+        "gnomADg_AFR_AF": {
+          "vep": "0.004669",
+          "vepyr": ""
+        },
+        "gnomADg_AMI_AF": {
+          "vep": "0",
+          "vepyr": ""
+        },
+        "gnomADg_AMR_AF": {
+          "vep": "0.0002616",
+          "vepyr": ""
+        },
+        "gnomADg_ASJ_AF": {
+          "vep": "0",
+          "vepyr": ""
+        },
+        "gnomADg_EAS_AF": {
+          "vep": "0",
+          "vepyr": ""
+        },
+        "gnomADg_FIN_AF": {
+          "vep": "0",
+          "vepyr": ""
+        },
+        "gnomADg_MID_AF": {
+          "vep": "0",
+          "vepyr": ""
+        },
+        "gnomADg_NFE_AF": {
+          "vep": "1.471e-05",
+          "vepyr": ""
+        },
+        "gnomADg_REMAINING_AF": {
+          "vep": "0",
+          "vepyr": ""
+        },
+        "gnomADg_SAS_AF": {
+          "vep": "0",
+          "vepyr": ""
+        },
+        "MAX_AF": {
+          "vep": "0.004669",
+          "vepyr": ""
+        },
+        "MAX_AF_POPS": {
+          "vep": "gnomADg_AFR",
+          "vepyr": ""
+        }
+      }
+    }
+  ]
+}

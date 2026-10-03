@@ -65,6 +65,16 @@ def check(require_complete=False, require_normalized=False):
             assert result["runnable"] and result["commands"][2]["exit"] == 0, case["id"]
             equal = result["oracle_body_md5"] == result["vepyr_body_md5"]
             assert equal == (case["status"] == "PASS"), case["id"]
+            if "focus_error" in result:
+                assert result["focus_pass"] is False, case["id"]
+            else:
+                assert result["focus_pass"] == (
+                    result["vepyr_focus"] == result["oracle_focus"]
+                ), case["id"]
+            if case["status"] == "PASS":
+                assert result["focus_pass"], case["id"]
+        else:
+            assert not result["runnable"], case["id"]
         assert result["status"] == case["status"], case["id"]
     assert ported, "no executed ports"
     if require_complete:

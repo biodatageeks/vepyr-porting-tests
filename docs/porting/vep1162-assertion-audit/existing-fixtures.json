@@ -1,0 +1,755 @@
+[
+  {
+    "name": "bcsq_info_key_preserved",
+    "source": "https://github.com/Ensembl/ensembl-vep/blob/57ea5c52340acc1f156267f810ad162e26597082/t/OutputFactory_VCF.t#L502-L514",
+    "issue": 117,
+    "url": "https://github.com/biodatageeks/vepyr-porting-tests/tree/2cdf45b73f31c6001a434cd76e5863ab41fac53b/tests/data/bcsq_info_key_preserved",
+    "body_md5": "6e588f0cedcee663546b16199c0e111a",
+    "body_md5_self_check": "passed",
+    "oracle_image": "ensemblorg/ensembl-vep@sha256:f354dd8d09073e4d943acbbd02f5eb234a9d9e9d444371c1c349910f2123de11",
+    "required_contigs": [
+      "chr21"
+    ],
+    "id": "E01",
+    "description": "vepyr annotates 21 25585733 C>T with input INFO BAR=blah;BCSQ=foo to the same output body as VEP 116.2 --everything: both input keys stay in order and exactly one CSQ= is appended.",
+    "upstream": {
+      "commit": "2cb0bbe216bb31c75de8f8000e2da7ff4fb7b451",
+      "file": "t/OutputFactory_VCF.t",
+      "line_start": 502,
+      "line_end": 514,
+      "url": "https://github.com/Ensembl/ensembl-vep/blob/2cb0bbe216bb31c75de8f8000e2da7ff4fb7b451/t/OutputFactory_VCF.t#L502-L514",
+      "excerpt_sha256": "3ca18bdf9f6112d7ce2bde211f5caeb17fdf4942c942584e050e82603fa6d4a9"
+    },
+    "implementation": {
+      "commit": "2cb0bbe216bb31c75de8f8000e2da7ff4fb7b451",
+      "file": "modules/Bio/EnsEMBL/VEP/OutputFactory/VCF.pm",
+      "line_start": 322,
+      "line_end": 355,
+      "url": "https://github.com/Ensembl/ensembl-vep/blob/2cb0bbe216bb31c75de8f8000e2da7ff4fb7b451/modules/Bio/EnsEMBL/VEP/OutputFactory/VCF.pm#L322-L355",
+      "excerpt_sha256": "600b9c0b7d5888942e81676260af3858c455c36ed1512f7a9ea3e118b379e504"
+    },
+    "oracle_status": "Committed VEP 116.0 oracle; must regenerate with pinned VEP 116.2",
+    "old_cache_problem": "No old annotation literal required for the invariant; committed oracle is VEP 116.0 and must be regenerated.",
+    "potential_vepyr_bug": "Not assessed against VEP 116.2.",
+    "unsupported_features": "None required beyond documented cached --everything.",
+    "input_records": [
+      "21\t25585733\t.\tC\tT\t.\t.\tBAR=blah;BCSQ=foo"
+    ],
+    "description_role": "Proposed VEP 116.2 acceptance description, not observed result."
+  },
+  {
+    "name": "existing_csq_info_replaced",
+    "source": "https://github.com/Ensembl/ensembl-vep/blob/57ea5c52340acc1f156267f810ad162e26597082/t/OutputFactory_VCF.t#L453-L491",
+    "issue": 116,
+    "url": "https://github.com/biodatageeks/vepyr-porting-tests/tree/2cdf45b73f31c6001a434cd76e5863ab41fac53b/tests/data/existing_csq_info_replaced",
+    "body_md5": "577ee38218641001b6ee7cec7072954f",
+    "body_md5_self_check": "passed",
+    "oracle_image": "ensemblorg/ensembl-vep@sha256:f354dd8d09073e4d943acbbd02f5eb234a9d9e9d444371c1c349910f2123de11",
+    "required_contigs": [
+      "chr21"
+    ],
+    "id": "E02",
+    "description": "vepyr annotates three records 21 25585733 C>T whose input INFO already holds CSQ=foo (first, middle, last key) to the same output body as VEP 116.2: the old CSQ is replaced and the new one comes last.",
+    "upstream": {
+      "commit": "2cb0bbe216bb31c75de8f8000e2da7ff4fb7b451",
+      "file": "t/OutputFactory_VCF.t",
+      "line_start": 453,
+      "line_end": 491,
+      "url": "https://github.com/Ensembl/ensembl-vep/blob/2cb0bbe216bb31c75de8f8000e2da7ff4fb7b451/t/OutputFactory_VCF.t#L453-L491",
+      "excerpt_sha256": "1b200473fc54769c8b85fbab97fa7d330806813182c366dbdd4cf94e6be287f4"
+    },
+    "implementation": {
+      "commit": "2cb0bbe216bb31c75de8f8000e2da7ff4fb7b451",
+      "file": "modules/Bio/EnsEMBL/VEP/OutputFactory/VCF.pm",
+      "line_start": 322,
+      "line_end": 355,
+      "url": "https://github.com/Ensembl/ensembl-vep/blob/2cb0bbe216bb31c75de8f8000e2da7ff4fb7b451/modules/Bio/EnsEMBL/VEP/OutputFactory/VCF.pm#L322-L355",
+      "excerpt_sha256": "600b9c0b7d5888942e81676260af3858c455c36ed1512f7a9ea3e118b379e504"
+    },
+    "oracle_status": "Committed VEP 116.0 oracle; must regenerate with pinned VEP 116.2",
+    "old_cache_problem": "No old annotation literal required for the invariant; committed oracle is VEP 116.0 and must be regenerated.",
+    "potential_vepyr_bug": "Not assessed against VEP 116.2.",
+    "unsupported_features": "None required beyond documented cached --everything.",
+    "input_records": [
+      "21\t25585733\t.\tC\tT\t.\t.\tBAR=blah;CSQ=foo;BAR2=blah2",
+      "21\t25585733\t.\tC\tT\t.\t.\tCSQ=foo;BAR=blah",
+      "21\t25585733\t.\tC\tT\t.\t.\tBAR=blah;CSQ=foo"
+    ],
+    "description_role": "Proposed VEP 116.2 acceptance description, not observed result."
+  },
+  {
+    "name": "intergenic_variant_single_record",
+    "source": "https://github.com/Ensembl/ensembl-vep/blob/57ea5c52340acc1f156267f810ad162e26597082/t/OutputFactory.t#L507-L515",
+    "issue": 120,
+    "url": "https://github.com/biodatageeks/vepyr-porting-tests/tree/2cdf45b73f31c6001a434cd76e5863ab41fac53b/tests/data/intergenic_variant_single_record",
+    "body_md5": "0ca5bbe89f75952897e1c6f560ad48c3",
+    "body_md5_self_check": "passed",
+    "oracle_image": "ensemblorg/ensembl-vep@sha256:f354dd8d09073e4d943acbbd02f5eb234a9d9e9d444371c1c349910f2123de11",
+    "required_contigs": [
+      "chr21"
+    ],
+    "id": "E03",
+    "description": "vepyr annotates 21 25832817 C>A, a variant with no transcript within 5 kb, to the same output body as VEP 116.2: one intergenic_variant MODIFIER group with no feature.",
+    "upstream": {
+      "commit": "2cb0bbe216bb31c75de8f8000e2da7ff4fb7b451",
+      "file": "t/OutputFactory.t",
+      "line_start": 507,
+      "line_end": 515,
+      "url": "https://github.com/Ensembl/ensembl-vep/blob/2cb0bbe216bb31c75de8f8000e2da7ff4fb7b451/t/OutputFactory.t#L507-L515",
+      "excerpt_sha256": "5d77aee14d87ccd32bae7e559f7cd4e890d741119763110e92fd733718201829"
+    },
+    "implementation": {
+      "commit": "2cb0bbe216bb31c75de8f8000e2da7ff4fb7b451",
+      "file": "modules/Bio/EnsEMBL/VEP/OutputFactory.pm",
+      "line_start": 493,
+      "line_end": 526,
+      "url": "https://github.com/Ensembl/ensembl-vep/blob/2cb0bbe216bb31c75de8f8000e2da7ff4fb7b451/modules/Bio/EnsEMBL/VEP/OutputFactory.pm#L493-L526",
+      "excerpt_sha256": "d9c8b7d4dca727272915255a297dd727194ba123ab5ffa1384d7399b89b81019"
+    },
+    "oracle_status": "Committed VEP 116.0 oracle; must regenerate with pinned VEP 116.2",
+    "old_cache_problem": "Source expectations use old micro-cache; committed oracle is already cache 116 but VEP 116.0. Verify witness and rerun.",
+    "potential_vepyr_bug": "Not assessed against VEP 116.2.",
+    "unsupported_features": "None required beyond documented cached --everything.",
+    "input_records": [
+      "21\t25832817\t.\tC\tA\t.\tPASS\t."
+    ],
+    "description_role": "Proposed VEP 116.2 acceptance description, not observed result."
+  },
+  {
+    "name": "of_vcf_multi_transcript_missense_flags",
+    "source": "https://github.com/Ensembl/ensembl-vep/blob/57ea5c52340acc1f156267f810ad162e26597082/t/OutputFactory_VCF.t#L294-L309",
+    "issue": 119,
+    "url": "https://github.com/biodatageeks/vepyr-porting-tests/tree/2cdf45b73f31c6001a434cd76e5863ab41fac53b/tests/data/of_vcf_multi_transcript_missense_flags",
+    "body_md5": "f101b322b79c6c4ee4179f500c87308a",
+    "body_md5_self_check": "passed",
+    "oracle_image": "ensemblorg/ensembl-vep@sha256:f354dd8d09073e4d943acbbd02f5eb234a9d9e9d444371c1c349910f2123de11",
+    "required_contigs": [
+      "chr21"
+    ],
+    "id": "E04",
+    "description": "vepyr annotates 21 25982445 C>T (rs141331202), which hits many APP transcripts with missense consequences and two transcripts flagged cds_start_NF/cds_end_NF, to the same output body as VEP 116.2.",
+    "upstream": {
+      "commit": "2cb0bbe216bb31c75de8f8000e2da7ff4fb7b451",
+      "file": "t/OutputFactory_VCF.t",
+      "line_start": 294,
+      "line_end": 309,
+      "url": "https://github.com/Ensembl/ensembl-vep/blob/2cb0bbe216bb31c75de8f8000e2da7ff4fb7b451/t/OutputFactory_VCF.t#L294-L309",
+      "excerpt_sha256": "954a3f888ce5e7317147bc41a2eb6dff540ed0f8e30c62ccdc13645f8778f0dc"
+    },
+    "implementation": {
+      "commit": "2cb0bbe216bb31c75de8f8000e2da7ff4fb7b451",
+      "file": "modules/Bio/EnsEMBL/VEP/OutputFactory.pm",
+      "line_start": 1454,
+      "line_end": 1475,
+      "url": "https://github.com/Ensembl/ensembl-vep/blob/2cb0bbe216bb31c75de8f8000e2da7ff4fb7b451/modules/Bio/EnsEMBL/VEP/OutputFactory.pm#L1454-L1475",
+      "excerpt_sha256": "63ee9b1931c107b55fef8553ba76763732a9a2807196a2dd9e19070d78249746"
+    },
+    "oracle_status": "Committed VEP 116.0 oracle; must regenerate with pinned VEP 116.2",
+    "old_cache_problem": "Source expectations use old micro-cache; committed oracle is already cache 116 but VEP 116.0. Verify witness and rerun.",
+    "potential_vepyr_bug": "Not assessed against VEP 116.2.",
+    "unsupported_features": "None required beyond documented cached --everything.",
+    "input_records": [
+      "21\t25982445\trs141331202\tC\tT\t.\tPASS\t."
+    ],
+    "description_role": "Proposed VEP 116.2 acceptance description, not observed result."
+  },
+  {
+    "name": "of_vcf_one_line_per_record_test_vcf",
+    "source": "https://github.com/Ensembl/ensembl-vep/blob/57ea5c52340acc1f156267f810ad162e26597082/t/OutputFactory_VCF.t#L278-L284",
+    "issue": 118,
+    "url": "https://github.com/biodatageeks/vepyr-porting-tests/tree/2cdf45b73f31c6001a434cd76e5863ab41fac53b/tests/data/of_vcf_one_line_per_record_test_vcf",
+    "body_md5": "2fc9ac8a457efbec758afdcdf8eea677",
+    "body_md5_self_check": "passed",
+    "oracle_image": "ensemblorg/ensembl-vep@sha256:f354dd8d09073e4d943acbbd02f5eb234a9d9e9d444371c1c349910f2123de11",
+    "required_contigs": [
+      "chr21"
+    ],
+    "id": "E05",
+    "description": "vepyr annotates all 132 records of VEP's own t/testdata/input/test.vcf to the same output body as VEP 116.2, which has exactly one line per input record, in input order.",
+    "upstream": {
+      "commit": "2cb0bbe216bb31c75de8f8000e2da7ff4fb7b451",
+      "file": "t/OutputFactory_VCF.t",
+      "line_start": 278,
+      "line_end": 284,
+      "url": "https://github.com/Ensembl/ensembl-vep/blob/2cb0bbe216bb31c75de8f8000e2da7ff4fb7b451/t/OutputFactory_VCF.t#L278-L284",
+      "excerpt_sha256": "394528ade3d88f5f4877636f8ab2ceba161d9d6dff4b291dffed6c9865456e7d"
+    },
+    "implementation": {
+      "commit": "2cb0bbe216bb31c75de8f8000e2da7ff4fb7b451",
+      "file": "modules/Bio/EnsEMBL/VEP/OutputFactory/VCF.pm",
+      "line_start": 299,
+      "line_end": 363,
+      "url": "https://github.com/Ensembl/ensembl-vep/blob/2cb0bbe216bb31c75de8f8000e2da7ff4fb7b451/modules/Bio/EnsEMBL/VEP/OutputFactory/VCF.pm#L299-L363",
+      "excerpt_sha256": "e2a608b01910793e8ee1075694ba03ea794615f16a3ee59b82cad6db67f3e05f"
+    },
+    "oracle_status": "Committed VEP 116.0 oracle; must regenerate with pinned VEP 116.2",
+    "old_cache_problem": "Source expectations use old micro-cache; committed oracle is already cache 116 but VEP 116.0. Verify witness and rerun.",
+    "potential_vepyr_bug": "Not assessed against VEP 116.2.",
+    "unsupported_features": "None required beyond documented cached --everything.",
+    "input_records": [
+      "21\t25585733\trs142513484\tC\tT\t.\t.\t.\tGT\t0|0",
+      "21\t25587701\trs187353664\tT\tC\t.\t.\t.\tGT\t0|0",
+      "21\t25587758\trs116645811\tG\tA\t.\t.\t.\tGT\t0|0",
+      "21\t25588859\trs199510789\tC\tT\t.\t.\t.\tGT\t0|0",
+      "21\t25592826\trs115023280\tG\tA\t.\t.\t.\tGT\t0|0",
+      "21\t25592835\trs115668266\tC\tA\t.\t.\t.\tGT\t0|0",
+      "21\t25592836\trs1135638\tG\tA\t.\t.\t.\tGT\t0|0",
+      "21\t25592860\trs10576\tT\tC\t.\t.\t.\tGT\t0|0",
+      "21\t25592879\trs539496260\tT\tC\t.\t.\t.\tGT\t0|0",
+      "21\t25592893\trs1057885\tT\tC\t.\t.\t.\tGT\t0|0",
+      "21\t25592911\trs148490508\tA\tG\t.\t.\t.\tGT\t0|0",
+      "21\t25593910\trs563087022\tT\tA\t.\t.\t.\tGT\t0|0",
+      "21\t25597309\trs540774105\tG\tA\t.\t.\t.\tGT\t0|0",
+      "21\t25597391\trs1135618\tT\tC\t.\t.\t.\tGT\t1|1",
+      "21\t25599840\trs572415920\tC\tT\t.\t.\t.\tGT\t0|0",
+      "21\t25599843\trs534666001\tC\tG\t.\t.\t.\tGT\t0|0",
+      "21\t25603832\trs116331755\tA\tG\t.\t.\t.\tGT\t0|0",
+      "21\t25603837\trs115932466\tA\tG\t.\t.\t.\tGT\t0|0",
+      "21\t25603865\trs114037138\tC\tA\t.\t.\t.\tGT\t0|0",
+      "21\t25603910\trs7278168\tC\tT\t.\t.\t.\tGT\t0|0",
+      "21\t25603925\trs7278284\tC\tT\t.\t.\t.\tGT\t0|0",
+      "21\t25606457\trs570242707\tC\tT\t.\t.\t.\tGT\t0|0",
+      "21\t25606478\trs75377686\tT\tC\t.\t.\t.\tGT\t0|0",
+      "21\t25606491\trs143847614\tC\tT\t.\t.\t.\tGT\t0|0",
+      "21\t25606494\trs146812610\tA\tC\t.\t.\t.\tGT\t0|0",
+      "21\t25606515\trs199984357\tT\tC\t.\t.\t.\tGT\t0|0",
+      "21\t25606567\trs116425917\tC\tT\t.\t.\t.\tGT\t0|0",
+      "21\t25606573\trs577117194\tT\tA\t.\t.\t.\tGT\t0|0",
+      "21\t25606638\trs3989369\tA\tG\t.\t.\t.\tGT\t0|1",
+      "21\t25607440\trs61735760\tC\tT\t.\t.\t.\tGT\t0|0",
+      "21\t25607452\trs138935322\tG\tA\t.\t.\t.\tGT\t0|0",
+      "21\t25607456\trs115649519\tC\tA\t.\t.\t.\tGT\t0|0",
+      "21\t25607463\trs148001367\tC\tA\t.\t.\t.\tGT\t0|0",
+      "21\t25607474\trs141666402\tA\tG\t.\t.\t.\tGT\t0|0",
+      "21\t25639842\trs8132639\tC\tA\t.\t.\t.\tGT\t0|0",
+      "21\t25639880\trs200307795\tC\tT\t.\t.\t.\tGT\t0|0",
+      "21\t25683895\trs183692066\tA\tG\t.\t.\t.\tGT\t0|0",
+      "21\t25683920\trs543443351\tA\tG\t.\t.\t.\tGT\t0|0",
+      "21\t25683938\trs8133602\tA\tG\t.\t.\t.\tGT\t0|0",
+      "21\t25693825\trs369585750\tC\tT\t.\t.\t.\tGT\t0|0",
+      "21\t25698693\trs9982750\tA\tG\t.\t.\t.\tGT\t0|0",
+      "21\t25698734\trs185928592\tT\tC\t.\t.\t.\tGT\t0|0",
+      "21\t25698743\trs550982612\tG\tA\t.\t.\t.\tGT\t0|0",
+      "21\t25698830\trs73897031\tC\tT\t.\t.\t.\tGT\t0|0",
+      "21\t25702198\trs184927780\tC\tG\t.\t.\t.\tGT\t0|0",
+      "21\t25702262\trs145881376\tG\tC\t.\t.\t.\tGT\t0|0",
+      "21\t25705984\trs7277917\tC\tT\t.\t.\t.\tGT\t0|0",
+      "21\t25706010\trs146826045\tC\tT\t.\t.\t.\tGT\t0|0",
+      "21\t25706013\trs200506860\tA\tG\t.\t.\t.\tGT\t0|0",
+      "21\t25706038\trs370187720\tG\tA\t.\t.\t.\tGT\t0|0",
+      "21\t25711377\trs11911847\tC\tA\t.\t.\t.\tGT\t0|0",
+      "21\t25711397\trs533467452\tC\tT\t.\t.\t.\tGT\t0|0",
+      "21\t25711398\trs549946751\tG\tA\t.\t.\t.\tGT\t0|0",
+      "21\t25712374\trs9976382\tA\tC\t.\t.\t.\tGT\t0|0",
+      "21\t25714244\trs141276117\tC\tT\t.\t.\t.\tGT\t0|0",
+      "21\t25714270\trs536983163\tG\tT\t.\t.\t.\tGT\t0|0",
+      "21\t25714274\trs78113205\tC\tT\t.\t.\t.\tGT\t0|0",
+      "21\t25714289\trs573314111\tG\tA\t.\t.\t.\tGT\t0|0",
+      "21\t25717711\trs538168206\tT\tC\t.\t.\t.\tGT\t0|0",
+      "21\t25717753\trs73897037\tA\tT\t.\t.\t.\tGT\t0|0",
+      "21\t25725330\trs182225698\tT\tG\t.\t.\t.\tGT\t0|0",
+      "21\t25725331\trs533556852\tC\tG\t.\t.\t.\tGT\t0|0",
+      "21\t25725349\trs553688215\tT\tC\t.\t.\t.\tGT\t0|0",
+      "21\t25729667\trs567499162\tA\tG\t.\t.\t.\tGT\t0|0",
+      "21\t25729685\trs536059571\tT\tC\t.\t.\t.\tGT\t0|0",
+      "21\t25729703\trs73338261\tG\tC\t.\t.\t.\tGT\t0|0",
+      "21\t25729730\trs369621263\tC\tT\t.\t.\t.\tGT\t0|0",
+      "21\t25729731\trs140201687\tG\tA\t.\t.\t.\tGT\t0|0",
+      "21\t25734940\trs71649640\tC\tG\t.\t.\t.\tGT\t0|0",
+      "21\t25745230\trs200493501\tC\tT\t.\t.\t.\tGT\t0|0",
+      "21\t25745231\trs61734758\tG\tA\t.\t.\t.\tGT\t0|0",
+      "21\t25745279\trs201420702\tC\tT\t.\t.\t.\tGT\t0|0",
+      "21\t25749065\trs182635910\tA\tG\t.\t.\t.\tGT\t0|0",
+      "21\t25749077\trs9981487\tA\tG\t.\t.\t.\tGT\t0|0",
+      "21\t25751989\trs199641457\tG\tA\t.\t.\t.\tGT\t0|0",
+      "21\t25752052\trs554182561\tT\tC\t.\t.\t.\tGT\t0|0",
+      "21\t25752090\trs577168504\tC\tG\t.\t.\t.\tGT\t0|0",
+      "21\t25752108\trs539806361\tG\tA\t.\t.\t.\tGT\t0|0",
+      "21\t25752141\trs556712151\tA\tG\t.\t.\t.\tGT\t0|0",
+      "21\t25752189\trs201578633\tC\tT\t.\t.\t.\tGT\t0|0",
+      "21\t25752218\trs114798549\tC\tT\t.\t.\t.\tGT\t0|0",
+      "21\t25758080\trs111301212\tC\tT\t.\t.\t.\tGT\t0|0",
+      "21\t25758109\trs550595053\tC\tT\t.\t.\t.\tGT\t0|0",
+      "21\t25762340\trs141466398\tG\tA\t.\t.\t.\tGT\t0|0",
+      "21\t25764212\trs575740253\tG\tA\t.\t.\t.\tGT\t0|0",
+      "21\t25764304\trs147015240\tG\tA\t.\t.\t.\tGT\t0|0",
+      "21\t25764657\trs115851866\tC\tA\t.\t.\t.\tGT\t0|0",
+      "21\t25764755\trs143054530\tG\tA\t.\t.\t.\tGT\t0|0",
+      "21\t25769016\trs578177390\tT\tC\t.\t.\t.\tGT\t0|0",
+      "21\t25769046\trs61734759\tG\tA\t.\t.\t.\tGT\t0|0",
+      "21\t25769103\trs563533466\tG\tA\t.\t.\t.\tGT\t0|0",
+      "21\t25769139\trs573657017\tG\tA\t.\t.\t.\tGT\t0|0",
+      "21\t25769181\trs542725425\tC\tG\t.\t.\t.\tGT\t0|0",
+      "21\t25769216\trs144078894\tC\tT\t.\t.\t.\tGT\t0|0",
+      "21\t25881766\trs145277462\tG\tA\t.\t.\t.\tGT\t0|0",
+      "21\t25891725\trs573613532\tC\tT\t.\t.\t.\tGT\t0|0",
+      "21\t25891785\trs145564988\tG\tT\t.\t.\t.\tGT\t0|0",
+      "21\t25891796\trs63750066\tC\tT\t.\t.\t.\tGT\t0|0",
+      "21\t25891800\trs116650065\tG\tT\t.\t.\t.\tGT\t0|0",
+      "21\t25891807\trs544705359\tC\tA\t.\t.\t.\tGT\t0|0",
+      "21\t25891809\trs148888161\tG\tA\t.\t.\t.\tGT\t0|0",
+      "21\t25897610\trs559207950\tC\tT\t.\t.\t.\tGT\t0|0",
+      "21\t25897626\trs572842823\tT\tA\t.\t.\t.\tGT\t0|0",
+      "21\t25897627\trs371425292\tC\tA\t.\t.\t.\tGT\t0|0",
+      "21\t25897648\trs564935101\tC\tG\t.\t.\t.\tGT\t0|0",
+      "21\t25897666\trs141559720\tC\tT\t.\t.\t.\tGT\t0|0",
+      "21\t25911810\trs112263157\tT\tC\t.\t.\t.\tGT\t0|0",
+      "21\t25911817\trs200922667\tT\tC\t.\t.\t.\tGT\t0|0",
+      "21\t25911825\trs541374184\tC\tT\t.\t.\t.\tGT\t0|0",
+      "21\t25911840\trs199887707\tC\tT\t.\t.\t.\tGT\t0|0",
+      "21\t25911850\trs138434918\tC\tT\t.\t.\t.\tGT\t0|0",
+      "21\t25911855\trs140304729\tC\tT\t.\t.\t.\tGT\t0|0",
+      "21\t25911879\trs201874897\tC\tT\t.\t.\t.\tGT\t0|0",
+      "21\t25911880\trs200150248\tG\tA\t.\t.\t.\tGT\t0|0",
+      "21\t25911899\trs145371658\tG\tC\t.\t.\t.\tGT\t0|0",
+      "21\t25911904\trs201221707\tA\tG\t.\t.\t.\tGT\t0|0",
+      "21\t25911912\trs533667466\tT\tC\t.\t.\t.\tGT\t0|0",
+      "21\t25945972\trs550575052\tG\tA\t.\t.\t.\tGT\t0|0",
+      "21\t25954594\trs553447317\tT\tG\t.\t.\t.\tGT\t0|0",
+      "21\t25954600\trs576776689\tC\tG\t.\t.\t.\tGT\t0|0",
+      "21\t25954663\trs45537238\tA\tG\t.\t.\t.\tGT\t0|0",
+      "21\t25975071\trs200268317\tC\tT\t.\t.\t.\tGT\t0|0",
+      "21\t25975119\trs182162117\tC\tT\t.\t.\t.\tGT\t0|0",
+      "21\t25975133\trs571652623\tG\tA\t.\t.\t.\tGT\t0|0",
+      "21\t25975183\trs539339652\tC\tT\t.\t.\t.\tGT\t0|0",
+      "21\t25975216\trs556451971\tT\tC\t.\t.\t.\tGT\t0|0",
+      "21\t25975223\trs148180403\tG\tA\t.\t.\t.\tGT\t0|0",
+      "21\t25975967\trs188433801\tT\tC\t.\t.\t.\tGT\t0|0",
+      "21\t25976004\trs543363868\tC\tG\t.\t.\t.\tGT\t0|0",
+      "21\t25976005\trs556540232\tT\tC\t.\t.\t.\tGT\t0|0",
+      "21\t25982358\trs201668897\tC\tG\t.\t.\t.\tGT\t0|0",
+      "21\t25982445\trs141331202\tC\tT\t.\t.\t.\tGT\t0|0"
+    ],
+    "description_role": "Proposed VEP 116.2 acceptance description, not observed result."
+  },
+  {
+    "name": "output_factory_colocated_merge",
+    "source": "https://github.com/Ensembl/ensembl-vep/blob/57ea5c52340acc1f156267f810ad162e26597082/t/OutputFactory.t#L99-L124",
+    "issue": 18,
+    "url": "https://github.com/biodatageeks/vepyr-porting-tests/tree/2cdf45b73f31c6001a434cd76e5863ab41fac53b/tests/data/output_factory_colocated_merge",
+    "body_md5": "c3bbb793d8540259c2070a8d54e8eb1f",
+    "body_md5_self_check": "passed",
+    "oracle_image": "ensemblorg/ensembl-vep@sha256:f354dd8d09073e4d943acbbd02f5eb234a9d9e9d444371c1c349910f2123de11",
+    "required_contigs": [
+      "chr21"
+    ],
+    "id": "E06",
+    "description": "vepyr annotates 21 25891796 C>T, where the VEP 116 cache holds two co-located variants (rs63750066, CM930033), to the same output body as VEP 116.2 --everything.",
+    "upstream": {
+      "commit": "2cb0bbe216bb31c75de8f8000e2da7ff4fb7b451",
+      "file": "t/OutputFactory.t",
+      "line_start": 99,
+      "line_end": 124,
+      "url": "https://github.com/Ensembl/ensembl-vep/blob/2cb0bbe216bb31c75de8f8000e2da7ff4fb7b451/t/OutputFactory.t#L99-L124",
+      "excerpt_sha256": "d1e25af148906533ce3e3fef4f8b0f3200fcc66701d0a10973a69a40e8b54a22"
+    },
+    "implementation": {
+      "commit": "2cb0bbe216bb31c75de8f8000e2da7ff4fb7b451",
+      "file": "modules/Bio/EnsEMBL/VEP/OutputFactory.pm",
+      "line_start": 1041,
+      "line_end": 1150,
+      "url": "https://github.com/Ensembl/ensembl-vep/blob/2cb0bbe216bb31c75de8f8000e2da7ff4fb7b451/modules/Bio/EnsEMBL/VEP/OutputFactory.pm#L1041-L1150",
+      "excerpt_sha256": "ace4fe044a21ce88146ab78533576fb78e47017f5d48943c4f1a810a5d02686c"
+    },
+    "oracle_status": "Committed VEP 116.0 oracle; must regenerate with pinned VEP 116.2",
+    "old_cache_problem": "Source expectations use old micro-cache; committed oracle is already cache 116 but VEP 116.0. Verify witness and rerun.",
+    "potential_vepyr_bug": "Not assessed against VEP 116.2.",
+    "unsupported_features": "None required beyond documented cached --everything.",
+    "input_records": [
+      "21\t25891796\t.\tC\tT\t.\t.\t."
+    ],
+    "description_role": "Proposed VEP 116.2 acceptance description, not observed result."
+  },
+  {
+    "name": "output_factory_hgvs_transcript_protein",
+    "source": "https://github.com/Ensembl/ensembl-vep/blob/57ea5c52340acc1f156267f810ad162e26597082/t/OutputFactory.t#L1121-L1135",
+    "issue": 123,
+    "url": "https://github.com/biodatageeks/vepyr-porting-tests/tree/2cdf45b73f31c6001a434cd76e5863ab41fac53b/tests/data/output_factory_hgvs_transcript_protein",
+    "body_md5": "4e6386018c7f4c1a8e90a0cdbd8969da",
+    "body_md5_self_check": "passed",
+    "oracle_image": "ensemblorg/ensembl-vep@sha256:f354dd8d09073e4d943acbbd02f5eb234a9d9e9d444371c1c349910f2123de11",
+    "required_contigs": [
+      "chr21"
+    ],
+    "id": "E07",
+    "description": "vepyr annotates 21 25585733 C>T to the same output body as VEP 116.2 run with --everything, in which HGVSc and HGVSp are filled (ledger OutputFactory.ledger.toml n=79 and n=80).",
+    "upstream": {
+      "commit": "2cb0bbe216bb31c75de8f8000e2da7ff4fb7b451",
+      "file": "t/OutputFactory.t",
+      "line_start": 1121,
+      "line_end": 1135,
+      "url": "https://github.com/Ensembl/ensembl-vep/blob/2cb0bbe216bb31c75de8f8000e2da7ff4fb7b451/t/OutputFactory.t#L1121-L1135",
+      "excerpt_sha256": "ca8d809a978ef1bbeaed57e94dc5966a14ada1e1ae0fcbad63682a93fa8021e2"
+    },
+    "implementation": {
+      "commit": "2cb0bbe216bb31c75de8f8000e2da7ff4fb7b451",
+      "file": "modules/Bio/EnsEMBL/VEP/OutputFactory.pm",
+      "line_start": 1682,
+      "line_end": 1825,
+      "url": "https://github.com/Ensembl/ensembl-vep/blob/2cb0bbe216bb31c75de8f8000e2da7ff4fb7b451/modules/Bio/EnsEMBL/VEP/OutputFactory.pm#L1682-L1825",
+      "excerpt_sha256": "133d7d90efc1cf74a67eed2e5ea44861bf329ac87c1a41896e39d1db394c9606"
+    },
+    "oracle_status": "Committed VEP 116.0 oracle; must regenerate with pinned VEP 116.2",
+    "old_cache_problem": "Source expectations use old micro-cache; committed oracle is already cache 116 but VEP 116.0. Verify witness and rerun.",
+    "potential_vepyr_bug": "Not assessed against VEP 116.2.",
+    "unsupported_features": "None required beyond documented cached --everything.",
+    "input_records": [
+      "21\t25585733\trs142513484\tC\tT\t.\tPASS\t."
+    ],
+    "description_role": "Proposed VEP 116.2 acceptance description, not observed result."
+  },
+  {
+    "name": "output_factory_mirna_loop",
+    "source": "https://github.com/Ensembl/ensembl-vep/blob/57ea5c52340acc1f156267f810ad162e26597082/t/OutputFactory.t#L966-L999",
+    "issue": 200,
+    "url": "https://github.com/biodatageeks/vepyr-porting-tests/tree/2cdf45b73f31c6001a434cd76e5863ab41fac53b/tests/data/output_factory_mirna_loop",
+    "body_md5": "7617e2e8d96f17dfdb796446d9418d23",
+    "body_md5_self_check": "passed",
+    "oracle_image": "ensemblorg/ensembl-vep@sha256:f354dd8d09073e4d943acbbd02f5eb234a9d9e9d444371c1c349910f2123de11",
+    "required_contigs": [
+      "chr21"
+    ],
+    "id": "E08",
+    "description": "vepyr annotates 21 25573994 C>T, inside the loop of the miRNA ENST00000385060, to the same output body as VEP 116.2 --everything (miRNA field miRNA_loop).",
+    "upstream": {
+      "commit": "2cb0bbe216bb31c75de8f8000e2da7ff4fb7b451",
+      "file": "t/OutputFactory.t",
+      "line_start": 966,
+      "line_end": 999,
+      "url": "https://github.com/Ensembl/ensembl-vep/blob/2cb0bbe216bb31c75de8f8000e2da7ff4fb7b451/t/OutputFactory.t#L966-L999",
+      "excerpt_sha256": "3b0a445ec6cf09ab691515c846883d3744a18b33669d372ae181fc824f3e842c"
+    },
+    "implementation": {
+      "commit": "2cb0bbe216bb31c75de8f8000e2da7ff4fb7b451",
+      "file": "modules/Bio/EnsEMBL/VEP/OutputFactory.pm",
+      "line_start": 1626,
+      "line_end": 1678,
+      "url": "https://github.com/Ensembl/ensembl-vep/blob/2cb0bbe216bb31c75de8f8000e2da7ff4fb7b451/modules/Bio/EnsEMBL/VEP/OutputFactory.pm#L1626-L1678",
+      "excerpt_sha256": "8a394e24ba9ed54145a985f0b2f18e6499342f22475973f6a39113a6fd7946e5"
+    },
+    "oracle_status": "Committed VEP 116.0 oracle; must regenerate with pinned VEP 116.2",
+    "old_cache_problem": "Source expectations use old micro-cache; committed oracle is already cache 116 but VEP 116.0. Verify witness and rerun.",
+    "potential_vepyr_bug": "Not assessed against VEP 116.2.",
+    "unsupported_features": "None required beyond documented cached --everything.",
+    "input_records": [
+      "21\t25573994\t25573994\tC\tT\t.\t.\t."
+    ],
+    "description_role": "Proposed VEP 116.2 acceptance description, not observed result."
+  },
+  {
+    "name": "output_factory_motif_feature_tfbs",
+    "source": "https://github.com/Ensembl/ensembl-vep/blob/57ea5c52340acc1f156267f810ad162e26597082/t/OutputFactory.t#L1243-L1271",
+    "issue": 195,
+    "url": "https://github.com/biodatageeks/vepyr-porting-tests/tree/2cdf45b73f31c6001a434cd76e5863ab41fac53b/tests/data/output_factory_motif_feature_tfbs",
+    "body_md5": "958ec7639cf601f223096a18b44195f7",
+    "body_md5_self_check": "passed",
+    "oracle_image": "ensemblorg/ensembl-vep@sha256:f354dd8d09073e4d943acbbd02f5eb234a9d9e9d444371c1c349910f2123de11",
+    "required_contigs": [
+      "chr21"
+    ],
+    "id": "E09",
+    "description": "vepyr annotates 21 25735354 C>T, which overlaps a CTCF binding motif (MotifFeature), to the same output body as VEP 116.2 --everything, including TF_binding_site_variant with MOTIF_NAME/MOTIF_POS/HIGH_INF_POS/MOTIF_SCORE_CHANGE/TRANSCRIPTION_FACTORS.",
+    "upstream": {
+      "commit": "2cb0bbe216bb31c75de8f8000e2da7ff4fb7b451",
+      "file": "t/OutputFactory.t",
+      "line_start": 1243,
+      "line_end": 1271,
+      "url": "https://github.com/Ensembl/ensembl-vep/blob/2cb0bbe216bb31c75de8f8000e2da7ff4fb7b451/t/OutputFactory.t#L1243-L1271",
+      "excerpt_sha256": "d1bb9161ce3add2b016ea3e63dfb4b1340d9e3d79cb4ac72ef5bceafbdf11fec"
+    },
+    "implementation": {
+      "commit": "2cb0bbe216bb31c75de8f8000e2da7ff4fb7b451",
+      "file": "modules/Bio/EnsEMBL/VEP/OutputFactory.pm",
+      "line_start": 1900,
+      "line_end": 1957,
+      "url": "https://github.com/Ensembl/ensembl-vep/blob/2cb0bbe216bb31c75de8f8000e2da7ff4fb7b451/modules/Bio/EnsEMBL/VEP/OutputFactory.pm#L1900-L1957",
+      "excerpt_sha256": "31a1790ff19178b6e5a66731ddac928bea4b68a080669507560cabc767abdf23"
+    },
+    "oracle_status": "Committed VEP 116.0 oracle; must regenerate with pinned VEP 116.2",
+    "old_cache_problem": "Source expectations use old micro-cache; committed oracle is already cache 116 but VEP 116.0. Verify witness and rerun.",
+    "potential_vepyr_bug": "Not assessed against VEP 116.2.",
+    "unsupported_features": "None required beyond documented cached --everything.",
+    "input_records": [
+      "21\t25735354\t.\tC\tT\t.\t.\t."
+    ],
+    "description_role": "Proposed VEP 116.2 acceptance description, not observed result."
+  },
+  {
+    "name": "output_factory_regulatory_promoter",
+    "source": "https://github.com/Ensembl/ensembl-vep/blob/57ea5c52340acc1f156267f810ad162e26597082/t/OutputFactory.t#L1207-L1230",
+    "issue": 201,
+    "url": "https://github.com/biodatageeks/vepyr-porting-tests/tree/2cdf45b73f31c6001a434cd76e5863ab41fac53b/tests/data/output_factory_regulatory_promoter",
+    "body_md5": "9ca346fb59e7fe49e5c5b4a738e96daa",
+    "body_md5_self_check": "passed",
+    "oracle_image": "ensemblorg/ensembl-vep@sha256:f354dd8d09073e4d943acbbd02f5eb234a9d9e9d444371c1c349910f2123de11",
+    "required_contigs": [
+      "chr21"
+    ],
+    "id": "E10",
+    "description": "vepyr annotates 21 25734924 C>T, which lies in a promoter of the VEP 116 regulatory build, to the same output body as VEP 116.2 --everything, including the RegulatoryFeature regulatory_region_variant entry with BIOTYPE promoter.",
+    "upstream": {
+      "commit": "2cb0bbe216bb31c75de8f8000e2da7ff4fb7b451",
+      "file": "t/OutputFactory.t",
+      "line_start": 1207,
+      "line_end": 1230,
+      "url": "https://github.com/Ensembl/ensembl-vep/blob/2cb0bbe216bb31c75de8f8000e2da7ff4fb7b451/t/OutputFactory.t#L1207-L1230",
+      "excerpt_sha256": "89ded736b65a39edb23c67c247dfd9ebc25a0dc2d52b3186d188e085a8bbd4d8"
+    },
+    "implementation": {
+      "commit": "2cb0bbe216bb31c75de8f8000e2da7ff4fb7b451",
+      "file": "modules/Bio/EnsEMBL/VEP/OutputFactory.pm",
+      "line_start": 1867,
+      "line_end": 1879,
+      "url": "https://github.com/Ensembl/ensembl-vep/blob/2cb0bbe216bb31c75de8f8000e2da7ff4fb7b451/modules/Bio/EnsEMBL/VEP/OutputFactory.pm#L1867-L1879",
+      "excerpt_sha256": "6933ebdc5b61c7d3b02fa5c078a0d84d75a0e0ef3220f339d62052d581d75e5e"
+    },
+    "oracle_status": "Committed VEP 116.0 oracle; must regenerate with pinned VEP 116.2",
+    "old_cache_problem": "Source expectations use old micro-cache; committed oracle is already cache 116 but VEP 116.0. Verify witness and rerun.",
+    "potential_vepyr_bug": "Not assessed against VEP 116.2.",
+    "unsupported_features": "None required beyond documented cached --everything.",
+    "input_records": [
+      "21\t25734924\t.\tC\tT\t.\t.\t."
+    ],
+    "description_role": "Proposed VEP 116.2 acceptance description, not observed result."
+  },
+  {
+    "name": "output_factory_vcf_anchored_deletion",
+    "source": "https://github.com/Ensembl/ensembl-vep/blob/57ea5c52340acc1f156267f810ad162e26597082/t/OutputFactory_VCF.t#L437-L451",
+    "issue": 196,
+    "url": "https://github.com/biodatageeks/vepyr-porting-tests/tree/2cdf45b73f31c6001a434cd76e5863ab41fac53b/tests/data/output_factory_vcf_anchored_deletion",
+    "body_md5": "fc96ce35bd7ca0309884ff464b3382f0",
+    "body_md5_self_check": "passed",
+    "oracle_image": "ensemblorg/ensembl-vep@sha256:f354dd8d09073e4d943acbbd02f5eb234a9d9e9d444371c1c349910f2123de11",
+    "required_contigs": [
+      "chr21"
+    ],
+    "id": "E11",
+    "description": "vepyr annotates the anchored deletion 21 25585732 GC>G (VEP's VCF form of the Ensembl-format input 21 25585733 C/-) to the same output body as VEP 116.2 --everything.",
+    "upstream": {
+      "commit": "2cb0bbe216bb31c75de8f8000e2da7ff4fb7b451",
+      "file": "t/OutputFactory_VCF.t",
+      "line_start": 437,
+      "line_end": 451,
+      "url": "https://github.com/Ensembl/ensembl-vep/blob/2cb0bbe216bb31c75de8f8000e2da7ff4fb7b451/t/OutputFactory_VCF.t#L437-L451",
+      "excerpt_sha256": "bad7ffd7a637b7bb07d6aca2c23fe9cbaa50df43df50f9078ba178686f10e203"
+    },
+    "implementation": {
+      "commit": "2cb0bbe216bb31c75de8f8000e2da7ff4fb7b451",
+      "file": "modules/Bio/EnsEMBL/VEP/OutputFactory/VCF.pm",
+      "line_start": 299,
+      "line_end": 363,
+      "url": "https://github.com/Ensembl/ensembl-vep/blob/2cb0bbe216bb31c75de8f8000e2da7ff4fb7b451/modules/Bio/EnsEMBL/VEP/OutputFactory/VCF.pm#L299-L363",
+      "excerpt_sha256": "e2a608b01910793e8ee1075694ba03ea794615f16a3ee59b82cad6db67f3e05f"
+    },
+    "oracle_status": "Committed VEP 116.0 oracle; must regenerate with pinned VEP 116.2",
+    "old_cache_problem": "Source expectations use old micro-cache; committed oracle is already cache 116 but VEP 116.0. Verify witness and rerun.",
+    "potential_vepyr_bug": "Not assessed against VEP 116.2.",
+    "unsupported_features": "None required beyond documented cached --everything.",
+    "input_records": [
+      "21\t25585732\t.\tGC\tG\t.\t.\t."
+    ],
+    "description_role": "Proposed VEP 116.2 acceptance description, not observed result."
+  },
+  {
+    "name": "runner_buffer_size_invariance",
+    "source": "https://github.com/Ensembl/ensembl-vep/blob/57ea5c52340acc1f156267f810ad162e26597082/t/Runner.t#L514-L529",
+    "issue": 17,
+    "url": "https://github.com/biodatageeks/vepyr-porting-tests/tree/2cdf45b73f31c6001a434cd76e5863ab41fac53b/tests/data/runner_buffer_size_invariance",
+    "body_md5": "3f2b0d0bfcfdd96e6ea64808dc3c7287",
+    "body_md5_self_check": "passed",
+    "oracle_image": "ensemblorg/ensembl-vep@sha256:f354dd8d09073e4d943acbbd02f5eb234a9d9e9d444371c1c349910f2123de11",
+    "required_contigs": [
+      "chr21"
+    ],
+    "id": "E12",
+    "description": "vepyr annotates the eight-record chromosome 21 input to the same output body as VEP 116.2 at every buffer_size (1, 2, 3, 5 and 5000), so nothing is lost or reordered between the annotation buffer and the output.",
+    "upstream": {
+      "commit": "2cb0bbe216bb31c75de8f8000e2da7ff4fb7b451",
+      "file": "t/Runner.t",
+      "line_start": 602,
+      "line_end": 617,
+      "url": "https://github.com/Ensembl/ensembl-vep/blob/2cb0bbe216bb31c75de8f8000e2da7ff4fb7b451/t/Runner.t#L602-L617",
+      "excerpt_sha256": "ce562389d4d063ae64ef8955679e9eb56f299c8f4df3000e29b46147526a319d"
+    },
+    "implementation": {
+      "commit": "2cb0bbe216bb31c75de8f8000e2da7ff4fb7b451",
+      "file": "modules/Bio/EnsEMBL/VEP/InputBuffer.pm",
+      "line_start": 173,
+      "line_end": 262,
+      "url": "https://github.com/Ensembl/ensembl-vep/blob/2cb0bbe216bb31c75de8f8000e2da7ff4fb7b451/modules/Bio/EnsEMBL/VEP/InputBuffer.pm#L173-L262",
+      "excerpt_sha256": "241ac25e6b27c63be7a491f5cd181e6f67085f6555a7c89abef479a432a36715"
+    },
+    "oracle_status": "Committed VEP 116.0 oracle; must regenerate with pinned VEP 116.2",
+    "old_cache_problem": "No old annotation literal required for the invariant; committed oracle is VEP 116.0 and must be regenerated.",
+    "potential_vepyr_bug": "Not assessed against VEP 116.2.",
+    "unsupported_features": "None required beyond documented cached --everything.",
+    "input_records": [
+      "21\t25585733\trs142513484\tC\tT\t.\tPASS\t.",
+      "21\t25587701\trs187353664\tT\tC\t.\tPASS\t.",
+      "21\t25587758\trs116645811\tG\tA\t.\tPASS\t.",
+      "21\t25588859\trs199510789\tC\tT\t.\tPASS\t.",
+      "21\t25592911\trs148490508\tA\tG\t.\tPASS\t.",
+      "21\t25593000\t.\tA\tG\t.\tPASS\t.",
+      "21\t25594000\t.\tT\tC\t.\tPASS\t.",
+      "21\t25595000\t.\tG\tA\t.\tPASS\t."
+    ],
+    "description_role": "Proposed VEP 116.2 acceptance description, not observed result."
+  },
+  {
+    "name": "runner_consequence_content",
+    "source": "https://github.com/Ensembl/ensembl-vep/blob/57ea5c52340acc1f156267f810ad162e26597082/t/Runner.t#L244-L293",
+    "issue": 16,
+    "url": "https://github.com/biodatageeks/vepyr-porting-tests/tree/2cdf45b73f31c6001a434cd76e5863ab41fac53b/tests/data/runner_consequence_content",
+    "body_md5": "4e6386018c7f4c1a8e90a0cdbd8969da",
+    "body_md5_self_check": "passed",
+    "oracle_image": "ensemblorg/ensembl-vep@sha256:f354dd8d09073e4d943acbbd02f5eb234a9d9e9d444371c1c349910f2123de11",
+    "required_contigs": [
+      "chr21"
+    ],
+    "id": "E13",
+    "description": "vepyr annotates the variant 21 25585733 C/T (rs142513484) of t/Runner.t to the same output body as VEP 116.2, with the complete --everything CSQ layout.",
+    "upstream": {
+      "commit": "2cb0bbe216bb31c75de8f8000e2da7ff4fb7b451",
+      "file": "t/Runner.t",
+      "line_start": 244,
+      "line_end": 293,
+      "url": "https://github.com/Ensembl/ensembl-vep/blob/2cb0bbe216bb31c75de8f8000e2da7ff4fb7b451/t/Runner.t#L244-L293",
+      "excerpt_sha256": "b339b930eb5bf53d33eb16ffe7e7bd93cb4208e2ee68892a6e8214d8fe93c2ac"
+    },
+    "implementation": {
+      "commit": "2cb0bbe216bb31c75de8f8000e2da7ff4fb7b451",
+      "file": "modules/Bio/EnsEMBL/VEP/OutputFactory.pm",
+      "line_start": 1682,
+      "line_end": 1825,
+      "url": "https://github.com/Ensembl/ensembl-vep/blob/2cb0bbe216bb31c75de8f8000e2da7ff4fb7b451/modules/Bio/EnsEMBL/VEP/OutputFactory.pm#L1682-L1825",
+      "excerpt_sha256": "133d7d90efc1cf74a67eed2e5ea44861bf329ac87c1a41896e39d1db394c9606"
+    },
+    "oracle_status": "Committed VEP 116.0 oracle; must regenerate with pinned VEP 116.2",
+    "old_cache_problem": "Source expectations use old micro-cache; committed oracle is already cache 116 but VEP 116.0. Verify witness and rerun.",
+    "potential_vepyr_bug": "Not assessed against VEP 116.2.",
+    "unsupported_features": "None required beyond documented cached --everything.",
+    "input_records": [
+      "21\t25585733\trs142513484\tC\tT\t.\tPASS\t."
+    ],
+    "description_role": "Proposed VEP 116.2 acceptance description, not observed result."
+  },
+  {
+    "name": "runner_ref_eq_alt_test6",
+    "source": "https://github.com/Ensembl/ensembl-vep/blob/57ea5c52340acc1f156267f810ad162e26597082/t/Runner.t#L1134-L1148",
+    "issue": 194,
+    "url": "https://github.com/biodatageeks/vepyr-porting-tests/tree/2cdf45b73f31c6001a434cd76e5863ab41fac53b/tests/data/runner_ref_eq_alt_test6",
+    "body_md5": "9b1e9b741653a68d8d91ed501ae2ab5b",
+    "body_md5_self_check": "passed",
+    "oracle_image": "ensemblorg/ensembl-vep@sha256:f354dd8d09073e4d943acbbd02f5eb234a9d9e9d444371c1c349910f2123de11",
+    "required_contigs": [
+      "chr21",
+      "chr22"
+    ],
+    "id": "E14",
+    "description": "vepyr annotates the upstream fixture test6.vcf (a REF==ALT record 21 25585733 C>C, then 22 25769065 G>T) to the same output body as VEP 116.2 --everything: the REF==ALT record does not stop the run and the next record is annotated in full.",
+    "upstream": {
+      "commit": "2cb0bbe216bb31c75de8f8000e2da7ff4fb7b451",
+      "file": "t/Runner.t",
+      "line_start": 1222,
+      "line_end": 1236,
+      "url": "https://github.com/Ensembl/ensembl-vep/blob/2cb0bbe216bb31c75de8f8000e2da7ff4fb7b451/t/Runner.t#L1222-L1236",
+      "excerpt_sha256": "7936c209b225fb93cacf271c8267ee06ea4c0c35c1607f93428ae9d76ec33a4c"
+    },
+    "implementation": {
+      "commit": "2cb0bbe216bb31c75de8f8000e2da7ff4fb7b451",
+      "file": "modules/Bio/EnsEMBL/VEP/OutputFactory/VCF.pm",
+      "line_start": 340,
+      "line_end": 359,
+      "url": "https://github.com/Ensembl/ensembl-vep/blob/2cb0bbe216bb31c75de8f8000e2da7ff4fb7b451/modules/Bio/EnsEMBL/VEP/OutputFactory/VCF.pm#L340-L359",
+      "excerpt_sha256": "d906ae71dec7a6f58ce445ead8a55cb50150075abd00b5172f3b16e37304d83f"
+    },
+    "oracle_status": "Committed VEP 116.0 oracle; must regenerate with pinned VEP 116.2",
+    "old_cache_problem": "No old annotation literal required for the invariant; committed oracle is VEP 116.0 and must be regenerated.",
+    "potential_vepyr_bug": "Known prior mismatch: https://github.com/biodatageeks/vepyr-porting-tests/issues/207; VEP 116.2 result pending.",
+    "unsupported_features": "None required beyond documented cached --everything.",
+    "input_records": [
+      "21\t25585733\trs142513484\tC\tC\t.\t.\t.",
+      "22\t25769065\tvar5_chr22\tG\tT\t.\t.\t."
+    ],
+    "description_role": "Proposed VEP 116.2 acceptance description, not observed result."
+  },
+  {
+    "name": "sv_deletion_end_feature_truncation",
+    "source": "https://github.com/Ensembl/ensembl-vep/blob/57ea5c52340acc1f156267f810ad162e26597082/t/OutputFactory_VCF.t#L563-L577",
+    "issue": 202,
+    "url": "https://github.com/biodatageeks/vepyr-porting-tests/tree/2cdf45b73f31c6001a434cd76e5863ab41fac53b/tests/data/sv_deletion_end_feature_truncation",
+    "body_md5": "f29bd6892620838a74b8b7fdcaad8613",
+    "body_md5_self_check": "passed",
+    "oracle_image": "ensemblorg/ensembl-vep@sha256:f354dd8d09073e4d943acbbd02f5eb234a9d9e9d444371c1c349910f2123de11",
+    "required_contigs": [
+      "chr21"
+    ],
+    "id": "E15",
+    "description": "vepyr annotates the structural deletion 21 25585732 G <DEL> SVTYPE=DEL;END=25585735 to the same output body as VEP 116.2 --everything: END kept in INFO, feature_truncation consequences.",
+    "upstream": {
+      "commit": "2cb0bbe216bb31c75de8f8000e2da7ff4fb7b451",
+      "file": "t/OutputFactory_VCF.t",
+      "line_start": 563,
+      "line_end": 577,
+      "url": "https://github.com/Ensembl/ensembl-vep/blob/2cb0bbe216bb31c75de8f8000e2da7ff4fb7b451/t/OutputFactory_VCF.t#L563-L577",
+      "excerpt_sha256": "754459593875f32a5b3499b77b1d6823803b0425d810e657ef368ba33c0fc96b"
+    },
+    "implementation": {
+      "commit": "2cb0bbe216bb31c75de8f8000e2da7ff4fb7b451",
+      "file": "modules/Bio/EnsEMBL/VEP/Parser/VCF.pm",
+      "line_start": 230,
+      "line_end": 244,
+      "url": "https://github.com/Ensembl/ensembl-vep/blob/2cb0bbe216bb31c75de8f8000e2da7ff4fb7b451/modules/Bio/EnsEMBL/VEP/Parser/VCF.pm#L230-L244",
+      "excerpt_sha256": "585250a5a8a8508cf27b50519eb851022b19292941b2fc28f5a3a21d93ff0330"
+    },
+    "oracle_status": "Committed VEP 116.0 oracle; must regenerate with pinned VEP 116.2",
+    "old_cache_problem": "Source expectations use old micro-cache; committed oracle is already cache 116 but VEP 116.0. Verify witness and rerun.",
+    "potential_vepyr_bug": "Known prior mismatch: https://github.com/biodatageeks/vepyr-porting-tests/issues/218; VEP 116.2 result pending.",
+    "unsupported_features": "Symbolic structural deletion: outside SNV/small-literal-indel scope; not promised by CLI parity docs.",
+    "input_records": [
+      "21\t25585732\t.\tG\t<DEL>\t.\t.\tSVTYPE=DEL;END=25585735"
+    ],
+    "description_role": "Proposed VEP 116.2 acceptance description, not observed result."
+  },
+  {
+    "name": "svtype_svlen_info_ignored",
+    "source": "https://github.com/Ensembl/ensembl-vep/blob/57ea5c52340acc1f156267f810ad162e26597082/t/Parser_VCF.t#L154-L200",
+    "issue": 125,
+    "url": "https://github.com/biodatageeks/vepyr-porting-tests/tree/2cdf45b73f31c6001a434cd76e5863ab41fac53b/tests/data/svtype_svlen_info_ignored",
+    "body_md5": "1b018db69651fc500c0ec1aca821dcd8",
+    "body_md5_self_check": "passed",
+    "oracle_image": "ensemblorg/ensembl-vep@sha256:f354dd8d09073e4d943acbbd02f5eb234a9d9e9d444371c1c349910f2123de11",
+    "required_contigs": [
+      "chr21"
+    ],
+    "id": "E16",
+    "description": "vepyr annotates the indels 21 25587759 AC>A with SVTYPE=DEL and A>AC with SVLEN=1 to the same output body as VEP 116.2, where each gets the CSQ of the same indel without the INFO key (t/Parser_VCF.t n=14, n=15).",
+    "upstream": {
+      "commit": "2cb0bbe216bb31c75de8f8000e2da7ff4fb7b451",
+      "file": "t/Parser_VCF.t",
+      "line_start": 154,
+      "line_end": 200,
+      "url": "https://github.com/Ensembl/ensembl-vep/blob/2cb0bbe216bb31c75de8f8000e2da7ff4fb7b451/t/Parser_VCF.t#L154-L200",
+      "excerpt_sha256": "7e378766a79782db374b58df3ab343e4f1f27512fa96e921b3ffaa596a02a2b6"
+    },
+    "implementation": {
+      "commit": "2cb0bbe216bb31c75de8f8000e2da7ff4fb7b451",
+      "file": "modules/Bio/EnsEMBL/VEP/Parser/VCF.pm",
+      "line_start": 230,
+      "line_end": 335,
+      "url": "https://github.com/Ensembl/ensembl-vep/blob/2cb0bbe216bb31c75de8f8000e2da7ff4fb7b451/modules/Bio/EnsEMBL/VEP/Parser/VCF.pm#L230-L335",
+      "excerpt_sha256": "6f7977b28ebd11bdf434708105b8325671503bd1490b5445f324221fac3df3bf"
+    },
+    "oracle_status": "Committed VEP 116.0 oracle; must regenerate with pinned VEP 116.2",
+    "old_cache_problem": "Source expectations use old micro-cache; committed oracle is already cache 116 but VEP 116.0. Verify witness and rerun.",
+    "potential_vepyr_bug": "Known prior mismatch: https://github.com/biodatageeks/vepyr-porting-tests/issues/221; VEP 116.2 result pending.",
+    "unsupported_features": "None required beyond documented cached --everything.",
+    "input_records": [
+      "21\t25587759\ttest\tAC\tA\t.\t.\tSVTYPE=DEL",
+      "21\t25587759\ttest\tA\tAC\t.\t.\tSVLEN=1",
+      "21\t25587759\tplain\tAC\tA\t.\t.\t.",
+      "21\t25587759\tplain\tA\tAC\t.\t.\t."
+    ],
+    "description_role": "Proposed VEP 116.2 acceptance description, not observed result."
+  }
+]

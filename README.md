@@ -838,10 +838,18 @@ python tools/port_campaign.py --limit 10 \
   --vepyr-python /path/to/verified-vepyr/.venv/bin/python \
   --vepyr-source /path/to/verified-vepyr \
   --evidence /path/to/run-evidence
-python tools/check_campaign.py --require-normalized
+python tools/check_campaign.py --require-complete --require-normalized
 ```
 
 The engine revision is evidence for each run, not a fixed repository requirement.
 Primary-property checks select the case's specific field or record property;
 the existing body comparison also checks all incidental fields. A focus pass
 with a body failure remains a failing data test.
+
+This campaign contains 186 executed ports (168 SNVs, 15 small indels, two
+nonvariant cases and one MNV): 174 whole-body passes, 10 differences and two
+execution errors on the recorded master revision. Sixteen further candidates
+have documented blockers. The 16 pre-existing fixtures are outside this campaign;
+their inputs were regenerated unchanged and their prior oracles were retained.
+See the [failure evidence](docs/porting/vep1162-merged/FAILURES.md) and the
+[complete assertion audit](docs/porting/vep1162-assertion-audit/README.md).

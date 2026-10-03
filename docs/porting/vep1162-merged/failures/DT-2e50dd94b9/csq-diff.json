@@ -1,0 +1,51 @@
+{
+  "vep_entries": 39,
+  "vepyr_entries": 39,
+  "ordered_entry_differences": [
+    {
+      "feature": "ENST00000307301",
+      "differences": {
+        "USED_REF": {
+          "vep": "A",
+          "vepyr": "C"
+        }
+      }
+    },
+    {
+      "feature": "ENST00000985910",
+      "differences": {
+        "USED_REF": {
+          "vep": "A",
+          "vepyr": "C"
+        }
+      }
+    },
+    {
+      "feature": "ENST00001019018",
+      "differences": {
+        "USED_REF": {
+          "vep": "A",
+          "vepyr": "C"
+        }
+      }
+    },
+    {
+      "feature": "ENST00001101474",
+      "differences": {
+        "USED_REF": {
+          "vep": "A",
+          "vepyr": "C"
+        }
+      }
+    },
+    {
+      "feature": "ENST00001110241",
+      "differences": {
+        "USED_REF": {
+          "vep": "A",
+          "vepyr": "C"
+        }
+      }
+    }
+  ]
+}

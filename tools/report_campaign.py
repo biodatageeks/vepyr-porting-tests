@@ -14,6 +14,12 @@ def main():
         "",
         "One PR; one commit and report per ten ports. SNVs precede small indels.",
         "",
+        (
+            "[Full 2,103-assertion audit](../vep1162-assertion-audit/README.md) · "
+            "[Failure details and actual outputs](FAILURES.md) · "
+            "[Input/reference audit](reference-audit.json)"
+        ),
+        "",
         "Input normalization reverified for "
         + str(
             sum(c.get("result", {}).get("normalization_verified", False) for c in cases)

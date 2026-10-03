@@ -1,0 +1,15 @@
+{
+  "vep_entries": 38,
+  "vepyr_entries": 38,
+  "ordered_entry_differences": [
+    {
+      "feature": "ENST00001110241",
+      "differences": {
+        "HGVSp": {
+          "vep": "ENSP00000780046.1:p.Leu262PhefsTer81",
+          "vepyr": "ENSP00000780046.1:p.Leu262TyrfsTer8"
+        }
+      }
+    }
+  ]
+}
