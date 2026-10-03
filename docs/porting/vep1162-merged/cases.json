@@ -13917,11 +13917,11 @@
         {
           "argv": [
             "/Users/mwiewior/research/git/vepyr-porting-tests-1162-merged/tools/normalize_input",
-            "/Users/mwiewior/workspace/data_vepyr/evidence/vep1162-merged-20261003/report_strand_for_the_coding_transcript_consequence_52d40d/raw.vcf",
+            "/Users/mwiewior/workspace/data_vepyr/evidence/vep1162-merged-20261003/normalized-rerun/report_strand_for_the_coding_transcript_consequence_52d40d/raw.vcf",
             "/Users/mwiewior/research/git/vepyr-porting-tests-1162-merged/tests/data/report_strand_for_the_coding_transcript_consequence_52d40d"
           ],
           "exit": 0,
-          "log": "/Users/mwiewior/workspace/data_vepyr/evidence/vep1162-merged-20261003/report_strand_for_the_coding_transcript_consequence_52d40d/normalize.log"
+          "log": "/Users/mwiewior/workspace/data_vepyr/evidence/vep1162-merged-20261003/normalized-rerun/report_strand_for_the_coding_transcript_consequence_52d40d/normalize.log"
         },
         {
           "argv": [
@@ -13933,7 +13933,7 @@
             "/Users/mwiewior/research/git/vepyr-porting-tests-1162-merged/tests/data/report_strand_for_the_coding_transcript_consequence_52d40d"
           ],
           "exit": 0,
-          "log": "/Users/mwiewior/workspace/data_vepyr/evidence/vep1162-merged-20261003/report_strand_for_the_coding_transcript_consequence_52d40d/vep.log"
+          "log": "/Users/mwiewior/workspace/data_vepyr/evidence/vep1162-merged-20261003/normalized-rerun/report_strand_for_the_coding_transcript_consequence_52d40d/vep.log"
         },
         {
           "argv": [
@@ -13944,7 +13944,7 @@
             "--input_file",
             "/Users/mwiewior/research/git/vepyr-porting-tests-1162-merged/tests/data/report_strand_for_the_coding_transcript_consequence_52d40d/input.vcf",
             "--output_file",
-            "/Users/mwiewior/workspace/data_vepyr/evidence/vep1162-merged-20261003/report_strand_for_the_coding_transcript_consequence_52d40d/vepyr.vcf",
+            "/Users/mwiewior/workspace/data_vepyr/evidence/vep1162-merged-20261003/normalized-rerun/report_strand_for_the_coding_transcript_consequence_52d40d/vepyr.vcf",
             "--dir_cache",
             "/Users/mwiewior/workspace/data_vepyr/cache/116_GRCh38_merged",
             "--fasta",
@@ -13955,12 +13955,16 @@
             "--no_progress"
           ],
           "exit": 0,
-          "log": "/Users/mwiewior/workspace/data_vepyr/evidence/vep1162-merged-20261003/report_strand_for_the_coding_transcript_consequence_52d40d/vepyr.log"
+          "log": "/Users/mwiewior/workspace/data_vepyr/evidence/vep1162-merged-20261003/normalized-rerun/report_strand_for_the_coding_transcript_consequence_52d40d/vepyr.log"
         }
       ],
       "input_sha256": "47964cf3345147ba8b15027a02e68004e17f1fb4a0a7cdd707ca8391d98dee93",
       "oracle_body_md5": "05bf31b59c70febbbace9660e9b5288e",
       "oracle_focus": "-1",
+      "normalization_verified": true,
+      "input_sha256_before_vep": "47964cf3345147ba8b15027a02e68004e17f1fb4a0a7cdd707ca8391d98dee93",
+      "input_sha256_before_vepyr": "47964cf3345147ba8b15027a02e68004e17f1fb4a0a7cdd707ca8391d98dee93",
+      "docker_input_sha256": "47964cf3345147ba8b15027a02e68004e17f1fb4a0a7cdd707ca8391d98dee93",
       "runnable": true,
       "vepyr_body_md5": "05bf31b59c70febbbace9660e9b5288e",
       "vepyr_focus": "-1",
@@ -14054,11 +14058,11 @@
         {
           "argv": [
             "/Users/mwiewior/research/git/vepyr-porting-tests-1162-merged/tools/normalize_input",
-            "/Users/mwiewior/workspace/data_vepyr/evidence/vep1162-merged-20261003/report_strand_for_the_upstream_transcript_consequence_224983/raw.vcf",
+            "/Users/mwiewior/workspace/data_vepyr/evidence/vep1162-merged-20261003/normalized-rerun/report_strand_for_the_upstream_transcript_consequence_224983/raw.vcf",
             "/Users/mwiewior/research/git/vepyr-porting-tests-1162-merged/tests/data/report_strand_for_the_upstream_transcript_consequence_224983"
           ],
           "exit": 0,
-          "log": "/Users/mwiewior/workspace/data_vepyr/evidence/vep1162-merged-20261003/report_strand_for_the_upstream_transcript_consequence_224983/normalize.log"
+          "log": "/Users/mwiewior/workspace/data_vepyr/evidence/vep1162-merged-20261003/normalized-rerun/report_strand_for_the_upstream_transcript_consequence_224983/normalize.log"
         },
         {
           "argv": [
@@ -14070,7 +14074,7 @@
             "/Users/mwiewior/research/git/vepyr-porting-tests-1162-merged/tests/data/report_strand_for_the_upstream_transcript_consequence_224983"
           ],
           "exit": 0,
-          "log": "/Users/mwiewior/workspace/data_vepyr/evidence/vep1162-merged-20261003/report_strand_for_the_upstream_transcript_consequence_224983/vep.log"
+          "log": "/Users/mwiewior/workspace/data_vepyr/evidence/vep1162-merged-20261003/normalized-rerun/report_strand_for_the_upstream_transcript_consequence_224983/vep.log"
         },
         {
           "argv": [
@@ -14081,7 +14085,7 @@
             "--input_file",
             "/Users/mwiewior/research/git/vepyr-porting-tests-1162-merged/tests/data/report_strand_for_the_upstream_transcript_consequence_224983/input.vcf",
             "--output_file",
-            "/Users/mwiewior/workspace/data_vepyr/evidence/vep1162-merged-20261003/report_strand_for_the_upstream_transcript_consequence_224983/vepyr.vcf",
+            "/Users/mwiewior/workspace/data_vepyr/evidence/vep1162-merged-20261003/normalized-rerun/report_strand_for_the_upstream_transcript_consequence_224983/vepyr.vcf",
             "--dir_cache",
             "/Users/mwiewior/workspace/data_vepyr/cache/116_GRCh38_merged",
             "--fasta",
@@ -14092,12 +14096,16 @@
             "--no_progress"
           ],
           "exit": 0,
-          "log": "/Users/mwiewior/workspace/data_vepyr/evidence/vep1162-merged-20261003/report_strand_for_the_upstream_transcript_consequence_224983/vepyr.log"
+          "log": "/Users/mwiewior/workspace/data_vepyr/evidence/vep1162-merged-20261003/normalized-rerun/report_strand_for_the_upstream_transcript_consequence_224983/vepyr.log"
         }
       ],
       "input_sha256": "47964cf3345147ba8b15027a02e68004e17f1fb4a0a7cdd707ca8391d98dee93",
       "oracle_body_md5": "05bf31b59c70febbbace9660e9b5288e",
       "oracle_focus": "-1",
+      "normalization_verified": true,
+      "input_sha256_before_vep": "47964cf3345147ba8b15027a02e68004e17f1fb4a0a7cdd707ca8391d98dee93",
+      "input_sha256_before_vepyr": "47964cf3345147ba8b15027a02e68004e17f1fb4a0a7cdd707ca8391d98dee93",
+      "docker_input_sha256": "47964cf3345147ba8b15027a02e68004e17f1fb4a0a7cdd707ca8391d98dee93",
       "runnable": true,
       "vepyr_body_md5": "05bf31b59c70febbbace9660e9b5288e",
       "vepyr_focus": "-1",
@@ -14178,11 +14186,11 @@
         {
           "argv": [
             "/Users/mwiewior/research/git/vepyr-porting-tests-1162-merged/tools/normalize_input",
-            "/Users/mwiewior/workspace/data_vepyr/evidence/vep1162-merged-20261003/report_strand_on_the_app_missense_consequence_295378/raw.vcf",
+            "/Users/mwiewior/workspace/data_vepyr/evidence/vep1162-merged-20261003/normalized-rerun/report_strand_on_the_app_missense_consequence_295378/raw.vcf",
             "/Users/mwiewior/research/git/vepyr-porting-tests-1162-merged/tests/data/report_strand_on_the_app_missense_consequence_295378"
           ],
           "exit": 0,
-          "log": "/Users/mwiewior/workspace/data_vepyr/evidence/vep1162-merged-20261003/report_strand_on_the_app_missense_consequence_295378/normalize.log"
+          "log": "/Users/mwiewior/workspace/data_vepyr/evidence/vep1162-merged-20261003/normalized-rerun/report_strand_on_the_app_missense_consequence_295378/normalize.log"
         },
         {
           "argv": [
@@ -14194,7 +14202,7 @@
             "/Users/mwiewior/research/git/vepyr-porting-tests-1162-merged/tests/data/report_strand_on_the_app_missense_consequence_295378"
           ],
           "exit": 0,
-          "log": "/Users/mwiewior/workspace/data_vepyr/evidence/vep1162-merged-20261003/report_strand_on_the_app_missense_consequence_295378/vep.log"
+          "log": "/Users/mwiewior/workspace/data_vepyr/evidence/vep1162-merged-20261003/normalized-rerun/report_strand_on_the_app_missense_consequence_295378/vep.log"
         },
         {
           "argv": [
@@ -14205,7 +14213,7 @@
             "--input_file",
             "/Users/mwiewior/research/git/vepyr-porting-tests-1162-merged/tests/data/report_strand_on_the_app_missense_consequence_295378/input.vcf",
             "--output_file",
-            "/Users/mwiewior/workspace/data_vepyr/evidence/vep1162-merged-20261003/report_strand_on_the_app_missense_consequence_295378/vepyr.vcf",
+            "/Users/mwiewior/workspace/data_vepyr/evidence/vep1162-merged-20261003/normalized-rerun/report_strand_on_the_app_missense_consequence_295378/vepyr.vcf",
             "--dir_cache",
             "/Users/mwiewior/workspace/data_vepyr/cache/116_GRCh38_merged",
             "--fasta",
@@ -14216,12 +14224,16 @@
             "--no_progress"
           ],
           "exit": 0,
-          "log": "/Users/mwiewior/workspace/data_vepyr/evidence/vep1162-merged-20261003/report_strand_on_the_app_missense_consequence_295378/vepyr.log"
+          "log": "/Users/mwiewior/workspace/data_vepyr/evidence/vep1162-merged-20261003/normalized-rerun/report_strand_on_the_app_missense_consequence_295378/vepyr.log"
         }
       ],
       "input_sha256": "d2eeaec241628ac214f50b63eb679f00e2da1428ed7848bd89c998bf6b3c2bd6",
       "oracle_body_md5": "e4a8977ffa983361a70be47d05515bbb",
       "oracle_focus": "-1",
+      "normalization_verified": true,
+      "input_sha256_before_vep": "d2eeaec241628ac214f50b63eb679f00e2da1428ed7848bd89c998bf6b3c2bd6",
+      "input_sha256_before_vepyr": "d2eeaec241628ac214f50b63eb679f00e2da1428ed7848bd89c998bf6b3c2bd6",
+      "docker_input_sha256": "d2eeaec241628ac214f50b63eb679f00e2da1428ed7848bd89c998bf6b3c2bd6",
       "runnable": true,
       "vepyr_body_md5": "e4a8977ffa983361a70be47d05515bbb",
       "vepyr_focus": "-1",
@@ -14302,11 +14314,11 @@
         {
           "argv": [
             "/Users/mwiewior/research/git/vepyr-porting-tests-1162-merged/tools/normalize_input",
-            "/Users/mwiewior/workspace/data_vepyr/evidence/vep1162-merged-20261003/report_swissprot_protein_cross_references_03c684/raw.vcf",
+            "/Users/mwiewior/workspace/data_vepyr/evidence/vep1162-merged-20261003/normalized-rerun/report_swissprot_protein_cross_references_03c684/raw.vcf",
             "/Users/mwiewior/research/git/vepyr-porting-tests-1162-merged/tests/data/report_swissprot_protein_cross_references_03c684"
           ],
           "exit": 0,
-          "log": "/Users/mwiewior/workspace/data_vepyr/evidence/vep1162-merged-20261003/report_swissprot_protein_cross_references_03c684/normalize.log"
+          "log": "/Users/mwiewior/workspace/data_vepyr/evidence/vep1162-merged-20261003/normalized-rerun/report_swissprot_protein_cross_references_03c684/normalize.log"
         },
         {
           "argv": [
@@ -14318,7 +14330,7 @@
             "/Users/mwiewior/research/git/vepyr-porting-tests-1162-merged/tests/data/report_swissprot_protein_cross_references_03c684"
           ],
           "exit": 0,
-          "log": "/Users/mwiewior/workspace/data_vepyr/evidence/vep1162-merged-20261003/report_swissprot_protein_cross_references_03c684/vep.log"
+          "log": "/Users/mwiewior/workspace/data_vepyr/evidence/vep1162-merged-20261003/normalized-rerun/report_swissprot_protein_cross_references_03c684/vep.log"
         },
         {
           "argv": [
@@ -14329,7 +14341,7 @@
             "--input_file",
             "/Users/mwiewior/research/git/vepyr-porting-tests-1162-merged/tests/data/report_swissprot_protein_cross_references_03c684/input.vcf",
             "--output_file",
-            "/Users/mwiewior/workspace/data_vepyr/evidence/vep1162-merged-20261003/report_swissprot_protein_cross_references_03c684/vepyr.vcf",
+            "/Users/mwiewior/workspace/data_vepyr/evidence/vep1162-merged-20261003/normalized-rerun/report_swissprot_protein_cross_references_03c684/vepyr.vcf",
             "--dir_cache",
             "/Users/mwiewior/workspace/data_vepyr/cache/116_GRCh38_merged",
             "--fasta",
@@ -14340,12 +14352,16 @@
             "--no_progress"
           ],
           "exit": 0,
-          "log": "/Users/mwiewior/workspace/data_vepyr/evidence/vep1162-merged-20261003/report_swissprot_protein_cross_references_03c684/vepyr.log"
+          "log": "/Users/mwiewior/workspace/data_vepyr/evidence/vep1162-merged-20261003/normalized-rerun/report_swissprot_protein_cross_references_03c684/vepyr.log"
         }
       ],
       "input_sha256": "47964cf3345147ba8b15027a02e68004e17f1fb4a0a7cdd707ca8391d98dee93",
       "oracle_body_md5": "05bf31b59c70febbbace9660e9b5288e",
       "oracle_focus": "Q9NYK5.195",
+      "normalization_verified": true,
+      "input_sha256_before_vep": "47964cf3345147ba8b15027a02e68004e17f1fb4a0a7cdd707ca8391d98dee93",
+      "input_sha256_before_vepyr": "47964cf3345147ba8b15027a02e68004e17f1fb4a0a7cdd707ca8391d98dee93",
+      "docker_input_sha256": "47964cf3345147ba8b15027a02e68004e17f1fb4a0a7cdd707ca8391d98dee93",
       "runnable": true,
       "vepyr_body_md5": "05bf31b59c70febbbace9660e9b5288e",
       "vepyr_focus": "Q9NYK5.195",
@@ -14426,11 +14442,11 @@
         {
           "argv": [
             "/Users/mwiewior/research/git/vepyr-porting-tests-1162-merged/tools/normalize_input",
-            "/Users/mwiewior/workspace/data_vepyr/evidence/vep1162-merged-20261003/report_symbol_for_the_transcript_s_gene_e97e95/raw.vcf",
+            "/Users/mwiewior/workspace/data_vepyr/evidence/vep1162-merged-20261003/normalized-rerun/report_symbol_for_the_transcript_s_gene_e97e95/raw.vcf",
             "/Users/mwiewior/research/git/vepyr-porting-tests-1162-merged/tests/data/report_symbol_for_the_transcript_s_gene_e97e95"
           ],
           "exit": 0,
-          "log": "/Users/mwiewior/workspace/data_vepyr/evidence/vep1162-merged-20261003/report_symbol_for_the_transcript_s_gene_e97e95/normalize.log"
+          "log": "/Users/mwiewior/workspace/data_vepyr/evidence/vep1162-merged-20261003/normalized-rerun/report_symbol_for_the_transcript_s_gene_e97e95/normalize.log"
         },
         {
           "argv": [
@@ -14442,7 +14458,7 @@
             "/Users/mwiewior/research/git/vepyr-porting-tests-1162-merged/tests/data/report_symbol_for_the_transcript_s_gene_e97e95"
           ],
           "exit": 0,
-          "log": "/Users/mwiewior/workspace/data_vepyr/evidence/vep1162-merged-20261003/report_symbol_for_the_transcript_s_gene_e97e95/vep.log"
+          "log": "/Users/mwiewior/workspace/data_vepyr/evidence/vep1162-merged-20261003/normalized-rerun/report_symbol_for_the_transcript_s_gene_e97e95/vep.log"
         },
         {
           "argv": [
@@ -14453,7 +14469,7 @@
             "--input_file",
             "/Users/mwiewior/research/git/vepyr-porting-tests-1162-merged/tests/data/report_symbol_for_the_transcript_s_gene_e97e95/input.vcf",
             "--output_file",
-            "/Users/mwiewior/workspace/data_vepyr/evidence/vep1162-merged-20261003/report_symbol_for_the_transcript_s_gene_e97e95/vepyr.vcf",
+            "/Users/mwiewior/workspace/data_vepyr/evidence/vep1162-merged-20261003/normalized-rerun/report_symbol_for_the_transcript_s_gene_e97e95/vepyr.vcf",
             "--dir_cache",
             "/Users/mwiewior/workspace/data_vepyr/cache/116_GRCh38_merged",
             "--fasta",
@@ -14464,12 +14480,16 @@
             "--no_progress"
           ],
           "exit": 0,
-          "log": "/Users/mwiewior/workspace/data_vepyr/evidence/vep1162-merged-20261003/report_symbol_for_the_transcript_s_gene_e97e95/vepyr.log"
+          "log": "/Users/mwiewior/workspace/data_vepyr/evidence/vep1162-merged-20261003/normalized-rerun/report_symbol_for_the_transcript_s_gene_e97e95/vepyr.log"
         }
       ],
       "input_sha256": "47964cf3345147ba8b15027a02e68004e17f1fb4a0a7cdd707ca8391d98dee93",
       "oracle_body_md5": "05bf31b59c70febbbace9660e9b5288e",
       "oracle_focus": "MRPL39",
+      "normalization_verified": true,
+      "input_sha256_before_vep": "47964cf3345147ba8b15027a02e68004e17f1fb4a0a7cdd707ca8391d98dee93",
+      "input_sha256_before_vepyr": "47964cf3345147ba8b15027a02e68004e17f1fb4a0a7cdd707ca8391d98dee93",
+      "docker_input_sha256": "47964cf3345147ba8b15027a02e68004e17f1fb4a0a7cdd707ca8391d98dee93",
       "runnable": true,
       "vepyr_body_md5": "05bf31b59c70febbbace9660e9b5288e",
       "vepyr_focus": "MRPL39",
@@ -14550,11 +14570,11 @@
         {
           "argv": [
             "/Users/mwiewior/research/git/vepyr-porting-tests-1162-merged/tools/normalize_input",
-            "/Users/mwiewior/workspace/data_vepyr/evidence/vep1162-merged-20261003/report_symbol_source_for_the_transcript_s_gene_d2e44a/raw.vcf",
+            "/Users/mwiewior/workspace/data_vepyr/evidence/vep1162-merged-20261003/normalized-rerun/report_symbol_source_for_the_transcript_s_gene_d2e44a/raw.vcf",
             "/Users/mwiewior/research/git/vepyr-porting-tests-1162-merged/tests/data/report_symbol_source_for_the_transcript_s_gene_d2e44a"
           ],
           "exit": 0,
-          "log": "/Users/mwiewior/workspace/data_vepyr/evidence/vep1162-merged-20261003/report_symbol_source_for_the_transcript_s_gene_d2e44a/normalize.log"
+          "log": "/Users/mwiewior/workspace/data_vepyr/evidence/vep1162-merged-20261003/normalized-rerun/report_symbol_source_for_the_transcript_s_gene_d2e44a/normalize.log"
         },
         {
           "argv": [
@@ -14566,7 +14586,7 @@
             "/Users/mwiewior/research/git/vepyr-porting-tests-1162-merged/tests/data/report_symbol_source_for_the_transcript_s_gene_d2e44a"
           ],
           "exit": 0,
-          "log": "/Users/mwiewior/workspace/data_vepyr/evidence/vep1162-merged-20261003/report_symbol_source_for_the_transcript_s_gene_d2e44a/vep.log"
+          "log": "/Users/mwiewior/workspace/data_vepyr/evidence/vep1162-merged-20261003/normalized-rerun/report_symbol_source_for_the_transcript_s_gene_d2e44a/vep.log"
         },
         {
           "argv": [
@@ -14577,7 +14597,7 @@
             "--input_file",
             "/Users/mwiewior/research/git/vepyr-porting-tests-1162-merged/tests/data/report_symbol_source_for_the_transcript_s_gene_d2e44a/input.vcf",
             "--output_file",
-            "/Users/mwiewior/workspace/data_vepyr/evidence/vep1162-merged-20261003/report_symbol_source_for_the_transcript_s_gene_d2e44a/vepyr.vcf",
+            "/Users/mwiewior/workspace/data_vepyr/evidence/vep1162-merged-20261003/normalized-rerun/report_symbol_source_for_the_transcript_s_gene_d2e44a/vepyr.vcf",
             "--dir_cache",
             "/Users/mwiewior/workspace/data_vepyr/cache/116_GRCh38_merged",
             "--fasta",
@@ -14588,12 +14608,16 @@
             "--no_progress"
           ],
           "exit": 0,
-          "log": "/Users/mwiewior/workspace/data_vepyr/evidence/vep1162-merged-20261003/report_symbol_source_for_the_transcript_s_gene_d2e44a/vepyr.log"
+          "log": "/Users/mwiewior/workspace/data_vepyr/evidence/vep1162-merged-20261003/normalized-rerun/report_symbol_source_for_the_transcript_s_gene_d2e44a/vepyr.log"
         }
       ],
       "input_sha256": "47964cf3345147ba8b15027a02e68004e17f1fb4a0a7cdd707ca8391d98dee93",
       "oracle_body_md5": "05bf31b59c70febbbace9660e9b5288e",
       "oracle_focus": "HGNC",
+      "normalization_verified": true,
+      "input_sha256_before_vep": "47964cf3345147ba8b15027a02e68004e17f1fb4a0a7cdd707ca8391d98dee93",
+      "input_sha256_before_vepyr": "47964cf3345147ba8b15027a02e68004e17f1fb4a0a7cdd707ca8391d98dee93",
+      "docker_input_sha256": "47964cf3345147ba8b15027a02e68004e17f1fb4a0a7cdd707ca8391d98dee93",
       "runnable": true,
       "vepyr_body_md5": "05bf31b59c70febbbace9660e9b5288e",
       "vepyr_focus": "HGNC",
@@ -14670,11 +14694,11 @@
         {
           "argv": [
             "/Users/mwiewior/research/git/vepyr-porting-tests-1162-merged/tools/normalize_input",
-            "/Users/mwiewior/workspace/data_vepyr/evidence/vep1162-merged-20261003/report_transcription_factors_for_a_motif_consequence_0b972c/raw.vcf",
+            "/Users/mwiewior/workspace/data_vepyr/evidence/vep1162-merged-20261003/normalized-rerun/report_transcription_factors_for_a_motif_consequence_0b972c/raw.vcf",
             "/Users/mwiewior/research/git/vepyr-porting-tests-1162-merged/tests/data/report_transcription_factors_for_a_motif_consequence_0b972c"
           ],
           "exit": 0,
-          "log": "/Users/mwiewior/workspace/data_vepyr/evidence/vep1162-merged-20261003/report_transcription_factors_for_a_motif_consequence_0b972c/normalize.log"
+          "log": "/Users/mwiewior/workspace/data_vepyr/evidence/vep1162-merged-20261003/normalized-rerun/report_transcription_factors_for_a_motif_consequence_0b972c/normalize.log"
         },
         {
           "argv": [
@@ -14686,7 +14710,7 @@
             "/Users/mwiewior/research/git/vepyr-porting-tests-1162-merged/tests/data/report_transcription_factors_for_a_motif_consequence_0b972c"
           ],
           "exit": 0,
-          "log": "/Users/mwiewior/workspace/data_vepyr/evidence/vep1162-merged-20261003/report_transcription_factors_for_a_motif_consequence_0b972c/vep.log"
+          "log": "/Users/mwiewior/workspace/data_vepyr/evidence/vep1162-merged-20261003/normalized-rerun/report_transcription_factors_for_a_motif_consequence_0b972c/vep.log"
         },
         {
           "argv": [
@@ -14697,7 +14721,7 @@
             "--input_file",
             "/Users/mwiewior/research/git/vepyr-porting-tests-1162-merged/tests/data/report_transcription_factors_for_a_motif_consequence_0b972c/input.vcf",
             "--output_file",
-            "/Users/mwiewior/workspace/data_vepyr/evidence/vep1162-merged-20261003/report_transcription_factors_for_a_motif_consequence_0b972c/vepyr.vcf",
+            "/Users/mwiewior/workspace/data_vepyr/evidence/vep1162-merged-20261003/normalized-rerun/report_transcription_factors_for_a_motif_consequence_0b972c/vepyr.vcf",
             "--dir_cache",
             "/Users/mwiewior/workspace/data_vepyr/cache/116_GRCh38_merged",
             "--fasta",
@@ -14708,12 +14732,16 @@
             "--no_progress"
           ],
           "exit": 0,
-          "log": "/Users/mwiewior/workspace/data_vepyr/evidence/vep1162-merged-20261003/report_transcription_factors_for_a_motif_consequence_0b972c/vepyr.log"
+          "log": "/Users/mwiewior/workspace/data_vepyr/evidence/vep1162-merged-20261003/normalized-rerun/report_transcription_factors_for_a_motif_consequence_0b972c/vepyr.log"
         }
       ],
       "input_sha256": "33336f78b38ced2948b5fc719ef91505a4c929515255396a3654a54e74455e57",
       "oracle_body_md5": "81021e91fbbfcd516fece4a8d32f272e",
       "oracle_focus": "CTCF",
+      "normalization_verified": true,
+      "input_sha256_before_vep": "33336f78b38ced2948b5fc719ef91505a4c929515255396a3654a54e74455e57",
+      "input_sha256_before_vepyr": "33336f78b38ced2948b5fc719ef91505a4c929515255396a3654a54e74455e57",
+      "docker_input_sha256": "33336f78b38ced2948b5fc719ef91505a4c929515255396a3654a54e74455e57",
       "runnable": true,
       "vepyr_body_md5": "81021e91fbbfcd516fece4a8d32f272e",
       "vepyr_focus": "CTCF",
@@ -14792,11 +14820,11 @@
         {
           "argv": [
             "/Users/mwiewior/research/git/vepyr-porting-tests-1162-merged/tools/normalize_input",
-            "/Users/mwiewior/workspace/data_vepyr/evidence/vep1162-merged-20261003/report_tsl_for_the_selected_transcript_d21296/raw.vcf",
+            "/Users/mwiewior/workspace/data_vepyr/evidence/vep1162-merged-20261003/normalized-rerun/report_tsl_for_the_selected_transcript_d21296/raw.vcf",
             "/Users/mwiewior/research/git/vepyr-porting-tests-1162-merged/tests/data/report_tsl_for_the_selected_transcript_d21296"
           ],
           "exit": 0,
-          "log": "/Users/mwiewior/workspace/data_vepyr/evidence/vep1162-merged-20261003/report_tsl_for_the_selected_transcript_d21296/normalize.log"
+          "log": "/Users/mwiewior/workspace/data_vepyr/evidence/vep1162-merged-20261003/normalized-rerun/report_tsl_for_the_selected_transcript_d21296/normalize.log"
         },
         {
           "argv": [
@@ -14808,7 +14836,7 @@
             "/Users/mwiewior/research/git/vepyr-porting-tests-1162-merged/tests/data/report_tsl_for_the_selected_transcript_d21296"
           ],
           "exit": 0,
-          "log": "/Users/mwiewior/workspace/data_vepyr/evidence/vep1162-merged-20261003/report_tsl_for_the_selected_transcript_d21296/vep.log"
+          "log": "/Users/mwiewior/workspace/data_vepyr/evidence/vep1162-merged-20261003/normalized-rerun/report_tsl_for_the_selected_transcript_d21296/vep.log"
         },
         {
           "argv": [
@@ -14819,7 +14847,7 @@
             "--input_file",
             "/Users/mwiewior/research/git/vepyr-porting-tests-1162-merged/tests/data/report_tsl_for_the_selected_transcript_d21296/input.vcf",
             "--output_file",
-            "/Users/mwiewior/workspace/data_vepyr/evidence/vep1162-merged-20261003/report_tsl_for_the_selected_transcript_d21296/vepyr.vcf",
+            "/Users/mwiewior/workspace/data_vepyr/evidence/vep1162-merged-20261003/normalized-rerun/report_tsl_for_the_selected_transcript_d21296/vepyr.vcf",
             "--dir_cache",
             "/Users/mwiewior/workspace/data_vepyr/cache/116_GRCh38_merged",
             "--fasta",
@@ -14830,12 +14858,16 @@
             "--no_progress"
           ],
           "exit": 0,
-          "log": "/Users/mwiewior/workspace/data_vepyr/evidence/vep1162-merged-20261003/report_tsl_for_the_selected_transcript_d21296/vepyr.log"
+          "log": "/Users/mwiewior/workspace/data_vepyr/evidence/vep1162-merged-20261003/normalized-rerun/report_tsl_for_the_selected_transcript_d21296/vepyr.log"
         }
       ],
       "input_sha256": "47964cf3345147ba8b15027a02e68004e17f1fb4a0a7cdd707ca8391d98dee93",
       "oracle_body_md5": "05bf31b59c70febbbace9660e9b5288e",
       "oracle_focus": "1",
+      "normalization_verified": true,
+      "input_sha256_before_vep": "47964cf3345147ba8b15027a02e68004e17f1fb4a0a7cdd707ca8391d98dee93",
+      "input_sha256_before_vepyr": "47964cf3345147ba8b15027a02e68004e17f1fb4a0a7cdd707ca8391d98dee93",
+      "docker_input_sha256": "47964cf3345147ba8b15027a02e68004e17f1fb4a0a7cdd707ca8391d98dee93",
       "runnable": true,
       "vepyr_body_md5": "05bf31b59c70febbbace9660e9b5288e",
       "vepyr_focus": "1",
@@ -14916,11 +14948,11 @@
         {
           "argv": [
             "/Users/mwiewior/research/git/vepyr-porting-tests-1162-merged/tools/normalize_input",
-            "/Users/mwiewior/workspace/data_vepyr/evidence/vep1162-merged-20261003/report_uniparc_protein_cross_references_63ef94/raw.vcf",
+            "/Users/mwiewior/workspace/data_vepyr/evidence/vep1162-merged-20261003/normalized-rerun/report_uniparc_protein_cross_references_63ef94/raw.vcf",
             "/Users/mwiewior/research/git/vepyr-porting-tests-1162-merged/tests/data/report_uniparc_protein_cross_references_63ef94"
           ],
           "exit": 0,
-          "log": "/Users/mwiewior/workspace/data_vepyr/evidence/vep1162-merged-20261003/report_uniparc_protein_cross_references_63ef94/normalize.log"
+          "log": "/Users/mwiewior/workspace/data_vepyr/evidence/vep1162-merged-20261003/normalized-rerun/report_uniparc_protein_cross_references_63ef94/normalize.log"
         },
         {
           "argv": [
@@ -14932,7 +14964,7 @@
             "/Users/mwiewior/research/git/vepyr-porting-tests-1162-merged/tests/data/report_uniparc_protein_cross_references_63ef94"
           ],
           "exit": 0,
-          "log": "/Users/mwiewior/workspace/data_vepyr/evidence/vep1162-merged-20261003/report_uniparc_protein_cross_references_63ef94/vep.log"
+          "log": "/Users/mwiewior/workspace/data_vepyr/evidence/vep1162-merged-20261003/normalized-rerun/report_uniparc_protein_cross_references_63ef94/vep.log"
         },
         {
           "argv": [
@@ -14943,7 +14975,7 @@
             "--input_file",
             "/Users/mwiewior/research/git/vepyr-porting-tests-1162-merged/tests/data/report_uniparc_protein_cross_references_63ef94/input.vcf",
             "--output_file",
-            "/Users/mwiewior/workspace/data_vepyr/evidence/vep1162-merged-20261003/report_uniparc_protein_cross_references_63ef94/vepyr.vcf",
+            "/Users/mwiewior/workspace/data_vepyr/evidence/vep1162-merged-20261003/normalized-rerun/report_uniparc_protein_cross_references_63ef94/vepyr.vcf",
             "--dir_cache",
             "/Users/mwiewior/workspace/data_vepyr/cache/116_GRCh38_merged",
             "--fasta",
@@ -14954,12 +14986,16 @@
             "--no_progress"
           ],
           "exit": 0,
-          "log": "/Users/mwiewior/workspace/data_vepyr/evidence/vep1162-merged-20261003/report_uniparc_protein_cross_references_63ef94/vepyr.log"
+          "log": "/Users/mwiewior/workspace/data_vepyr/evidence/vep1162-merged-20261003/normalized-rerun/report_uniparc_protein_cross_references_63ef94/vepyr.log"
         }
       ],
       "input_sha256": "47964cf3345147ba8b15027a02e68004e17f1fb4a0a7cdd707ca8391d98dee93",
       "oracle_body_md5": "05bf31b59c70febbbace9660e9b5288e",
       "oracle_focus": "UPI00001AEE66",
+      "normalization_verified": true,
+      "input_sha256_before_vep": "47964cf3345147ba8b15027a02e68004e17f1fb4a0a7cdd707ca8391d98dee93",
+      "input_sha256_before_vepyr": "47964cf3345147ba8b15027a02e68004e17f1fb4a0a7cdd707ca8391d98dee93",
+      "docker_input_sha256": "47964cf3345147ba8b15027a02e68004e17f1fb4a0a7cdd707ca8391d98dee93",
       "runnable": true,
       "vepyr_body_md5": "05bf31b59c70febbbace9660e9b5288e",
       "vepyr_focus": "UPI00001AEE66",
@@ -15038,11 +15074,11 @@
         {
           "argv": [
             "/Users/mwiewior/research/git/vepyr-porting-tests-1162-merged/tools/normalize_input",
-            "/Users/mwiewior/workspace/data_vepyr/evidence/vep1162-merged-20261003/report_variant_class_snv_for_a_single_base_substitution_17292c/raw.vcf",
+            "/Users/mwiewior/workspace/data_vepyr/evidence/vep1162-merged-20261003/normalized-rerun/report_variant_class_snv_for_a_single_base_substitution_17292c/raw.vcf",
             "/Users/mwiewior/research/git/vepyr-porting-tests-1162-merged/tests/data/report_variant_class_snv_for_a_single_base_substitution_17292c"
           ],
           "exit": 0,
-          "log": "/Users/mwiewior/workspace/data_vepyr/evidence/vep1162-merged-20261003/report_variant_class_snv_for_a_single_base_substitution_17292c/normalize.log"
+          "log": "/Users/mwiewior/workspace/data_vepyr/evidence/vep1162-merged-20261003/normalized-rerun/report_variant_class_snv_for_a_single_base_substitution_17292c/normalize.log"
         },
         {
           "argv": [
@@ -15054,7 +15090,7 @@
             "/Users/mwiewior/research/git/vepyr-porting-tests-1162-merged/tests/data/report_variant_class_snv_for_a_single_base_substitution_17292c"
           ],
           "exit": 0,
-          "log": "/Users/mwiewior/workspace/data_vepyr/evidence/vep1162-merged-20261003/report_variant_class_snv_for_a_single_base_substitution_17292c/vep.log"
+          "log": "/Users/mwiewior/workspace/data_vepyr/evidence/vep1162-merged-20261003/normalized-rerun/report_variant_class_snv_for_a_single_base_substitution_17292c/vep.log"
         },
         {
           "argv": [
@@ -15065,7 +15101,7 @@
             "--input_file",
             "/Users/mwiewior/research/git/vepyr-porting-tests-1162-merged/tests/data/report_variant_class_snv_for_a_single_base_substitution_17292c/input.vcf",
             "--output_file",
-            "/Users/mwiewior/workspace/data_vepyr/evidence/vep1162-merged-20261003/report_variant_class_snv_for_a_single_base_substitution_17292c/vepyr.vcf",
+            "/Users/mwiewior/workspace/data_vepyr/evidence/vep1162-merged-20261003/normalized-rerun/report_variant_class_snv_for_a_single_base_substitution_17292c/vepyr.vcf",
             "--dir_cache",
             "/Users/mwiewior/workspace/data_vepyr/cache/116_GRCh38_merged",
             "--fasta",
@@ -15076,12 +15112,16 @@
             "--no_progress"
           ],
           "exit": 0,
-          "log": "/Users/mwiewior/workspace/data_vepyr/evidence/vep1162-merged-20261003/report_variant_class_snv_for_a_single_base_substitution_17292c/vepyr.log"
+          "log": "/Users/mwiewior/workspace/data_vepyr/evidence/vep1162-merged-20261003/normalized-rerun/report_variant_class_snv_for_a_single_base_substitution_17292c/vepyr.log"
         }
       ],
       "input_sha256": "47964cf3345147ba8b15027a02e68004e17f1fb4a0a7cdd707ca8391d98dee93",
       "oracle_body_md5": "05bf31b59c70febbbace9660e9b5288e",
       "oracle_focus": "SNV",
+      "normalization_verified": true,
+      "input_sha256_before_vep": "47964cf3345147ba8b15027a02e68004e17f1fb4a0a7cdd707ca8391d98dee93",
+      "input_sha256_before_vepyr": "47964cf3345147ba8b15027a02e68004e17f1fb4a0a7cdd707ca8391d98dee93",
+      "docker_input_sha256": "47964cf3345147ba8b15027a02e68004e17f1fb4a0a7cdd707ca8391d98dee93",
       "runnable": true,
       "vepyr_body_md5": "05bf31b59c70febbbace9660e9b5288e",
       "vepyr_focus": "SNV",
