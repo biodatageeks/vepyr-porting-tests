@@ -145,11 +145,16 @@ def main():
         q = json.dumps
         pinned = case["source_links"][0]
         subject = case["implementation_links"][0]["url"]
+        required_contigs = case.get(
+            "required_contigs", ["chr" + c.removeprefix("chr") for c in contigs]
+        )
         (dest / "test.toml").write_text(
             f"name = {q(name)}\ndescription = {q(case['description'])}\n\n"
-            f"[origin]\nvep_test = {q(pinned)}\nvep_test_pinned = {q(pinned)}\nvep_subject = {q(subject)}\nissue = 226\n\n"
-            f'[vepyr]\nflavour = "merged"\nrequired_contigs = {q(case.get("required_contigs", ["chr" + c.removeprefix("chr") for c in contigs]))}\n'
-            "everything = true\npreserve_record_layout = true\nreference_fasta = true\n\n"
+            f"[origin]\nvep_test = {q(pinned)}\nvep_test_pinned = {q(pinned)}\n"
+            f"vep_subject = {q(subject)}\nissue = 226\n\n"
+            f'[vepyr]\nflavour = "merged"\nrequired_contigs = {q(required_contigs)}\n'
+            "everything = true\npreserve_record_layout = true\n"
+            "reference_fasta = true\n\n"
             '[vep]\nextra_flags = ["--merged"]\n\n[compare]\nbody_md5 = ""\n'
         )
         runs = []
