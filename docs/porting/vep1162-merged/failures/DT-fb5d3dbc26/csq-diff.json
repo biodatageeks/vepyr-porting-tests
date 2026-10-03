@@ -1,0 +1,106 @@
+{
+  "vep_entries": 12,
+  "vepyr_entries": 12,
+  "ordered_entry_differences": [
+    {
+      "feature": "ENST00000385060",
+      "differences": {
+        "HGVSc": {
+          "vep": "ENST00000385060.1:n.6A>T",
+          "vepyr": "ENST00000385060.1:n.6C>T"
+        },
+        "USED_REF": {
+          "vep": "A",
+          "vepyr": "C"
+        }
+      }
+    },
+    {
+      "feature": "ENST00000456917",
+      "differences": {
+        "HGVSc": {
+          "vep": "ENST00000456917.2:n.516A>T",
+          "vepyr": "ENST00000456917.2:n.516C>T"
+        },
+        "USED_REF": {
+          "vep": "A",
+          "vepyr": "C"
+        }
+      }
+    },
+    {
+      "feature": "ENST00000659862",
+      "differences": {
+        "HGVSc": {
+          "vep": "ENST00000659862.3:n.611A>T",
+          "vepyr": "ENST00000659862.3:n.611C>T"
+        },
+        "USED_REF": {
+          "vep": "A",
+          "vepyr": "C"
+        }
+      }
+    },
+    {
+      "feature": "ENST00000779376",
+      "differences": {
+        "HGVSc": {
+          "vep": "ENST00000779376.1:n.608A>T",
+          "vepyr": "ENST00000779376.1:n.608C>T"
+        },
+        "USED_REF": {
+          "vep": "A",
+          "vepyr": "C"
+        }
+      }
+    },
+    {
+      "feature": "ENST00000779377",
+      "differences": {
+        "HGVSc": {
+          "vep": "ENST00000779377.1:n.468A>T",
+          "vepyr": "ENST00000779377.1:n.468C>T"
+        },
+        "USED_REF": {
+          "vep": "A",
+          "vepyr": "C"
+        }
+      }
+    },
+    {
+      "feature": "ENST00000779378",
+      "differences": {
+        "HGVSc": {
+          "vep": "ENST00000779378.1:n.907A>T",
+          "vepyr": "ENST00000779378.1:n.907C>T"
+        },
+        "USED_REF": {
+          "vep": "A",
+          "vepyr": "C"
+        }
+      }
+    },
+    {
+      "feature": "ENST00001110240",
+      "differences": {
+        "HGVSc": {
+          "vep": "ENST00001110240.1:c.970-626T>A",
+          "vepyr": "ENST00001110240.1:c.970-626G>A"
+        }
+      }
+    },
+    {
+      "feature": "NR_030784.1",
+      "differences": {
+        "HGVSc": {
+          "vep": "NR_030784.1:n.6A>T",
+          "vepyr": "NR_030784.1:n.6C>T"
+        },
+        "USED_REF": {
+          "vep": "A",
+          "vepyr": "C"
+        }
+      }
+    }
+  ]
+}

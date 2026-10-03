@@ -1,0 +1,23 @@
+[
+  {
+    "start": 5227651,
+    "end": 5227652,
+    "allele_string": "dbSNP_novariation",
+    "variation_name": null,
+    "failed": true
+  },
+  {
+    "start": 5230609,
+    "end": 5230609,
+    "allele_string": "dbSNP_novariation",
+    "variation_name": null,
+    "failed": true
+  },
+  {
+    "start": 14176681,
+    "end": 14176680,
+    "allele_string": "-/C/NNT",
+    "variation_name": null,
+    "failed": true
+  }
+]
