@@ -22,6 +22,7 @@ from __future__ import annotations
 
 import argparse
 import datetime as dt
+import hashlib
 import shlex
 import shutil
 import sys
@@ -296,6 +297,10 @@ def _run_vep(
             ensembl.download_fasta(fasta.path)
         ensembl.ensure_fai(fasta.path)
         shutil.copyfile(test.input_vcf, work / testdir.INPUT_NAME)
+        input_sha = hashlib.sha256(test.input_vcf.read_bytes()).hexdigest()
+        if hashlib.sha256((work / testdir.INPUT_NAME).read_bytes()).hexdigest() != input_sha:
+            raise BlessError("Docker input copy differs from the normalized input.vcf")
+        print(f"bless: Docker input SHA256 {input_sha}", file=sys.stderr, flush=True)
         print(
             f"bless: running {pinned} on {test.input_vcf}", file=sys.stderr, flush=True
         )
@@ -305,6 +310,11 @@ def _run_vep(
             vep.Mounts(cache_dir=cache.path, fasta=fasta.path, work_dir=work),
             extra,
         )
+        if any(
+            hashlib.sha256(path.read_bytes()).hexdigest() != input_sha
+            for path in (test.input_vcf, work / testdir.INPUT_NAME)
+        ):
+            raise BlessError("normalized input.vcf changed during the VEP run")
     except BaseException:
         shutil.rmtree(work, ignore_errors=True)
         raise

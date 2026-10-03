@@ -71,6 +71,7 @@ def main():
     p.add_argument('--vepyr-source', type=Path, required=True)
     p.add_argument('--evidence', type=Path, required=True)
     p.add_argument('--limit', type=int, default=10)
+    p.add_argument('--regenerate', action='store_true', help='Normalize and rerun existing ports, once per input-identity audit')
     args = p.parse_args()
     if args.limit <= 0:
         p.error('--limit must be positive')
@@ -78,13 +79,19 @@ def main():
     if subprocess.check_output(['git', 'diff', 'HEAD', '--', 'src', 'Cargo.toml', 'Cargo.lock'], cwd=args.vepyr_source):
         p.error('vepyr source has tracked modifications')
     cases = json.loads(MANIFEST.read_text())
-    todo = sorted((c for c in cases if c['status'] == 'QUEUED' and 'focus' in c and 'rows' in c), key=lambda c:c.get('batch_order', 1000))[:args.limit]
+    def eligible(c):
+        if 'focus' not in c or 'rows' not in c:
+            return False
+        if args.regenerate:
+            return (ROOT/'tests/data'/c['directory_name']/'input.vcf').exists() and not c.get('result', {}).get('normalization_verified')
+        return c['status'] == 'QUEUED'
+    todo = sorted((c for c in cases if eligible(c)), key=lambda c:c.get('batch_order', 1000))[:args.limit]
     if not todo:
         p.error('no qualified cases remain')
     for case in todo:
         name = case['directory_name']
         dest = ROOT / 'tests/data' / name
-        dest.mkdir(exist_ok=False)
+        dest.mkdir(exist_ok=args.regenerate)
         evidence = args.evidence / name
         evidence.mkdir(parents=True, exist_ok=False)
         contigs = list(dict.fromkeys(r.split('\t')[0] for r in case['rows']))
@@ -96,7 +103,7 @@ def main():
         (dest / 'test.toml').write_text(
             f'name = {q(name)}\ndescription = {q(case["description"])}\n\n'
             f'[origin]\nvep_test = {q(pinned)}\nvep_test_pinned = {q(pinned)}\nvep_subject = {q(subject)}\nissue = 226\n\n'
-            f'[vepyr]\nflavour = "merged"\nrequired_contigs = {q(["chr" + c.removeprefix("chr") for c in contigs])}\n'
+            f'[vepyr]\nflavour = "merged"\nrequired_contigs = {q(case.get('required_contigs', ["chr" + c.removeprefix("chr") for c in contigs]))}\n'
             'everything = true\npreserve_record_layout = true\nreference_fasta = true\n\n'
             '[vep]\nextra_flags = ["--merged"]\n\n[compare]\nbody_md5 = ""\n'
         )
@@ -104,9 +111,13 @@ def main():
         runs.append(run([str(ROOT/'tools/normalize_input'), str(raw), str(dest)], evidence/'normalize.log'))
         if runs[-1]['exit']:
             raise RuntimeError(runs[-1])
+        input_sha_before_vep = hashlib.sha256((dest/'input.vcf').read_bytes()).hexdigest()
         runs.append(run([str(ROOT/'bless'), '--vep-cache-dir', str(args.vep_cache), '--vep-fasta', str(args.fasta), str(dest)], evidence/'vep.log'))
         if runs[-1]['exit']:
             raise RuntimeError(runs[-1])
+        input_sha_before_vepyr = hashlib.sha256((dest/'input.vcf').read_bytes()).hexdigest()
+        assert input_sha_before_vep == input_sha_before_vepyr, 'input changed between tools'
+        assert f'Docker input SHA256 {input_sha_before_vep}' in (evidence/'vep.log').read_text(), 'Docker copy hash was not verified'
         oracle = dest/'expected_output.vcf'
         expected = focus_value(oracle, case['focus'])
         if expected != case['focus']['expected']:
@@ -114,6 +125,8 @@ def main():
         output = evidence/'vepyr.vcf'
         runs.append(run([str(args.vepyr_python), '-m', 'vepyr', 'annotate', '--input_file', str(dest/'input.vcf'), '--output_file', str(output), '--dir_cache', str(args.vepyr_cache), '--fasta', str(args.fasta), '--cache_version', '116', '--everything', '--no_progress'], evidence/'vepyr.log', args.vepyr_source))
         result = {'vepyr_sha': sha, 'commands': runs, 'input_sha256': hashlib.sha256((dest/'input.vcf').read_bytes()).hexdigest(), 'oracle_body_md5': hashlib.md5(body(oracle)).hexdigest(), 'oracle_focus': expected}
+        assert result['input_sha256'] == input_sha_before_vep, 'input changed during vepyr'
+        result.update(normalization_verified=True, input_sha256_before_vep=input_sha_before_vep, input_sha256_before_vepyr=input_sha_before_vepyr, docker_input_sha256=input_sha_before_vep)
         result['runnable'] = runs[-1]['exit'] == 0 and output.is_file()
         case['status'] = 'ERROR'
         if result['runnable']:
