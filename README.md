@@ -279,7 +279,7 @@ environment before checking `UV_PROJECT_ENVIRONMENT`. The skill helper `dt env` 
 `./bless` makes and checks the oracle of a data-test directory `tests/data/<name>/`:
 `expected_output.vcf`, the real output of native VEP 116 on the directory's
 normalised `input.vcf` (made by `tools/normalize_input`, #85). It runs Ensembl's
-official image `ensemblorg/ensembl-vep:release_116.0`, with the same fixed command plus
+official image `ensemblorg/ensembl-vep:release_116.2`, with the same fixed command plus
 the flags listed in `[vep] extra_flags`:
 
 ```
@@ -319,7 +319,7 @@ bless writes the list as `[vep] extra_flags` and generates `[vep] command` from 
 - Use the `=` form: `--vep-flag --check_existing` is read by argparse as two options
   and exits 2.
 - Only flags in `ALLOWED_VEP_FLAGS` (`tools/bless/vep.py`) are accepted, matched
-  exactly on the whole token; today that is `--check_existing`. Aliases (`--fa`),
+  exactly on the whole token; today these are `--check_existing` and `--merged`. Aliases (`--fa`),
   abbreviations (`--input_f`), single-dash tokens, `--name=value`, unknown flags and
   a flag given twice exit 1 with `bless: --vep-flag: FLAG is not allowed; allowed: ...`.
   It is an allowlist because VEP's Getopt::Long accepts aliases and abbreviations,
@@ -371,7 +371,7 @@ downloaded. `bless` does not remember paths; the flags are the only state.
 **`--dry-run`** prints the planned steps (`# fetch ...` for each download, the copy of
 `input.vcf` into a temp directory) and the exact `docker run ... vep ...` command,
 then exits 0 without running anything. For a bless it shows the tag
-`ensemblorg/ensembl-vep:release_116.0`; the real run resolves it to a digest first.
+`ensemblorg/ensembl-vep:release_116.2`; the real run resolves it to a digest first.
 
 **What a bless records** in `test.toml`:
 
@@ -457,14 +457,18 @@ loader rejects `fields` as an unknown key. The other VEP flags of the fixed comm
 (`--offline`, `--cache`, `--dir_cache`, `--species`, `--cache_version`,
 `--assembly`, input/output names) select the cache and files, not annotation, and
 have no `[vepyr]` counterpart; `flavour` and `required_contigs` pick vepyr's cache.
-`flavour` must be `"ensembl"` (the oracle is VEP on the Ensembl cache): the loader
-accepts only "ensembl", in `[vepyr]` and in every `[[vepyr_run]]` override.
+`flavour` is `"ensembl"` or `"merged"`. Merged fixtures must record
+`extra_flags = ["--merged"]` in `[vep]`; the recorded VEP command and every
+`[[vepyr_run]]` must use the same cache flavour. RefSeq-only fixtures remain
+unsupported. For merged oracles, pass `--vep-cache-dir` pointing to the parent
+of `homo_sapiens_merged/116_GRCh38`; merged-cache downloads through `./bless`
+are not implemented. Existing Ensembl fixtures retain their recorded image digest.
 Before each run the runner checks that every cache entity vepyr reads in
 `--everything` mode (all seven; `motif` and `regulatory` excepted on `chrMT`) has a
 shard for each `required_contigs` entry.
 
 Extra flags stay as described under [./bless](#bless): the allowlist
-`ALLOWED_VEP_FLAGS` keeps `--check_existing` (#18), and `[vep] extra_flags` (#108)
+`ALLOWED_VEP_FLAGS` accepts `--check_existing` (#18) and `--merged`, and `[vep] extra_flags` (#108)
 remains the mechanism that records them. Neither is part of the vepyr CLI docs;
 they are appended to the `--everything` command, never replace it.
 

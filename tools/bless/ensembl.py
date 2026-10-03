@@ -108,7 +108,7 @@ class Provenance:
     checksum: str
 
 
-def missing_cache_parts(cache_dir: Path) -> list[str]:
+def missing_cache_parts(cache_dir: Path, *, merged: bool = False) -> list[str]:
     """List what a directory lacks to be a complete release-116 GRCh38 cache.
 
     Args:
@@ -117,17 +117,18 @@ def missing_cache_parts(cache_dir: Path) -> list[str]:
     Returns:
         Missing relative paths; empty when complete.
     """
-    base = cache_dir / CACHE_SUBDIR
+    subdir = CACHE_SUBDIR.replace(SPECIES, SPECIES + "_merged") if merged else CACHE_SUBDIR
+    base = cache_dir / subdir
     if not base.is_dir():
-        return [CACHE_SUBDIR + "/"]
-    missing = [] if (base / "info.txt").is_file() else [f"{CACHE_SUBDIR}/info.txt"]
+        return [subdir + "/"]
+    missing = [] if (base / "info.txt").is_file() else [f"{subdir}/info.txt"]
     missing += [
-        f"{CACHE_SUBDIR}/{c}/" for c in REQUIRED_CONTIGS if not (base / c).is_dir()
+        f"{subdir}/{c}/" for c in REQUIRED_CONTIGS if not (base / c).is_dir()
     ]
     return missing
 
 
-def require_complete_cache(cache_dir: Path, *, flag: str) -> None:
+def require_complete_cache(cache_dir: Path, *, flag: str, merged: bool = False) -> None:
     """Refuse a cache directory that is not complete; never writes into it.
 
     Args:
@@ -137,7 +138,7 @@ def require_complete_cache(cache_dir: Path, *, flag: str) -> None:
     Raises:
         BlessError: Naming the first missing parts.
     """
-    missing = missing_cache_parts(cache_dir)
+    missing = missing_cache_parts(cache_dir, merged=merged)
     if missing:
         shown = ", ".join(missing[:5]) + (
             f" (+{len(missing) - 5} more)" if len(missing) > 5 else ""
@@ -190,8 +191,14 @@ def read_provenance(record: Path) -> Provenance | None:
         return None
 
 
-def cache_provenance(cache_dir: Path) -> Provenance:
+def cache_provenance(cache_dir: Path, *, merged: bool = False) -> Provenance:
     """Provenance of a cache directory, fetched by ``bless`` or not."""
+    if merged:
+        # The root's download receipt describes the Ensembl archive, not merged.
+        return Provenance(
+            source=f"local:{cache_dir / (SPECIES + '_merged') / f'{RELEASE}_{ASSEMBLY}'}",
+            checksum="unverified",
+        )
     return read_provenance(cache_dir / SOURCE_RECORD) or Provenance(
         source=f"local:{cache_dir}", checksum="unverified"
     )

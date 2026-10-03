@@ -27,7 +27,7 @@ from typing import Final
 from bless import BlessError
 from bless.testdir import INPUT_NAME, ORACLE_NAME
 
-IMAGE_TAG: Final[str] = "ensemblorg/ensembl-vep:release_116.0"
+IMAGE_TAG: Final[str] = "ensemblorg/ensembl-vep:release_116.2"
 """Ensembl's official image; ``bless`` resolves and records its digest."""
 
 IMAGE_REPO: Final[str] = IMAGE_TAG.split(":", 1)[0]
@@ -149,6 +149,7 @@ def require_vepyr_mode(config: Mapping[str, object], *, where: str) -> None:
 
 ALLOWED_VEP_FLAGS: Final[tuple[str, ...]] = (
     "--check_existing",  # needed by #18
+    "--merged",  # cache selection; must agree with every vepyr run
 )
 """The only flags ``--vep-flag=`` accepts, matched exactly on the whole token.
 
@@ -181,6 +182,27 @@ def parse_extra(values: list[str] | tuple[str, ...]) -> tuple[str, ...]:
             raise BlessError(f"--vep-flag: {flag} is given twice")
         seen.add(flag)
     return tuple(values)
+
+
+def require_cache_mode(
+    config: Mapping[str, object], extra: tuple[str, ...], *, where: str
+) -> None:
+    """Prevent comparison of an Ensembl oracle against a merged engine cache."""
+    base = config.get("vepyr", {})
+    if not isinstance(base, dict):
+        raise BlessError(f"{where}: [vepyr] is missing")
+    expected = "merged" if "--merged" in extra else "ensembl"
+    runs = config.get("vepyr_run", [])
+    if not isinstance(runs, list):
+        raise BlessError(f"{where}: vepyr_run must be an array")
+    for run in [base, *runs]:
+        if not isinstance(run, dict):
+            raise BlessError(f"{where}: invalid vepyr run")
+        found = run.get("flavour", base.get("flavour"))
+        if found != expected:
+            raise BlessError(
+                f"{where}: cache flavour mismatch: VEP uses {expected}, vepyr uses {found}"
+            )
 
 
 def vep_command(extra: tuple[str, ...] = ()) -> str:

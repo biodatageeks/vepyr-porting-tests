@@ -21,7 +21,7 @@ INPUT_TABLE: Final[str] = (
     'bcftools_version = "bcftools 1.23"\n'
 )
 VEPYR_TABLE: Final[str] = (
-    "[vepyr]\neverything = true\nreference_fasta = true\n"
+    "[vepyr]\nflavour = \"ensembl\"\neverything = true\nreference_fasta = true\n"
     "preserve_record_layout = true\n"
 )
 BODY: Final[str] = "21\t100\t.\tC\tT\t.\t.\tCSQ=T|x\n"
@@ -827,7 +827,7 @@ def test_vep_flag_rejections(capsys: pytest.CaptureFixture[str]) -> None:
         with pytest.raises(BlessError) as exc:
             vep.parse_extra([flag])
         assert str(exc.value) == (
-            f"--vep-flag: {flag} is not allowed; allowed: --check_existing"
+            f"--vep-flag: {flag} is not allowed; allowed: --check_existing, --merged"
         )
     with pytest.raises(BlessError, match="given twice"):
         vep.parse_extra(["--check_existing", "--check_existing"])
@@ -943,3 +943,33 @@ def test_everything_mode_reproduce_refuses_old_command(
     assert code == 1
     assert "not the canonical command" in err
     assert calls == []
+
+
+@pytest.mark.parametrize('flavour,flags', [('merged', ()), ('ensembl', ('--merged',))])
+def test_cache_flavour_mismatch_is_rejected(flavour, flags):
+    with pytest.raises(BlessError, match='cache flavour mismatch'):
+        vep.require_cache_mode({'vepyr': {'flavour': flavour}}, flags, where='case')
+
+
+def test_merged_cache_requires_merged_layout(complete_cache):
+    assert ensembl.missing_cache_parts(complete_cache, merged=True) == [
+        'homo_sapiens_merged/116_GRCh38/'
+    ]
+    (complete_cache / 'homo_sapiens').rename(complete_cache / 'homo_sapiens_merged')
+    assert ensembl.missing_cache_parts(complete_cache, merged=True) == []
+    assert ensembl.missing_cache_parts(complete_cache) == ['homo_sapiens/116_GRCh38/']
+
+
+def test_merged_override_cannot_change_cache():
+    config = {'vepyr': {'flavour': 'merged'}, 'vepyr_run': [{'flavour': 'ensembl'}]}
+    with pytest.raises(BlessError, match='cache flavour mismatch'):
+        vep.require_cache_mode(config, ('--merged',), where='case')
+
+
+def test_merged_provenance_does_not_reuse_ensembl_receipt(complete_cache):
+    (complete_cache / ensembl.SOURCE_RECORD).write_text(
+        'source = "ensembl-archive"\nchecksum = "ensembl-sha"\n'
+    )
+    prov = ensembl.cache_provenance(complete_cache, merged=True)
+    assert prov.source.endswith('/homo_sapiens_merged/116_GRCh38')
+    assert prov.checksum == 'unverified'

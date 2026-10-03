@@ -250,6 +250,10 @@ def _run_vep(
     Raises:
         BlessError: On any failure.
     """
+    vep.require_cache_mode(test.config, extra, where=str(test.toml_path))
+    merged = "--merged" in extra
+    if merged and cache.download:
+        raise BlessError("merged cache download is not supported; use --vep-cache-dir")
     if dry_run:
         for src, art in ((cache, ensembl.CACHE), (fasta, ensembl.FASTA)):
             if src.download:
@@ -263,7 +267,7 @@ def _run_vep(
         print(shlex.join(vep.docker_argv(image or vep.IMAGE_TAG, mounts, extra)))
         return None
     if not cache.download:
-        ensembl.require_complete_cache(cache.path, flag=cache.flag)
+        ensembl.require_complete_cache(cache.path, flag=cache.flag, merged=merged)
     if not fasta.download:
         ensembl.require_fasta(fasta.path, flag=fasta.flag)
     docker = vep.require_docker()
@@ -351,7 +355,7 @@ def _bless(
         fresh = work / testdir.ORACLE_NAME
         md5 = testdir.body_md5(fresh)
         cprov, fprov = (
-            ensembl.cache_provenance(cache.path),
+            ensembl.cache_provenance(cache.path, merged="--merged" in extra),
             ensembl.fasta_provenance(fasta.path),
         )
         flags: dict[str, str | list[str]] = (
