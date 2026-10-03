@@ -298,7 +298,10 @@ def _run_vep(
         ensembl.ensure_fai(fasta.path)
         shutil.copyfile(test.input_vcf, work / testdir.INPUT_NAME)
         input_sha = hashlib.sha256(test.input_vcf.read_bytes()).hexdigest()
-        if hashlib.sha256((work / testdir.INPUT_NAME).read_bytes()).hexdigest() != input_sha:
+        if (
+            hashlib.sha256((work / testdir.INPUT_NAME).read_bytes()).hexdigest()
+            != input_sha
+        ):
             raise BlessError("Docker input copy differs from the normalized input.vcf")
         print(f"bless: Docker input SHA256 {input_sha}", file=sys.stderr, flush=True)
         print(

@@ -2,6 +2,8 @@
 
 One PR; one commit and status report per ten ports. SNVs precede small indels.
 
+Input normalization reverified for 30 executed tests: one input SHA-256 shared by VEP Docker and vepyr.
+
 Current results: FAIL: 1, PASS: 115, QUEUED: 86.
 
 PASS means whole VCF body equality. Focus records the single primary property; the body comparison also checks incidental fields. QUEUED and BLOCKED are not ported tests.
