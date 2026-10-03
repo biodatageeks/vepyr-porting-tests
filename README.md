@@ -806,3 +806,42 @@ cp .claude/skills/impl-vepyr-data-test/local.toml.example ~/.config/dt/local.tom
 `RESOLVE_PR_OPEN_CMD` (a command that opens a URL) and/or
 `RESOLVE_PR_OWNER_QUEUE=1` in your shell profile or in the `env` block of the
 git-ignored `.claude/settings.local.json`.
+
+## Release 116.2 merged-cache campaign
+
+The [campaign table](docs/porting/vep1162-merged/README.md) tracks each atomic
+candidate, its source assertions and implementation lines, and separate old-cache,
+vepyr-difference and unsupported-feature columns. Queued and blocked candidates
+are excluded from ported counts.
+
+`tools/port_campaign.py` runs qualified cases in batches of ten. It first writes
+raw rows to the external evidence directory, runs `tools/normalize_input`, then
+passes the resulting `input.vcf` to both engines. `./bless` verifies the SHA-256 of
+its Docker input copy; the campaign verifies that the normalized file stays
+unchanged before VEP, before vepyr and after vepyr. The expected VCF comes only
+from VEP 116.2. Its body MD5 is recorded in `test.toml`; the vepyr body MD5 and both
+commands are recorded in `cases.json`. Header lines are excluded from comparison.
+`--regenerate` repeats normalization and both runs for existing fixtures that
+have not completed this input-identity audit. Use a new external evidence directory
+for that pass; prior run evidence is retained.
+
+The campaign accepts the owner's existing local merged caches directly. These
+have no Hub download receipt; the campaign records local paths and scoped file
+checksums without inventing Hub provenance. The general `./run_tests` entry point
+continues to require its pinned Hub cache layout and `PROVENANCE.json`.
+
+```bash
+python tools/port_campaign.py --limit 10 \
+  --vep-cache /path/to/native-cache-parent \
+  --vepyr-cache /path/to/116_GRCh38_merged \
+  --fasta /path/to/Homo_sapiens.GRCh38.dna.primary_assembly.fa \
+  --vepyr-python /path/to/verified-vepyr/.venv/bin/python \
+  --vepyr-source /path/to/verified-vepyr \
+  --evidence /path/to/run-evidence
+python tools/check_campaign.py --require-normalized
+```
+
+The engine revision is evidence for each run, not a fixed repository requirement.
+Primary-property checks select the case's specific field or record property;
+the existing body comparison also checks all incidental fields. A focus pass
+with a body failure remains a failing data test.

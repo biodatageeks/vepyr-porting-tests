@@ -117,14 +117,14 @@ def missing_cache_parts(cache_dir: Path, *, merged: bool = False) -> list[str]:
     Returns:
         Missing relative paths; empty when complete.
     """
-    subdir = CACHE_SUBDIR.replace(SPECIES, SPECIES + "_merged") if merged else CACHE_SUBDIR
+    subdir = (
+        CACHE_SUBDIR.replace(SPECIES, SPECIES + "_merged") if merged else CACHE_SUBDIR
+    )
     base = cache_dir / subdir
     if not base.is_dir():
         return [subdir + "/"]
     missing = [] if (base / "info.txt").is_file() else [f"{subdir}/info.txt"]
-    missing += [
-        f"{subdir}/{c}/" for c in REQUIRED_CONTIGS if not (base / c).is_dir()
-    ]
+    missing += [f"{subdir}/{c}/" for c in REQUIRED_CONTIGS if not (base / c).is_dir()]
     return missing
 
 
@@ -195,8 +195,9 @@ def cache_provenance(cache_dir: Path, *, merged: bool = False) -> Provenance:
     """Provenance of a cache directory, fetched by ``bless`` or not."""
     if merged:
         # The root's download receipt describes the Ensembl archive, not merged.
+        merged_path = cache_dir / (SPECIES + "_merged") / f"{RELEASE}_{ASSEMBLY}"
         return Provenance(
-            source=f"local:{cache_dir / (SPECIES + '_merged') / f'{RELEASE}_{ASSEMBLY}'}",
+            source=f"local:{merged_path}",
             checksum="unverified",
         )
     return read_provenance(cache_dir / SOURCE_RECORD) or Provenance(

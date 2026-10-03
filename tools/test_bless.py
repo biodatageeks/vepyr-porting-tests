@@ -21,7 +21,7 @@ INPUT_TABLE: Final[str] = (
     'bcftools_version = "bcftools 1.23"\n'
 )
 VEPYR_TABLE: Final[str] = (
-    "[vepyr]\nflavour = \"ensembl\"\neverything = true\nreference_fasta = true\n"
+    '[vepyr]\nflavour = "ensembl"\neverything = true\nreference_fasta = true\n'
     "preserve_record_layout = true\n"
 )
 BODY: Final[str] = "21\t100\t.\tC\tT\t.\t.\tCSQ=T|x\n"
@@ -945,25 +945,25 @@ def test_everything_mode_reproduce_refuses_old_command(
     assert calls == []
 
 
-@pytest.mark.parametrize('flavour,flags', [('merged', ()), ('ensembl', ('--merged',))])
+@pytest.mark.parametrize("flavour,flags", [("merged", ()), ("ensembl", ("--merged",))])
 def test_cache_flavour_mismatch_is_rejected(flavour, flags):
-    with pytest.raises(BlessError, match='cache flavour mismatch'):
-        vep.require_cache_mode({'vepyr': {'flavour': flavour}}, flags, where='case')
+    with pytest.raises(BlessError, match="cache flavour mismatch"):
+        vep.require_cache_mode({"vepyr": {"flavour": flavour}}, flags, where="case")
 
 
 def test_merged_cache_requires_merged_layout(complete_cache):
     assert ensembl.missing_cache_parts(complete_cache, merged=True) == [
-        'homo_sapiens_merged/116_GRCh38/'
+        "homo_sapiens_merged/116_GRCh38/"
     ]
-    (complete_cache / 'homo_sapiens').rename(complete_cache / 'homo_sapiens_merged')
+    (complete_cache / "homo_sapiens").rename(complete_cache / "homo_sapiens_merged")
     assert ensembl.missing_cache_parts(complete_cache, merged=True) == []
-    assert ensembl.missing_cache_parts(complete_cache) == ['homo_sapiens/116_GRCh38/']
+    assert ensembl.missing_cache_parts(complete_cache) == ["homo_sapiens/116_GRCh38/"]
 
 
 def test_merged_override_cannot_change_cache():
-    config = {'vepyr': {'flavour': 'merged'}, 'vepyr_run': [{'flavour': 'ensembl'}]}
-    with pytest.raises(BlessError, match='cache flavour mismatch'):
-        vep.require_cache_mode(config, ('--merged',), where='case')
+    config = {"vepyr": {"flavour": "merged"}, "vepyr_run": [{"flavour": "ensembl"}]}
+    with pytest.raises(BlessError, match="cache flavour mismatch"):
+        vep.require_cache_mode(config, ("--merged",), where="case")
 
 
 def test_merged_provenance_does_not_reuse_ensembl_receipt(complete_cache):
@@ -971,5 +971,37 @@ def test_merged_provenance_does_not_reuse_ensembl_receipt(complete_cache):
         'source = "ensembl-archive"\nchecksum = "ensembl-sha"\n'
     )
     prov = ensembl.cache_provenance(complete_cache, merged=True)
-    assert prov.source.endswith('/homo_sapiens_merged/116_GRCh38')
-    assert prov.checksum == 'unverified'
+    assert prov.source.endswith("/homo_sapiens_merged/116_GRCh38")
+    assert prov.checksum == "unverified"
+
+
+def test_docker_copy_must_match_normalized_input(
+    test_dir, complete_cache, fasta, tmp_path, monkeypatch
+):
+    """A changed Docker input must fail before the oracle process can run."""
+    import shutil
+
+    original = shutil.copyfile
+    called = []
+
+    def corrupt_copy(src, dst):
+        original(src, dst)
+        Path(dst).write_bytes(Path(dst).read_bytes() + b"changed\n")
+
+    monkeypatch.setattr(cli.shutil, "copyfile", corrupt_copy)
+    monkeypatch.setattr(vep, "require_docker", lambda: "docker")
+    monkeypatch.setattr(vep, "resolve_digest", lambda *args: "image@sha256:abc")
+    monkeypatch.setattr(vep, "require_mountable", lambda *args: None)
+    monkeypatch.setattr(ensembl, "ensure_fai", lambda *args: None)
+    monkeypatch.setattr(vep, "run", lambda *args: called.append(args))
+    with pytest.raises(BlessError, match="Docker input copy differs"):
+        cli._run_vep(
+            testdir.load(test_dir),
+            cli.Source(path=complete_cache, flag="--vep-cache-dir", download=False),
+            cli.Source(path=fasta, flag="--vep-fasta", download=False),
+            image=None,
+            extra=(),
+            work_root=tmp_path / "work",
+            dry_run=False,
+        )
+    assert not called

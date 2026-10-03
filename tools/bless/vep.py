@@ -201,7 +201,8 @@ def require_cache_mode(
         found = run.get("flavour", base.get("flavour"))
         if found != expected:
             raise BlessError(
-                f"{where}: cache flavour mismatch: VEP uses {expected}, vepyr uses {found}"
+                f"{where}: cache flavour mismatch: VEP uses {expected}, "
+                f"vepyr uses {found}"
             )
 
 
