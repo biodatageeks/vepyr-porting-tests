@@ -83,6 +83,7 @@
 
 mod common;
 
+use std::collections::HashMap;
 use std::fmt::Write as _;
 use std::path::{Path, PathBuf};
 use std::sync::Arc;
@@ -672,6 +673,22 @@ impl TestDir {
             runs,
             body_md5,
             properties,
+        }
+    }
+}
+
+/// Property ids are unique across directories, not only within one (#238).
+#[track_caller]
+fn check_unique_property_ids(tests: &[TestDir]) {
+    let mut owners: HashMap<&str, &str> = HashMap::new();
+    for test in tests {
+        for id in &test.properties {
+            if let Some(owner) = owners.insert(id, &test.name) {
+                panic!(
+                    "property id {id} is declared by both [{owner}] and [{}]",
+                    test.name
+                );
+            }
         }
     }
 }
@@ -1393,6 +1410,30 @@ fn duplicate_property_id_rejected() {
 }
 
 #[test]
+fn distinct_property_ids_across_dirs_accepted() {
+    let second = TestDir {
+        name: "other".to_owned(),
+        properties: vec!["other".to_owned()],
+        ..load_fixture_with_properties(&property_table("case", ""))
+    };
+    check_unique_property_ids(&[
+        load_fixture_with_properties(&property_table("case", "")),
+        second,
+    ]);
+}
+
+#[test]
+#[should_panic(expected = "property id case is declared by both [case] and [other]")]
+fn duplicate_property_id_across_dirs_rejected() {
+    let first = load_fixture_with_properties(&property_table("case", ""));
+    let second = TestDir {
+        name: "other".to_owned(),
+        ..load_fixture_with_properties(&property_table("case", ""))
+    };
+    check_unique_property_ids(&[first, second]);
+}
+
+#[test]
 #[should_panic(expected = "no [[property]] has id = the directory name")]
 fn property_ids_must_name_the_directory() {
     load_fixture_with_properties(&property_table("other", ""));
@@ -1428,10 +1469,9 @@ fn property_focus_unknown_key_rejected() {
 fn committed_dirs_load() {
     let root = Path::new(env!("CARGO_MANIFEST_DIR")).join("tests/data");
     let dirs = test_dirs(&root);
-    let properties: usize = dirs
-        .iter()
-        .map(|dir| TestDir::load(dir).properties.len())
-        .sum();
+    let tests: Vec<TestDir> = dirs.iter().map(|dir| TestDir::load(dir)).collect();
+    check_unique_property_ids(&tests);
+    let properties: usize = tests.iter().map(|test| test.properties.len()).sum();
     println!("{} directories, {properties} properties", dirs.len());
     assert!(!dirs.is_empty());
 }
