@@ -1,4 +1,4 @@
-"""``bless`` — produce and re-check the VEP 116 oracle file of a data-test directory.
+"""``bless`` — produce and re-check the VEP 116.2 oracle file of a data-test directory.
 
 Entry point: ``./bless`` at the repository root (``python -m bless``). The
 package is split by concern:

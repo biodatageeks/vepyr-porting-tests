@@ -26,11 +26,13 @@ from typing import Final
 
 from bless import BlessError
 from bless.testdir import INPUT_NAME, ORACLE_NAME
+from vep_pin import load_pin
 
-IMAGE_TAG: Final[str] = "ensemblorg/ensembl-vep:release_116.2"
-"""Ensembl's official image; ``bless`` resolves and records its digest."""
+IMAGE_TAG: Final[str] = load_pin().image_tag
+"""Ensembl's official image, from ``tools/vep_pin.toml`` (#239); ``bless``
+resolves and records its digest."""
 
-IMAGE_REPO: Final[str] = IMAGE_TAG.split(":", 1)[0]
+IMAGE_REPO: Final[str] = load_pin().image_repo
 CACHE_MOUNT: Final[str] = "/opt/vep/.vep"
 FASTA_MOUNT: Final[str] = "/opt/vep/fasta/Homo_sapiens.GRCh38.dna.primary_assembly.fa"
 WORK_MOUNT: Final[str] = "/work"
@@ -41,7 +43,7 @@ VEP_ARGV: Final[tuple[str, ...]] = (
     "--cache",
     "--dir_cache", CACHE_MOUNT,
     "--species", "homo_sapiens",
-    "--cache_version", "116",
+    "--cache_version", load_pin().cache_version,
     "--assembly", "GRCh38",
     "--fasta", FASTA_MOUNT,
     "--everything",

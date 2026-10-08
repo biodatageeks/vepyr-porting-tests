@@ -1,4 +1,4 @@
-"""Fetch the pinned VEP 116 Parquet caches (and the GRCh38 FASTA) into one root.
+"""Fetch the pinned VEP cache 116 Parquet files (and the GRCh38 FASTA) into one root.
 
 One root (``./run_tests --cache-dir``), one revision per flavour, one provenance record.
 This is the only code that writes there.

@@ -18,11 +18,11 @@ bcftools norm -m -both -o <out.vcf> <in.vcf.gz>
 
 ## Data-tests compare VEP with vepyr (not vepyr with itself)
 
-Every data-test compares the output of native VEP 116 (the file `expected_output.vcf` in the test directory) with vepyr's output: the body (lines not starting with `#`), md5 of the body. Tests that today compare vepyr with itself (e.g. #17, invariance with respect to buffer size) are reworked so that the oracle is the file from VEP; additional vepyr runs (e.g. another `buffer_size`) are compared with the same VEP file.
+Every data-test compares the output of native VEP 116.2 (the file `expected_output.vcf` in the test directory) with vepyr's output: the body (lines not starting with `#`), md5 of the body. Tests that today compare vepyr with itself (e.g. #17, invariance with respect to buffer size) are reworked so that the oracle is the file from VEP; additional vepyr runs (e.g. another `buffer_size`) are compared with the same VEP file.
 
 ## Test directory model (approved by Marek)
 
-`tests/data/<name>/` contains: `input.vcf` (normalised, as above), `expected_output.vcf` (real VEP 116 output), `test.toml` (name, description, links to the VEP test at tag `release/116.0` and at commit `57ea5c52`, the VEP command, the vepyr invocation, `body_md5`). One generic cargo test walks the directories. Oracle audit: metadata in `test.toml` + repeatability (`./bless --check` runs VEP again and compares the md5). Hash: md5.
+`tests/data/<name>/` contains: `input.vcf` (normalised, as above), `expected_output.vcf` (real VEP 116.2 output; cache 116), `test.toml` (name, description, links to the VEP test at tag `release/116.2` and at commit `2cb0bbe2`, both from `tools/vep_pin.toml`, the VEP command, the vepyr invocation, `body_md5`). One generic cargo test walks the directories. Oracle audit: metadata in `test.toml` + repeatability (`./bless --check` runs VEP again and compares the md5). Hash: md5.
 
 ## Issue acceptance criteria (reminder)
 

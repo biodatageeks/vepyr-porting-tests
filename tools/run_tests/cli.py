@@ -1,6 +1,6 @@
 """Command line for ``./run_tests`` — fetch, ``--vepyr``, and data-test runs.
 
-``--cache-dir`` materialises the pinned VEP 116 corpus. With a cache root
+``--cache-dir`` materialises the pinned VEP cache 116 corpus. With a cache root
 (``--cache-dir`` or ``$VEPYR_CACHE_ROOT``), discovered ``tests/data/<name>/`` test
 directories run under a path-patched engine ladder: ``--vepyr REF`` pins the
 revision, and omitting it resolves ``biodatageeks/vepyr``'s current ``master`` HEAD
@@ -38,7 +38,7 @@ DEFAULT_VEPYR_REF: Final[str] = "master"
 """Ref resolved when ``--vepyr`` is omitted: ``biodatageeks/vepyr`` master HEAD."""
 DESCRIPTION: Final[str] = (
     "Entry point for curated data-problem porting tests. "
-    "--cache-dir materialises the pinned VEP 116 corpus; "
+    "--cache-dir materialises the pinned VEP cache 116 corpus; "
     "with a cache root, discovered data-tests run against --vepyr REF "
     f"(default: biodatageeks/vepyr {DEFAULT_VEPYR_REF!r} HEAD)."
 )
@@ -104,8 +104,8 @@ def _parser() -> argparse.ArgumentParser:
         type=Path,
         default=None,
         metavar="DIR",
-        help="cache directory for the VEP 116 corpus; shards are downloaded into it "
-        "(the reference FASTA comes along automatically). It is also the "
+        help="cache directory for the VEP cache 116 corpus; shards are downloaded "
+        "into it (the reference FASTA comes along automatically). It is also the "
         "$VEPYR_CACHE_ROOT the data-test run reads.",
     )
     data.add_argument(

@@ -32,7 +32,7 @@ export VEPYR_CACHE_ROOT=/mnt/hf-cache
 |------|------------------------|
 | `--help` | Exit 0 |
 | `--list` | Lists the data-test directories `tests/data/<name>/` present in the working tree; exit 0 |
-| `--cache-dir DIR` | Downloads the pinned VEP 116 shards into `DIR` and writes `PROVENANCE.json`; then runs data-tests when targets exist |
+| `--cache-dir DIR` | Downloads the pinned VEP cache 116 shards into `DIR` and writes `PROVENANCE.json`; then runs data-tests when targets exist |
 | `--add-contigs LIST` | Adds the named contigs to `DIR` (not `--contigs`). Default: whole genome |
 | `--flavours LIST` | Default `ensembl,refseq,merged` |
 | `--dry-run` | Lists Hub files and byte totals; writes nothing; does not run tests |
@@ -275,8 +275,10 @@ the offline `gh` stub.
 
 `tools/check_ledger` checks that the assertion ledger CSV (`ledger/assertions.csv`,
 schema of #109; committed by #109: 1965 assertions of 49 files, one row each) has
-exactly one row per assertion of the 49 upstream `t/*.t` files of Ensembl VEP
-`release/116.0` (#110), and nothing else.
+exactly one row per assertion of the 49 upstream `t/*.t` files of Ensembl VEP at
+the upstream tag pinned in `tools/check_ledger` (`DEFAULT_REF`, #110), and nothing
+else. The ledger is its own axis: it stays at that tag (VEP 116.0) while the
+data-test oracles use the VEP 116.2 pin of `tools/vep_pin.toml` (#239).
 
 ```bash
 tools/check_ledger --csv ledger/assertions.csv               # schema + coverage, clones upstream
@@ -289,7 +291,7 @@ tools/check_ledger --upstream UP --sweep --glob 't/*.pm'      # the 8 support mo
 Without `--upstream` it makes a partial sparse clone of the tag into a temp dir
 (`t/*.t`, `t/*.pm` and `modules/Bio/EnsEMBL/VEP/Config.pm`, about 1 MB); with
 `--upstream DIR` it uses that checkout. Either way `git rev-parse HEAD` must be
-`57ea5c52340acc1f156267f810ad162e26597082` and `git status --porcelain` empty;
+`PINNED_COMMIT` of `tools/check_ledger` and `git status --porcelain` empty;
 `--ref` only picks the tag to clone, the pin does not move. The files the glob
 selects on disk must also equal those in `git ls-tree -r HEAD` at the pin: a clean,
 pinned but sparse checkout that omits or adds a file exits 2 (`files matching ...
@@ -319,6 +321,30 @@ two sweeps and, once `ledger/assertions.csv` exists, the CSV check (Actions is
 disabled, see `AGENTS.md`). Tests: `tools/test_check_ledger.py` (offline, against a
 synthetic upstream repository).
 
+## tools/check_vep_version (one VEP software pin)
+
+Every data-test oracle is produced by **VEP software 116.2** against **VEP cache
+116** (VEP point releases reuse the release-116 cache; there is no 116.2 cache).
+The pin is defined once, in `tools/vep_pin.toml` (`[vep]` `image_tag`,
+`image_digest`, `upstream_tag`, `upstream_commit`, `cache_version`); `./bless`,
+`tools/check_campaign.py` and the `tests/data_dirs.rs` self-test read it, and no
+other code spells the digest or the commit (#239).
+
+```bash
+tools/check_vep_version          # exit 0 consistent, 1 a violation, 2 pin/allow-list/git unusable
+```
+
+It requires every `tests/data/*/test.toml` to record the pinned `[vep] image`
+digest, `[origin] vep_test_pinned` / `vep_subject` at the pinned commit and
+`vep_test` at the pinned tag or commit, with no VEP 116.0 literal in the file, and
+`git grep`s the rest of the repo for VEP 116.0 literals (the ledger axis,
+`tests/INDEX.csv`, `docs/porting/**` and the checker's own two files are skipped).
+**Temporary:** the 16 data-tests blessed with VEP 116.0 before the pin are named in
+`tools/vep_pin_legacy_allowlist.txt` (exactly 16 entries, each still recording the
+116.0 digest; a missing file is an empty list). #237 re-blesses them and deletes the
+list. The `test-index` workflow runs the check and its unit tests
+(`tools/test_check_vep_version.py`).
+
 ## ./check_env (local prerequisites)
 
 `./check_env` (issue #170) answers "can the repo tools run on this machine" with
@@ -344,7 +370,7 @@ environment before checking `UV_PROJECT_ENVIRONMENT`. The skill helper `dt env` 
 ## ./bless
 
 `./bless` makes and checks the oracle of a data-test directory `tests/data/<name>/`:
-`expected_output.vcf`, the real output of native VEP 116 on the directory's
+`expected_output.vcf`, the real output of native VEP 116.2 on the directory's
 normalised `input.vcf` (made by `tools/normalize_input`, #85). It runs Ensembl's
 official image `ensemblorg/ensembl-vep:release_116.2`, with the same fixed command plus
 the flags listed in `[vep] extra_flags`:
@@ -519,7 +545,7 @@ file, `VEP_ARGV` and this table disagree.
 | `--vcf` | `preserve_record_layout = true` | VCF output: VEP copies each input line and only appends CSQ to INFO |
 
 `[vepyr]` has no `fields` key: vepyr emits its full `--everything` CSQ layout (80
-fields in VEP 116, regulatory and motif fields included), as VEP does, and the
+fields in VEP 116.2, regulatory and motif fields included), as VEP does, and the
 loader rejects `fields` as an unknown key. The other VEP flags of the fixed command
 (`--offline`, `--cache`, `--dir_cache`, `--species`, `--cache_version`,
 `--assembly`, input/output names) select the cache and files, not annotation, and
@@ -694,7 +720,7 @@ walks the directories; there is no hand-typed expected table in Rust code.
 ```
 tests/data/<name>/
   input.vcf             # normalised input: tools/normalize_input (#85)
-  expected_output.vcf   # real VEP 116 output on input.vcf: ./bless (#32)
+  expected_output.vcf   # real VEP 116.2 output on input.vcf: ./bless (#32)
   test.toml             # provenance, how vepyr runs, the body md5
 ```
 
@@ -718,9 +744,9 @@ this list, and any other key fails the test with `[<name>] unknown key: <key>`:
 name = "runner_consequence_content"   # equals the directory name
 description = "..."                    # one sentence
 [origin]
-vep_test        = "https://github.com/Ensembl/ensembl-vep/blob/release/116.0/t/Runner.t#L244-L292"
-vep_test_pinned = ".../blob/57ea5c52340acc1f156267f810ad162e26597082/t/Runner.t#L244-L292"
-vep_subject     = ".../blob/57ea5c52.../modules/Bio/EnsEMBL/VEP/Runner.pm#L396"
+vep_test        = "https://github.com/Ensembl/ensembl-vep/blob/release/116.2/t/Runner.t#L244-L292"
+vep_test_pinned = ".../blob/2cb0bbe216bb31c75de8f8000e2da7ff4fb7b451/t/Runner.t#L244-L292"
+vep_subject     = ".../blob/2cb0bbe2.../modules/Bio/EnsEMBL/VEP/Runner.pm#L396"
 ledger          = "Runner.ledger.toml n=16"   # ? source row (t/Runner.t, n=16) of ledger/assertions.csv
 issue           = 16                           # ? issue that introduced the test
 [input]                                        # written by tools/normalize_input
@@ -748,7 +774,7 @@ buffer_size = 1
 `https://github.com/<owner>/<repo>/blob/<40 lowercase hex commit>/<path>` (a `#L..`
 anchor is allowed); a branch, a tag or a short hash fails the test with
 `[<name>] origin.<key> is not a commit-pinned permalink: <value>`. `vep_test` is the
-readable `release/116.0` tag link and is not checked for shape. The *Data-test*
+readable `release/116.2` tag link and is not checked for shape. The *Data-test*
 issue form has one field per link: *VEP test link* (`vep_test`, `vep_test_pinned`)
 and *VEP subject link* (`vep_subject`).
 
@@ -781,7 +807,8 @@ Corpus dataset pins (`PINS.toml`) are documented in
 ### How do we know there are no more assertions in the Perl files?
 
 **How they are enumerated.** The upstream test files are the 49 `t/*.t` of Ensembl
-VEP at tag `release/116.0` = `57ea5c52340acc1f156267f810ad162e26597082`. A line is
+VEP at the tag and commit pinned in `tools/check_ledger` (`DEFAULT_REF`,
+`PINNED_COMMIT`; the ledger axis, still VEP 116.0). A line is
 one assertion if it matches a line-start regex over 22 function names:
 `ok is isnt like unlike is_deeply cmp_ok isa_ok can_ok new_ok pass fail use_ok
 require_ok` (Test::More), `throws_ok dies_ok lives_ok lives_and` (Test::Exception)

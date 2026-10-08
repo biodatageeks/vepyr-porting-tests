@@ -24,7 +24,7 @@ tool does::
     ``expected_output.vcf`` has exactly one ``##VEP=`` line and ``[vep] image``
     in ``test.toml`` is ``ensemblorg/ensembl-vep@sha256:<64 hex>``.
 ``one-to-one``
-    The oracle body is the input's records minus those VEP 116 drops, in
+    The oracle body is the input's records minus those VEP 116.2 drops, in
     input order, compared on columns 1-5 (CHROM, POS, ID, REF, ALT, verbatim).
     The expectation is derived from the input (#193): a record whose every ALT
     allele is ``.`` is dropped (VEP skips it without ``--allow_non_variant``,
@@ -193,12 +193,12 @@ type RecordKey = tuple[str, int, str, str, str]
 
 
 def _droppable(r: VcfRecord) -> bool:
-    """Whether VEP 116 drops ``r``: every ALT allele is ``.``.
+    """Whether VEP 116.2 drops ``r``: every ALT allele is ``.``.
 
     VEP skips such a record unless ``--allow_non_variant`` is given
     (``Parser/VCF.pm`` L259 at the pin), and the one VEP command does not give
     it. A record with any other ALT allele (``A,.``, ``*``, ``<DEL>``, REF==ALT)
-    is kept (measured against VEP 116, #193).
+    is kept (measured against VEP 116.2, #193).
     """
     return all(a == "." for a in r.alt.split(","))
 
