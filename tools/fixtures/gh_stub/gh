@@ -6,8 +6,15 @@ arguments (without ``gh``, space-joined) are appended to ``$GH_STUB_STATE.log``.
 ``-R``/``--repo`` and its value are ignored. Answers only:
 
 - ``pr view N --json ...``: the document minus ``issues``/``readme``/``readme_diff``,
-  plus ``closingIssuesReferences`` built from ``issues``;
-- ``pr diff N``: the document's ``readme_diff``;
+  plus ``closingIssuesReferences`` built from ``issues`` and ``changedFiles``
+  (the document's own, else the number of ``files``); ``files`` is capped at
+  100 entries, as on GitHub;
+- ``pr diff N``: the document's ``readme_diff``, but with more than 300 ``files``
+  it exits 1 with GitHub's HTTP 406 text, as on GitHub;
+- ``api --paginate --slurp repos/.../pulls/N/files...``: the REST file list as
+  an array of pages of at most 100 entries (``filename``; ``patch`` for
+  ``README.md`` from ``readme_diff`` unless ``$GH_STUB_NO_PATCH`` is set);
+  ``$GH_STUB_DROP_FILES=K`` drops the last K entries (an incomplete list);
 - ``api ... repos/.../contents/README.md...``: the document's ``readme``;
 - ``issue view N --json ...``: the ``issues[]`` entry numbered N;
 - ``pr edit N`` / ``issue edit N`` with ``--add-label``/``--remove-label``: edits the state file.
@@ -74,12 +81,37 @@ def main() -> None:
             json.dump(doc, fh, indent=2)
 
     head = args[:2]
+    files = doc.get("files") or []
     if head == ["pr", "view"] and len(args) > 2:
         out = {k: v for k, v in doc.items() if k not in ("issues", "readme", "readme_diff")}
         out["closingIssuesReferences"] = [{"number": e.get("number")} for e in issues]
+        out["changedFiles"] = doc.get("changedFiles", len(files))
+        out["files"] = files[:100]
         print(json.dumps(out))
     elif head == ["pr", "diff"] and len(args) > 2:
+        if len(files) > 300:
+            sys.stderr.write(
+                "could not find pull request diff: HTTP 406: Sorry, the diff "
+                "exceeded the maximum number of files (300).\n"
+                "PullRequest.diff too_large\n"
+            )
+            sys.exit(1)
         sys.stdout.write(doc.get("readme_diff", ""))
+    elif (
+        args[:1] == ["api"]
+        and "--paginate" in args
+        and "--slurp" in args
+        and any("/pulls/" in a and "/files" in a for a in args)
+    ):
+        entries = []
+        for f in files:
+            entry = {"filename": f.get("path"), "status": "modified"}
+            if f.get("path") == "README.md" and not os.environ.get("GH_STUB_NO_PATCH"):
+                entry["patch"] = doc.get("readme_diff", "")
+            entries.append(entry)
+        drop = int(os.environ.get("GH_STUB_DROP_FILES") or 0)
+        entries = entries[: len(entries) - drop]
+        print(json.dumps([entries[i : i + 100] for i in range(0, len(entries), 100)]))
     elif args[:1] == ["api"] and any("contents/README.md" in a for a in args):
         sys.stdout.write(doc.get("readme", ""))
     elif head == ["issue", "view"] and len(args) > 2:
