@@ -836,29 +836,32 @@ raw rows to the external evidence directory, runs `tools/normalize_input`, then
 passes the resulting `input.vcf` to both engines. `./bless` verifies the SHA-256 of
 its Docker input copy; the campaign verifies that the normalized file stays
 unchanged before VEP, before vepyr and after vepyr. The expected VCF comes only
-from VEP 116.2. Its body MD5 is recorded in `test.toml`; the vepyr body MD5 and both
-commands are recorded in `cases.json`. Header lines are excluded from comparison.
+from VEP 116.2. Its body MD5 is recorded in `test.toml`. vepyr is run and compared
+by `./run_tests --cache-dir <cache> --via-cli --only <dir>`; the campaign records
+`PASS` on exit 0, `FAIL` on exit 8 with a `MISMATCH <dir> expected=<md5>
+actual=<md5>` line on stdout (that `actual` is the recorded vepyr body MD5), and
+`ERROR` on any other exit. All commands, their exit codes and the `./run_tests`
+output are recorded in `cases.json` and the evidence directory, and the campaign
+exits non-zero unless every processed case passes. Header lines are excluded
+from comparison.
 `--regenerate` repeats normalization and both runs for existing fixtures that
 have not completed this input-identity audit. Use a new external evidence directory
 for that pass; prior run evidence is retained.
 
-The campaign accepts the owner's existing local merged caches directly. These
-have no Hub download receipt; the campaign records local paths and scoped file
-checksums without inventing Hub provenance. The general `./run_tests` entry point
-continues to require its pinned Hub cache layout and `PROVENANCE.json`.
+`--vep-cache` (the native cache used by `./bless` for the oracle) may be a local
+cache. `--cache-dir` is passed to `./run_tests` and must be a Hub-layout cache
+root with `PROVENANCE.json` (populate it with
+`./run_tests --cache-dir <cache> --add-contigs chr21`).
 
 ```bash
 python tools/port_campaign.py --limit 10 \
   --vep-cache /path/to/native-cache-parent \
-  --vepyr-cache /path/to/116_GRCh38_merged \
+  --cache-dir /path/to/hub-layout-cache \
   --fasta /path/to/Homo_sapiens.GRCh38.dna.primary_assembly.fa \
-  --vepyr-python /path/to/verified-vepyr/.venv/bin/python \
-  --vepyr-source /path/to/verified-vepyr \
   --evidence /path/to/run-evidence
 python tools/check_campaign.py --require-complete --require-normalized
 ```
 
-The engine revision is evidence for each run, not a fixed repository requirement.
 Primary-property checks select the case's specific field or record property;
 the existing body comparison also checks all incidental fields. A focus pass
 with a body failure remains a failing data test.
