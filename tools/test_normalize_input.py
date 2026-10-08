@@ -389,7 +389,7 @@ def test_an_existing_test_toml_keeps_its_other_tables(
         'command = "stale"\n'
         "\n"
         "# The VEP invocation used to build expected.vcf\n"
-        "# https://github.com/Ensembl/ensembl-vep/blob/release/116.0/t/AnnotationSource.t\n"
+        "# https://github.com/Ensembl/ensembl-vep/blob/release/116.2/t/AnnotationSource.t\n"
         "[vep]\n"
         'args = "--cache"\n',
         encoding="utf-8",
@@ -404,7 +404,7 @@ def test_an_existing_test_toml_keeps_its_other_tables(
     assert (
         "\n"
         "# The VEP invocation used to build expected.vcf\n"
-        "# https://github.com/Ensembl/ensembl-vep/blob/release/116.0/t/AnnotationSource.t\n"
+        "# https://github.com/Ensembl/ensembl-vep/blob/release/116.2/t/AnnotationSource.t\n"
         "[vep]\n"
         'args = "--cache"\n'
     ) in text

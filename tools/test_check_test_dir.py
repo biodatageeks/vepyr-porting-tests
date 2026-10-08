@@ -214,7 +214,7 @@ def test_image_not_pinned(tmp_path: Path, image: str) -> None:
 
 def test_image_tag_not_digest(tmp_path: Path) -> None:
     """A tag instead of a digest fails ``oracle-meta``."""
-    d = make_test(tmp_path, image="ensemblorg/ensembl-vep:release_116.0")
+    d = make_test(tmp_path, image="ensemblorg/ensembl-vep:release_116.2")
     assert set(failed(d)) == {CheckId.ORACLE_META}
 
 

@@ -1,5 +1,5 @@
 #!/bin/bash
-# ./bless — make or check a data-test's VEP 116 oracle; `./bless --help`.
+# ./bless — make or check a data-test's VEP 116.2 oracle; `./bless --help`.
 # Deliberately independent of PATH (no /usr/bin/env, no dirname): `./bless --check`
 # must work with PATH=/nonexistent, and a missing docker must be reported by bless
 # itself rather than by the shell. uv is located on PATH first, then in its
