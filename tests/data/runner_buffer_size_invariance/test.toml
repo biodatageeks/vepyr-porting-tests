@@ -5,7 +5,7 @@ description = "vepyr annotates the eight-record chromosome 21 input to the same 
 vep_test = "https://github.com/Ensembl/ensembl-vep/blob/release/116.0/t/Runner.t#L514-L529"
 vep_test_pinned = "https://github.com/Ensembl/ensembl-vep/blob/57ea5c52340acc1f156267f810ad162e26597082/t/Runner.t#L514-L529"
 vep_subject = "https://github.com/Ensembl/ensembl-vep/blob/57ea5c52340acc1f156267f810ad162e26597082/modules/Bio/EnsEMBL/VEP/Runner.pm#L197"
-ledger = "https://github.com/sitekwb/vepyr-porting-tests/blob/c4f4eb8eae415b1f58841ef15cebf2bb081ce750/ledger/Runner.ledger.toml#L546-L554"
+ledger = "Runner.ledger.toml n=48"
 issue = 17
 
 [input]

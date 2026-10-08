@@ -1,0 +1,190 @@
+{
+  "method": "Indexed exact REF lookup against the supplied GRCh38 FASTA; comparison is case-insensitive; no input alteration",
+  "mismatched_cases": [
+    {
+      "id": "DT-1d6dc19f25",
+      "mismatches": [
+        {
+          "chrom": "21",
+          "pos": 25587759,
+          "input_ref": "C",
+          "fasta_ref": "T"
+        },
+        {
+          "chrom": "21",
+          "pos": 25587760,
+          "input_ref": "C",
+          "fasta_ref": "A"
+        },
+        {
+          "chrom": "21",
+          "pos": 25587761,
+          "input_ref": "C",
+          "fasta_ref": "G"
+        },
+        {
+          "chrom": "21",
+          "pos": 25587762,
+          "input_ref": "C",
+          "fasta_ref": "T"
+        }
+      ]
+    },
+    {
+      "id": "DT-fb5d3dbc26",
+      "mismatches": [
+        {
+          "chrom": "21",
+          "pos": 25573985,
+          "input_ref": "C",
+          "fasta_ref": "A"
+        }
+      ]
+    },
+    {
+      "id": "DT-ce2724f603",
+      "mismatches": [
+        {
+          "chrom": "21",
+          "pos": 25587759,
+          "input_ref": "C",
+          "fasta_ref": "T"
+        },
+        {
+          "chrom": "21",
+          "pos": 25587760,
+          "input_ref": "C",
+          "fasta_ref": "A"
+        },
+        {
+          "chrom": "21",
+          "pos": 25587761,
+          "input_ref": "C",
+          "fasta_ref": "G"
+        },
+        {
+          "chrom": "21",
+          "pos": 25587762,
+          "input_ref": "C",
+          "fasta_ref": "T"
+        }
+      ]
+    },
+    {
+      "id": "DT-2e50dd94b9",
+      "mismatches": [
+        {
+          "chrom": "21",
+          "pos": 25587759,
+          "input_ref": "AC",
+          "fasta_ref": "TA"
+        }
+      ]
+    },
+    {
+      "id": "DT-b28b044d7f",
+      "mismatches": [
+        {
+          "chrom": "21",
+          "pos": 25587759,
+          "input_ref": "A",
+          "fasta_ref": "T"
+        }
+      ]
+    },
+    {
+      "id": "DT-b4c85ef984",
+      "mismatches": [
+        {
+          "chrom": "21",
+          "pos": 8987005,
+          "input_ref": "A",
+          "fasta_ref": "T"
+        }
+      ]
+    },
+    {
+      "id": "DT-9e34ff006c",
+      "mismatches": [
+        {
+          "chrom": "21",
+          "pos": 8987004,
+          "input_ref": "TAT",
+          "fasta_ref": "CTG"
+        }
+      ]
+    },
+    {
+      "id": "DT-e01afb2c24",
+      "mismatches": [
+        {
+          "chrom": "21",
+          "pos": 25573987,
+          "input_ref": "C",
+          "fasta_ref": "T"
+        }
+      ]
+    },
+    {
+      "id": "DT-2959272815",
+      "mismatches": [
+        {
+          "chrom": "1",
+          "pos": 1000000,
+          "input_ref": "C",
+          "fasta_ref": "G"
+        }
+      ]
+    },
+    {
+      "id": "DT-cce7b4c742",
+      "mismatches": [
+        {
+          "chrom": "21",
+          "pos": 25587759,
+          "input_ref": "AC",
+          "fasta_ref": "TA"
+        }
+      ]
+    },
+    {
+      "id": "DT-bbf8cac2ab",
+      "mismatches": [
+        {
+          "chrom": "21",
+          "pos": 25587759,
+          "input_ref": "A",
+          "fasta_ref": "T"
+        }
+      ]
+    },
+    {
+      "id": "DT-61ac08b70b",
+      "mismatches": [
+        {
+          "chrom": "21",
+          "pos": 25587759,
+          "input_ref": "G",
+          "fasta_ref": "T"
+        },
+        {
+          "chrom": "21",
+          "pos": 25587762,
+          "input_ref": "C",
+          "fasta_ref": "T"
+        }
+      ]
+    },
+    {
+      "id": "DT-dff61aedd9",
+      "mismatches": [
+        {
+          "chrom": "1",
+          "pos": 1000000,
+          "input_ref": "AC",
+          "fasta_ref": "GG"
+        }
+      ]
+    }
+  ]
+}

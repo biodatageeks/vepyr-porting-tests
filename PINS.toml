@@ -4,7 +4,7 @@
 #
 # For HF tables, `sha` is the dataset COMMIT on huggingface.co (40 hex).
 # For grch38_fasta, `sha` is the sha256 of the UNCOMPRESSED .fa.
-# Curated from sitekwb/vepyr-porting-tests; measured there 2026-09-04.
+# Measured 2026-09-04.
 
 schema_version = 1
 

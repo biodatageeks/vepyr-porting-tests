@@ -48,6 +48,19 @@ body:
       required: true
 
   - type: input
+    id: vep-subject-link
+    attributes:
+      label: VEP subject link
+      description: >-
+        Commit-pinned permalink (`blob/<40-hex commit>/...`, never a branch or tag) to the
+        Perl module or method the VEP test exercises, with a line anchor. Feeds
+        `[origin] vep_subject`; `tests/data_dirs.rs` rejects a `vep_subject` or
+        `vep_test_pinned` that is not pinned to a full commit.
+      placeholder: "https://github.com/Ensembl/ensembl-vep/blob/57ea5c52340acc1f156267f810ad162e26597082/modules/Bio/EnsEMBL/VEP/Runner.pm#L396"
+    validations:
+      required: true
+
+  - type: input
     id: description
     attributes:
       label: One-sentence description

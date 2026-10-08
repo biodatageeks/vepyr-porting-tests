@@ -38,7 +38,7 @@ body:
         the standard to meet is "here is the defective line, verbatim", not "X is inconsistent".
       placeholder: >-
         The current form asks for none of these as URLs. Only (3) has a home at all: the `source`
-        textarea, described as "sitekwb path and/or ledger row". (1), (2) and (4) are nowhere in
+        textarea, described as "path and/or ledger row". (1), (2) and (4) are nowhere in
         the form and survive only as prose inside the Step 1 textareas.
     validations:
       required: true

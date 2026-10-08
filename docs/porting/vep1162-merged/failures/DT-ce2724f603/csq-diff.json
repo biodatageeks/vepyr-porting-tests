@@ -1,0 +1,640 @@
+{
+  "vep_entries": 78,
+  "vepyr_entries": 78,
+  "ordered_entry_differences": [
+    {
+      "feature": "ENST00000307301",
+      "differences": {
+        "HGVSc": {
+          "vep": "ENST00000307301.12:c.1000A>T",
+          "vepyr": "ENST00000307301.12:c.1000G>T"
+        },
+        "USED_REF": {
+          "vep": "T",
+          "vepyr": "C"
+        }
+      }
+    },
+    {
+      "feature": "ENST00000352957",
+      "differences": {
+        "HGVSc": {
+          "vep": "ENST00000352957.9:c.969+1076A>T",
+          "vepyr": "ENST00000352957.9:c.969+1076G>T"
+        }
+      }
+    },
+    {
+      "feature": "ENST00000875588",
+      "differences": {
+        "HGVSc": {
+          "vep": "ENST00000875588.2:c.918+1076A>T",
+          "vepyr": "ENST00000875588.2:c.918+1076G>T"
+        }
+      }
+    },
+    {
+      "feature": "ENST00000875589",
+      "differences": {
+        "HGVSc": {
+          "vep": "ENST00000875589.2:c.915+1076A>T",
+          "vepyr": "ENST00000875589.2:c.915+1076G>T"
+        }
+      }
+    },
+    {
+      "feature": "ENST00000925340",
+      "differences": {
+        "HGVSc": {
+          "vep": "ENST00000925340.2:c.922-2005A>T",
+          "vepyr": "ENST00000925340.2:c.922-2005G>T"
+        }
+      }
+    },
+    {
+      "feature": "ENST00000925341",
+      "differences": {
+        "HGVSc": {
+          "vep": "ENST00000925341.1:c.972+1076A>T",
+          "vepyr": "ENST00000925341.1:c.972+1076G>T"
+        }
+      }
+    },
+    {
+      "feature": "ENST00000925342",
+      "differences": {
+        "HGVSc": {
+          "vep": "ENST00000925342.2:c.729+1076A>T",
+          "vepyr": "ENST00000925342.2:c.729+1076G>T"
+        }
+      }
+    },
+    {
+      "feature": "ENST00000925343",
+      "differences": {
+        "HGVSc": {
+          "vep": "ENST00000925343.2:c.855+1076A>T",
+          "vepyr": "ENST00000925343.2:c.855+1076G>T"
+        }
+      }
+    },
+    {
+      "feature": "ENST00000925344",
+      "differences": {
+        "HGVSc": {
+          "vep": "ENST00000925344.2:c.930+1076A>T",
+          "vepyr": "ENST00000925344.2:c.930+1076G>T"
+        }
+      }
+    },
+    {
+      "feature": "ENST00000925345",
+      "differences": {
+        "HGVSc": {
+          "vep": "ENST00000925345.2:c.762+1076A>T",
+          "vepyr": "ENST00000925345.2:c.762+1076G>T"
+        }
+      }
+    },
+    {
+      "feature": "ENST00000925346",
+      "differences": {
+        "HGVSc": {
+          "vep": "ENST00000925346.2:c.987+1076A>T",
+          "vepyr": "ENST00000925346.2:c.987+1076G>T"
+        }
+      }
+    },
+    {
+      "feature": "ENST00000946900",
+      "differences": {
+        "HGVSc": {
+          "vep": "ENST00000946900.2:c.966+1076A>T",
+          "vepyr": "ENST00000946900.2:c.966+1076G>T"
+        }
+      }
+    },
+    {
+      "feature": "ENST00000946901",
+      "differences": {
+        "HGVSc": {
+          "vep": "ENST00000946901.2:c.924+1076A>T",
+          "vepyr": "ENST00000946901.2:c.924+1076G>T"
+        }
+      }
+    },
+    {
+      "feature": "ENST00000985907",
+      "differences": {
+        "HGVSc": {
+          "vep": "ENST00000985907.1:c.815+1076A>T",
+          "vepyr": "ENST00000985907.1:c.815+1076G>T"
+        }
+      }
+    },
+    {
+      "feature": "ENST00000985908",
+      "differences": {
+        "HGVSc": {
+          "vep": "ENST00000985908.1:c.*50+1076A>T",
+          "vepyr": "ENST00000985908.1:c.*50+1076G>T"
+        }
+      }
+    },
+    {
+      "feature": "ENST00000985909",
+      "differences": {
+        "HGVSc": {
+          "vep": "ENST00000985909.1:c.*487+1076A>T",
+          "vepyr": "ENST00000985909.1:c.*487+1076G>T"
+        }
+      }
+    },
+    {
+      "feature": "ENST00000985910",
+      "differences": {
+        "HGVSc": {
+          "vep": "ENST00000985910.1:c.1000A>T",
+          "vepyr": "ENST00000985910.1:c.1000G>T"
+        },
+        "USED_REF": {
+          "vep": "T",
+          "vepyr": "C"
+        }
+      }
+    },
+    {
+      "feature": "ENST00001019016",
+      "differences": {
+        "HGVSc": {
+          "vep": "ENST00001019016.1:c.*193+1076A>T",
+          "vepyr": "ENST00001019016.1:c.*193+1076G>T"
+        }
+      }
+    },
+    {
+      "feature": "ENST00001019018",
+      "differences": {
+        "HGVSc": {
+          "vep": "ENST00001019018.1:c.1013A>T",
+          "vepyr": "ENST00001019018.1:c.1013G>T"
+        },
+        "USED_REF": {
+          "vep": "T",
+          "vepyr": "C"
+        }
+      }
+    },
+    {
+      "feature": "ENST00001078748",
+      "differences": {
+        "HGVSc": {
+          "vep": "ENST00001078748.1:c.*482+1076A>T",
+          "vepyr": "ENST00001078748.1:c.*482+1076G>T"
+        }
+      }
+    },
+    {
+      "feature": "ENST00001078749",
+      "differences": {
+        "HGVSc": {
+          "vep": "ENST00001078749.1:c.*334+1076A>T",
+          "vepyr": "ENST00001078749.1:c.*334+1076G>T"
+        }
+      }
+    },
+    {
+      "feature": "ENST00001078750",
+      "differences": {
+        "HGVSc": {
+          "vep": "ENST00001078750.1:c.*486+1076A>T",
+          "vepyr": "ENST00001078750.1:c.*486+1076G>T"
+        }
+      }
+    },
+    {
+      "feature": "ENST00001078754",
+      "differences": {
+        "HGVSc": {
+          "vep": "ENST00001078754.1:c.*487+1076A>T",
+          "vepyr": "ENST00001078754.1:c.*487+1076G>T"
+        }
+      }
+    },
+    {
+      "feature": "ENST00001078757",
+      "differences": {
+        "HGVSc": {
+          "vep": "ENST00001078757.1:c.*333+1076A>T",
+          "vepyr": "ENST00001078757.1:c.*333+1076G>T"
+        }
+      }
+    },
+    {
+      "feature": "ENST00001078759",
+      "differences": {
+        "HGVSc": {
+          "vep": "ENST00001078759.1:c.*440-2005A>T",
+          "vepyr": "ENST00001078759.1:c.*440-2005G>T"
+        }
+      }
+    },
+    {
+      "feature": "ENST00001101473",
+      "differences": {
+        "HGVSc": {
+          "vep": "ENST00001101473.1:c.*1011+1076A>T",
+          "vepyr": "ENST00001101473.1:c.*1011+1076G>T"
+        }
+      }
+    },
+    {
+      "feature": "ENST00001101474",
+      "differences": {
+        "HGVSc": {
+          "vep": "ENST00001101474.1:c.1013A>T",
+          "vepyr": "ENST00001101474.1:c.1013G>T"
+        },
+        "USED_REF": {
+          "vep": "T",
+          "vepyr": "C"
+        }
+      }
+    },
+    {
+      "feature": "ENST00001110240",
+      "differences": {
+        "HGVSc": {
+          "vep": "ENST00001110240.1:c.969+1076A>T",
+          "vepyr": "ENST00001110240.1:c.969+1076G>T"
+        }
+      }
+    },
+    {
+      "feature": "ENST00001110241",
+      "differences": {
+        "HGVSc": {
+          "vep": "ENST00001110241.1:c.*1273A>T",
+          "vepyr": "ENST00001110241.1:c.*1273G>T"
+        },
+        "USED_REF": {
+          "vep": "T",
+          "vepyr": "C"
+        }
+      }
+    },
+    {
+      "feature": "ENST00001124854",
+      "differences": {
+        "HGVSc": {
+          "vep": "ENST00001124854.1:c.*887+1076A>T",
+          "vepyr": "ENST00001124854.1:c.*887+1076G>T"
+        }
+      }
+    },
+    {
+      "feature": "ENST00001131846",
+      "differences": {
+        "HGVSc": {
+          "vep": "ENST00001131846.1:c.969+1076A>T",
+          "vepyr": "ENST00001131846.1:c.969+1076G>T"
+        }
+      }
+    },
+    {
+      "feature": "NM_017446.4",
+      "differences": {
+        "HGVSc": {
+          "vep": "NM_017446.4:c.969+1076A>T",
+          "vepyr": "NM_017446.4:c.969+1076G>T"
+        }
+      }
+    },
+    {
+      "feature": "XM_011529651.3",
+      "differences": {
+        "HGVSc": {
+          "vep": "XM_011529651.3:c.843+1076A>T",
+          "vepyr": "XM_011529651.3:c.843+1076G>T"
+        }
+      }
+    },
+    {
+      "feature": "ENST00000307301",
+      "differences": {
+        "HGVSc": {
+          "vep": "ENST00000307301.12:c.997A>T",
+          "vepyr": "ENST00000307301.12:c.997G>T"
+        },
+        "USED_REF": {
+          "vep": "T",
+          "vepyr": "C"
+        }
+      }
+    },
+    {
+      "feature": "ENST00000352957",
+      "differences": {
+        "HGVSc": {
+          "vep": "ENST00000352957.9:c.969+1073A>T",
+          "vepyr": "ENST00000352957.9:c.969+1073G>T"
+        }
+      }
+    },
+    {
+      "feature": "ENST00000875588",
+      "differences": {
+        "HGVSc": {
+          "vep": "ENST00000875588.2:c.918+1073A>T",
+          "vepyr": "ENST00000875588.2:c.918+1073G>T"
+        }
+      }
+    },
+    {
+      "feature": "ENST00000875589",
+      "differences": {
+        "HGVSc": {
+          "vep": "ENST00000875589.2:c.915+1073A>T",
+          "vepyr": "ENST00000875589.2:c.915+1073G>T"
+        }
+      }
+    },
+    {
+      "feature": "ENST00000925340",
+      "differences": {
+        "HGVSc": {
+          "vep": "ENST00000925340.2:c.922-2008A>T",
+          "vepyr": "ENST00000925340.2:c.922-2008G>T"
+        }
+      }
+    },
+    {
+      "feature": "ENST00000925341",
+      "differences": {
+        "HGVSc": {
+          "vep": "ENST00000925341.1:c.972+1073A>T",
+          "vepyr": "ENST00000925341.1:c.972+1073G>T"
+        }
+      }
+    },
+    {
+      "feature": "ENST00000925342",
+      "differences": {
+        "HGVSc": {
+          "vep": "ENST00000925342.2:c.729+1073A>T",
+          "vepyr": "ENST00000925342.2:c.729+1073G>T"
+        }
+      }
+    },
+    {
+      "feature": "ENST00000925343",
+      "differences": {
+        "HGVSc": {
+          "vep": "ENST00000925343.2:c.855+1073A>T",
+          "vepyr": "ENST00000925343.2:c.855+1073G>T"
+        }
+      }
+    },
+    {
+      "feature": "ENST00000925344",
+      "differences": {
+        "HGVSc": {
+          "vep": "ENST00000925344.2:c.930+1073A>T",
+          "vepyr": "ENST00000925344.2:c.930+1073G>T"
+        }
+      }
+    },
+    {
+      "feature": "ENST00000925345",
+      "differences": {
+        "HGVSc": {
+          "vep": "ENST00000925345.2:c.762+1073A>T",
+          "vepyr": "ENST00000925345.2:c.762+1073G>T"
+        }
+      }
+    },
+    {
+      "feature": "ENST00000925346",
+      "differences": {
+        "HGVSc": {
+          "vep": "ENST00000925346.2:c.987+1073A>T",
+          "vepyr": "ENST00000925346.2:c.987+1073G>T"
+        }
+      }
+    },
+    {
+      "feature": "ENST00000946900",
+      "differences": {
+        "HGVSc": {
+          "vep": "ENST00000946900.2:c.966+1073A>T",
+          "vepyr": "ENST00000946900.2:c.966+1073G>T"
+        }
+      }
+    },
+    {
+      "feature": "ENST00000946901",
+      "differences": {
+        "HGVSc": {
+          "vep": "ENST00000946901.2:c.924+1073A>T",
+          "vepyr": "ENST00000946901.2:c.924+1073G>T"
+        }
+      }
+    },
+    {
+      "feature": "ENST00000985907",
+      "differences": {
+        "HGVSc": {
+          "vep": "ENST00000985907.1:c.815+1073A>T",
+          "vepyr": "ENST00000985907.1:c.815+1073G>T"
+        }
+      }
+    },
+    {
+      "feature": "ENST00000985908",
+      "differences": {
+        "HGVSc": {
+          "vep": "ENST00000985908.1:c.*50+1073A>T",
+          "vepyr": "ENST00000985908.1:c.*50+1073G>T"
+        }
+      }
+    },
+    {
+      "feature": "ENST00000985909",
+      "differences": {
+        "HGVSc": {
+          "vep": "ENST00000985909.1:c.*487+1073A>T",
+          "vepyr": "ENST00000985909.1:c.*487+1073G>T"
+        }
+      }
+    },
+    {
+      "feature": "ENST00000985910",
+      "differences": {
+        "HGVSc": {
+          "vep": "ENST00000985910.1:c.997A>T",
+          "vepyr": "ENST00000985910.1:c.997G>T"
+        },
+        "USED_REF": {
+          "vep": "T",
+          "vepyr": "C"
+        }
+      }
+    },
+    {
+      "feature": "ENST00001019016",
+      "differences": {
+        "HGVSc": {
+          "vep": "ENST00001019016.1:c.*193+1073A>T",
+          "vepyr": "ENST00001019016.1:c.*193+1073G>T"
+        }
+      }
+    },
+    {
+      "feature": "ENST00001019018",
+      "differences": {
+        "HGVSc": {
+          "vep": "ENST00001019018.1:c.1010A>T",
+          "vepyr": "ENST00001019018.1:c.1010G>T"
+        },
+        "USED_REF": {
+          "vep": "T",
+          "vepyr": "C"
+        }
+      }
+    },
+    {
+      "feature": "ENST00001078748",
+      "differences": {
+        "HGVSc": {
+          "vep": "ENST00001078748.1:c.*482+1073A>T",
+          "vepyr": "ENST00001078748.1:c.*482+1073G>T"
+        }
+      }
+    },
+    {
+      "feature": "ENST00001078749",
+      "differences": {
+        "HGVSc": {
+          "vep": "ENST00001078749.1:c.*334+1073A>T",
+          "vepyr": "ENST00001078749.1:c.*334+1073G>T"
+        }
+      }
+    },
+    {
+      "feature": "ENST00001078750",
+      "differences": {
+        "HGVSc": {
+          "vep": "ENST00001078750.1:c.*486+1073A>T",
+          "vepyr": "ENST00001078750.1:c.*486+1073G>T"
+        }
+      }
+    },
+    {
+      "feature": "ENST00001078754",
+      "differences": {
+        "HGVSc": {
+          "vep": "ENST00001078754.1:c.*487+1073A>T",
+          "vepyr": "ENST00001078754.1:c.*487+1073G>T"
+        }
+      }
+    },
+    {
+      "feature": "ENST00001078757",
+      "differences": {
+        "HGVSc": {
+          "vep": "ENST00001078757.1:c.*333+1073A>T",
+          "vepyr": "ENST00001078757.1:c.*333+1073G>T"
+        }
+      }
+    },
+    {
+      "feature": "ENST00001078759",
+      "differences": {
+        "HGVSc": {
+          "vep": "ENST00001078759.1:c.*440-2008A>T",
+          "vepyr": "ENST00001078759.1:c.*440-2008G>T"
+        }
+      }
+    },
+    {
+      "feature": "ENST00001101473",
+      "differences": {
+        "HGVSc": {
+          "vep": "ENST00001101473.1:c.*1011+1073A>T",
+          "vepyr": "ENST00001101473.1:c.*1011+1073G>T"
+        }
+      }
+    },
+    {
+      "feature": "ENST00001101474",
+      "differences": {
+        "HGVSc": {
+          "vep": "ENST00001101474.1:c.1010A>T",
+          "vepyr": "ENST00001101474.1:c.1010G>T"
+        },
+        "USED_REF": {
+          "vep": "T",
+          "vepyr": "C"
+        }
+      }
+    },
+    {
+      "feature": "ENST00001110240",
+      "differences": {
+        "HGVSc": {
+          "vep": "ENST00001110240.1:c.969+1073A>T",
+          "vepyr": "ENST00001110240.1:c.969+1073G>T"
+        }
+      }
+    },
+    {
+      "feature": "ENST00001110241",
+      "differences": {
+        "HGVSc": {
+          "vep": "ENST00001110241.1:c.*1270A>T",
+          "vepyr": "ENST00001110241.1:c.*1270G>T"
+        },
+        "USED_REF": {
+          "vep": "T",
+          "vepyr": "C"
+        }
+      }
+    },
+    {
+      "feature": "ENST00001124854",
+      "differences": {
+        "HGVSc": {
+          "vep": "ENST00001124854.1:c.*887+1073A>T",
+          "vepyr": "ENST00001124854.1:c.*887+1073G>T"
+        }
+      }
+    },
+    {
+      "feature": "ENST00001131846",
+      "differences": {
+        "HGVSc": {
+          "vep": "ENST00001131846.1:c.969+1073A>T",
+          "vepyr": "ENST00001131846.1:c.969+1073G>T"
+        }
+      }
+    },
+    {
+      "feature": "NM_017446.4",
+      "differences": {
+        "HGVSc": {
+          "vep": "NM_017446.4:c.969+1073A>T",
+          "vepyr": "NM_017446.4:c.969+1073G>T"
+        }
+      }
+    },
+    {
+      "feature": "XM_011529651.3",
+      "differences": {
+        "HGVSc": {
+          "vep": "XM_011529651.3:c.843+1073A>T",
+          "vepyr": "XM_011529651.3:c.843+1073G>T"
+        }
+      }
+    }
+  ]
+}

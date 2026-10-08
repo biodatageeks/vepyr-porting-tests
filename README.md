@@ -279,7 +279,7 @@ environment before checking `UV_PROJECT_ENVIRONMENT`. The skill helper `dt env` 
 `./bless` makes and checks the oracle of a data-test directory `tests/data/<name>/`:
 `expected_output.vcf`, the real output of native VEP 116 on the directory's
 normalised `input.vcf` (made by `tools/normalize_input`, #85). It runs Ensembl's
-official image `ensemblorg/ensembl-vep:release_116.0`, with the same fixed command plus
+official image `ensemblorg/ensembl-vep:release_116.2`, with the same fixed command plus
 the flags listed in `[vep] extra_flags`:
 
 ```
@@ -319,7 +319,7 @@ bless writes the list as `[vep] extra_flags` and generates `[vep] command` from 
 - Use the `=` form: `--vep-flag --check_existing` is read by argparse as two options
   and exits 2.
 - Only flags in `ALLOWED_VEP_FLAGS` (`tools/bless/vep.py`) are accepted, matched
-  exactly on the whole token; today that is `--check_existing`. Aliases (`--fa`),
+  exactly on the whole token; today these are `--check_existing` and `--merged`. Aliases (`--fa`),
   abbreviations (`--input_f`), single-dash tokens, `--name=value`, unknown flags and
   a flag given twice exit 1 with `bless: --vep-flag: FLAG is not allowed; allowed: ...`.
   It is an allowlist because VEP's Getopt::Long accepts aliases and abbreviations,
@@ -371,7 +371,7 @@ downloaded. `bless` does not remember paths; the flags are the only state.
 **`--dry-run`** prints the planned steps (`# fetch ...` for each download, the copy of
 `input.vcf` into a temp directory) and the exact `docker run ... vep ...` command,
 then exits 0 without running anything. For a bless it shows the tag
-`ensemblorg/ensembl-vep:release_116.0`; the real run resolves it to a digest first.
+`ensemblorg/ensembl-vep:release_116.2`; the real run resolves it to a digest first.
 
 **What a bless records** in `test.toml`:
 
@@ -457,14 +457,18 @@ loader rejects `fields` as an unknown key. The other VEP flags of the fixed comm
 (`--offline`, `--cache`, `--dir_cache`, `--species`, `--cache_version`,
 `--assembly`, input/output names) select the cache and files, not annotation, and
 have no `[vepyr]` counterpart; `flavour` and `required_contigs` pick vepyr's cache.
-`flavour` must be `"ensembl"` (the oracle is VEP on the Ensembl cache): the loader
-accepts only "ensembl", in `[vepyr]` and in every `[[vepyr_run]]` override.
+`flavour` is `"ensembl"` or `"merged"`. Merged fixtures must record
+`extra_flags = ["--merged"]` in `[vep]`; the recorded VEP command and every
+`[[vepyr_run]]` must use the same cache flavour. RefSeq-only fixtures remain
+unsupported. For merged oracles, pass `--vep-cache-dir` pointing to the parent
+of `homo_sapiens_merged/116_GRCh38`; merged-cache downloads through `./bless`
+are not implemented. Existing Ensembl fixtures retain their recorded image digest.
 Before each run the runner checks that every cache entity vepyr reads in
 `--everything` mode (all seven; `motif` and `regulatory` excepted on `chrMT`) has a
 shard for each `required_contigs` entry.
 
 Extra flags stay as described under [./bless](#bless): the allowlist
-`ALLOWED_VEP_FLAGS` keeps `--check_existing` (#18), and `[vep] extra_flags` (#108)
+`ALLOWED_VEP_FLAGS` accepts `--check_existing` (#18) and `--merged`, and `[vep] extra_flags` (#108)
 remains the mechanism that records them. Neither is part of the vepyr CLI docs;
 they are appended to the `--everything` command, never replace it.
 
@@ -595,10 +599,14 @@ that is on disk, is re-fetched from the Hub and trimmed to the shards on disk
 (here all four). Otherwise it is left untouched. Shards on disk that the run
 does not request are not checked, so a shard the Hub manifest itself omits
 (e.g. `exon/GL000009.2.parquet` of a whole-flavour download) stays unlisted and
-forces no Hub call. An older root whose manifests are stale (shards of a later
-contig, manifests trimmed to the first set) is repaired by rerunning
-`--add-contigs` with the declared list. A whole-genome run (no
-`--add-contigs`) on a root whose `PROVENANCE.json` records
+forces no Hub call. A requested shard the Hub manifest omits is different: it
+is on disk but never listed, so every run that requests it makes one
+manifests-only Hub call, and the shard stays unusable. An older root whose
+manifests are stale (shards of a later contig, manifests trimmed to the first
+set) is repaired only by rerunning `--add-contigs` with the declared list (the
+list the `requires_shards` panic prints); a narrower rerun, e.g. only an
+already-listed contig, leaves the stale manifests as they are. A whole-genome
+run (no `--add-contigs`) on a root whose `PROVENANCE.json` records
 `manifests_trimmed: true` for a flavour (left by a per-contig run) re-fetches
 that flavour's full manifests from the Hub once and does not trim them, so they
 match the `contigs: "ALL"` it records; later whole-genome runs on that root make
@@ -633,8 +641,8 @@ VEPYR_CACHE_ROOT=/mnt/hf-cache cargo test --test data_dirs
 ```
 
 VEP and vepyr read the same `input.vcf`, byte for byte. Candidates come from the
-assertion ledger in [sitekwb/vepyr-porting-tests](https://github.com/sitekwb/vepyr-porting-tests)
-(`ledger/*.ledger.toml`); a directory names its source row in `[origin] ledger`.
+assertion ledger `ledger/assertions.csv` (key `(vep_file, n)`); a directory names its
+source row in `[origin] ledger` as `<Stem>.ledger.toml n=<N>` (`t/<Stem>.t`, row `n`).
 
 **`test.toml`**, one line per key (`?` = optional). Every table is checked against
 this list, and any other key fails the test with `[<name>] unknown key: <key>`:
@@ -646,7 +654,7 @@ description = "..."                    # one sentence
 vep_test        = "https://github.com/Ensembl/ensembl-vep/blob/release/116.0/t/Runner.t#L244-L292"
 vep_test_pinned = ".../blob/57ea5c52340acc1f156267f810ad162e26597082/t/Runner.t#L244-L292"
 vep_subject     = ".../blob/57ea5c52.../modules/Bio/EnsEMBL/VEP/Runner.pm#L396"
-ledger          = "Runner.ledger.toml n=16"   # ? source row in the sitekwb ledger
+ledger          = "Runner.ledger.toml n=16"   # ? source row (t/Runner.t, n=16) of ledger/assertions.csv
 issue           = 16                           # ? issue that introduced the test
 [input]                                        # written by tools/normalize_input
 command          = "bcftools norm -m -both -o <out.vcf> <in.vcf.gz>"
@@ -668,6 +676,14 @@ buffer_size = 1
 ```
 
 (The `[vep]` line above is abbreviated; in a real file each key is on its own line.)
+
+`[origin] vep_test_pinned` and `vep_subject` must be commit-pinned permalinks,
+`https://github.com/<owner>/<repo>/blob/<40 lowercase hex commit>/<path>` (a `#L..`
+anchor is allowed); a branch, a tag or a short hash fails the test with
+`[<name>] origin.<key> is not a commit-pinned permalink: <value>`. `vep_test` is the
+readable `release/116.0` tag link and is not checked for shape. The *Data-test*
+issue form has one field per link: *VEP test link* (`vep_test`, `vep_test_pinned`)
+and *VEP subject link* (`vep_subject`).
 
 **What the runner checks**, per directory:
 
@@ -807,3 +823,53 @@ cp .claude/skills/impl-vepyr-data-test/local.toml.example ~/.config/dt/local.tom
 `RESOLVE_PR_OPEN_CMD` (a command that opens a URL) and/or
 `RESOLVE_PR_OWNER_QUEUE=1` in your shell profile or in the `env` block of the
 git-ignored `.claude/settings.local.json`.
+
+## Release 116.2 merged-cache campaign
+
+The [campaign table](docs/porting/vep1162-merged/README.md) tracks each atomic
+candidate, its source assertions and implementation lines, and separate old-cache,
+vepyr-difference and unsupported-feature columns. Queued and blocked candidates
+are excluded from ported counts.
+
+`tools/port_campaign.py` runs qualified cases in batches of ten. It first writes
+raw rows to the external evidence directory, runs `tools/normalize_input`, then
+passes the resulting `input.vcf` to both engines. `./bless` verifies the SHA-256 of
+its Docker input copy; the campaign verifies that the normalized file stays
+unchanged before VEP, before vepyr and after vepyr. The expected VCF comes only
+from VEP 116.2. Its body MD5 is recorded in `test.toml`; the vepyr body MD5 and both
+commands are recorded in `cases.json`. Header lines are excluded from comparison.
+`--regenerate` repeats normalization and both runs for existing fixtures that
+have not completed this input-identity audit. Use a new external evidence directory
+for that pass; prior run evidence is retained.
+
+The campaign accepts the owner's existing local merged caches directly. These
+have no Hub download receipt; the campaign records local paths and scoped file
+checksums without inventing Hub provenance. The general `./run_tests` entry point
+continues to require its pinned Hub cache layout and `PROVENANCE.json`.
+
+```bash
+python tools/port_campaign.py --limit 10 \
+  --vep-cache /path/to/native-cache-parent \
+  --vepyr-cache /path/to/116_GRCh38_merged \
+  --fasta /path/to/Homo_sapiens.GRCh38.dna.primary_assembly.fa \
+  --vepyr-python /path/to/verified-vepyr/.venv/bin/python \
+  --vepyr-source /path/to/verified-vepyr \
+  --evidence /path/to/run-evidence
+python tools/check_campaign.py --require-complete --require-normalized
+```
+
+The engine revision is evidence for each run, not a fixed repository requirement.
+Primary-property checks select the case's specific field or record property;
+the existing body comparison also checks all incidental fields. A focus pass
+with a body failure remains a failing data test.
+
+This campaign contains 189 executed ports (171 SNVs, 15 small indels, two
+nonvariant cases and one MNV): 177 whole-body passes, 10 differences and two
+execution errors on the recorded master revision. Thirteen further candidates
+remain unported: ten have data/configuration or cache-conversion blockers, and
+three are outside this normalized VCF contract. See the
+[unblocking assessment](docs/porting/vep1162-merged/unblocking/README.md).
+The 16 pre-existing fixtures are outside this campaign; their inputs were
+regenerated unchanged and their prior oracles were retained.
+See the [failure evidence](docs/porting/vep1162-merged/FAILURES.md) and the
+[complete assertion audit](docs/porting/vep1162-assertion-audit/README.md).

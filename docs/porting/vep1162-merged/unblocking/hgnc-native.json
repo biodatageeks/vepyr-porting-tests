@@ -1,0 +1,188 @@
+{
+   "after" : [
+      {
+         "hgnc" : "HGNC:52458",
+         "id" : "ENST00000743697",
+         "symbol" : "LINC01670"
+      },
+      {
+         "hgnc" : "HGNC:52458",
+         "id" : "ENST00000624261",
+         "symbol" : "LINC01670"
+      },
+      {
+         "hgnc" : "HGNC:52458",
+         "id" : "ENST00000623227",
+         "symbol" : "LINC01670"
+      },
+      {
+         "hgnc" : "HGNC:52458",
+         "id" : "ENST00000743698",
+         "symbol" : "LINC01670"
+      },
+      {
+         "hgnc" : "HGNC:52458",
+         "id" : "ENST00000743699",
+         "symbol" : "LINC01670"
+      },
+      {
+         "hgnc" : "HGNC:52458",
+         "id" : "ENST00000743700",
+         "symbol" : "LINC01670"
+      },
+      {
+         "hgnc" : "HGNC:52458",
+         "id" : "XR_951086.3",
+         "symbol" : "LINC01670"
+      },
+      {
+         "hgnc" : "HGNC:52458",
+         "id" : "ENST00000624859",
+         "symbol" : "LINC01670"
+      },
+      {
+         "hgnc" : "HGNC:52458",
+         "id" : "ENST00000743701",
+         "symbol" : "LINC01670"
+      },
+      {
+         "hgnc" : "HGNC:52458",
+         "id" : "ENST00000743702",
+         "symbol" : "LINC01670"
+      },
+      {
+         "hgnc" : "HGNC:52458",
+         "id" : "ENST00000743704",
+         "symbol" : "LINC01670"
+      },
+      {
+         "hgnc" : "HGNC:52458",
+         "id" : "ENST00000743703",
+         "symbol" : "LINC01670"
+      }
+   ],
+   "before" : [
+      {
+         "hgnc" : "HGNC:52458",
+         "id" : "ENST00000743697",
+         "symbol" : "LINC01670"
+      },
+      {
+         "hgnc" : "HGNC:52458",
+         "id" : "ENST00000624261",
+         "symbol" : "LINC01670"
+      },
+      {
+         "hgnc" : "HGNC:52458",
+         "id" : "ENST00000623227",
+         "symbol" : "LINC01670"
+      },
+      {
+         "hgnc" : "HGNC:52458",
+         "id" : "ENST00000743698",
+         "symbol" : "LINC01670"
+      },
+      {
+         "hgnc" : "HGNC:52458",
+         "id" : "ENST00000743699",
+         "symbol" : "LINC01670"
+      },
+      {
+         "hgnc" : "HGNC:52458",
+         "id" : "ENST00000743700",
+         "symbol" : "LINC01670"
+      },
+      {
+         "hgnc" : null,
+         "id" : "XR_951086.3",
+         "symbol" : "LINC01670"
+      },
+      {
+         "hgnc" : "HGNC:52458",
+         "id" : "ENST00000624859",
+         "symbol" : "LINC01670"
+      },
+      {
+         "hgnc" : "HGNC:52458",
+         "id" : "ENST00000743701",
+         "symbol" : "LINC01670"
+      },
+      {
+         "hgnc" : "HGNC:52458",
+         "id" : "ENST00000743702",
+         "symbol" : "LINC01670"
+      },
+      {
+         "hgnc" : "HGNC:52458",
+         "id" : "ENST00000743704",
+         "symbol" : "LINC01670"
+      },
+      {
+         "hgnc" : "HGNC:52458",
+         "id" : "ENST00000743703",
+         "symbol" : "LINC01670"
+      }
+   ],
+   "without_donors" : [
+      {
+         "hgnc" : null,
+         "id" : "ENST00000743697",
+         "symbol" : "LINC01670"
+      },
+      {
+         "hgnc" : null,
+         "id" : "ENST00000624261",
+         "symbol" : "LINC01670"
+      },
+      {
+         "hgnc" : null,
+         "id" : "ENST00000623227",
+         "symbol" : "LINC01670"
+      },
+      {
+         "hgnc" : null,
+         "id" : "ENST00000743698",
+         "symbol" : "LINC01670"
+      },
+      {
+         "hgnc" : null,
+         "id" : "ENST00000743699",
+         "symbol" : "LINC01670"
+      },
+      {
+         "hgnc" : null,
+         "id" : "ENST00000743700",
+         "symbol" : "LINC01670"
+      },
+      {
+         "hgnc" : null,
+         "id" : "XR_951086.3",
+         "symbol" : "LINC01670"
+      },
+      {
+         "hgnc" : null,
+         "id" : "ENST00000624859",
+         "symbol" : "LINC01670"
+      },
+      {
+         "hgnc" : null,
+         "id" : "ENST00000743701",
+         "symbol" : "LINC01670"
+      },
+      {
+         "hgnc" : null,
+         "id" : "ENST00000743702",
+         "symbol" : "LINC01670"
+      },
+      {
+         "hgnc" : null,
+         "id" : "ENST00000743704",
+         "symbol" : "LINC01670"
+      },
+      {
+         "hgnc" : null,
+         "id" : "ENST00000743703",
+         "symbol" : "LINC01670"
+      }
+   ]
+}
