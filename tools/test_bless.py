@@ -263,6 +263,19 @@ def test_set_keys_appends_missing_table() -> None:
     assert tomllib.loads(out) == {"name": "x", "compare": {"body_md5": "f" * 32}}
 
 
+def test_set_keys_keeps_property_tables() -> None:
+    """#238: re-blessing a multi-property dir keeps its [[property]] tables."""
+    text = (
+        'name = "x"\n\n[compare]\nbody_md5 = "old"\n\n'
+        '[[property]]\nid = "x"\n\n[[property]]\nid = "y"\nfocus = { kind = "csq" }\n'
+    )
+    out = testdir.set_keys(text, {"compare": {"body_md5": "f" * 32}})
+    parsed = tomllib.loads(out)
+    assert parsed["compare"] == {"body_md5": "f" * 32}
+    assert [p["id"] for p in parsed["property"]] == ["x", "y"]
+    assert out == text.replace('"old"', '"' + "f" * 32 + '"')
+
+
 def test_fai_matches_samtools_format(fasta: Path) -> None:
     """The built .fai has samtools faidx's five columns."""
     fai = ensembl.ensure_fai(fasta)
