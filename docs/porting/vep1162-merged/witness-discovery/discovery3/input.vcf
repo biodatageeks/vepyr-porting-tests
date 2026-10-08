@@ -1,0 +1,23 @@
+##fileformat=VCFv4.2
+##contig=<ID=1>
+##contig=<ID=21>
+##contig=<ID=MT>
+#CHROM	POS	ID	REF	ALT	QUAL	FILTER	INFO
+1	1000000	.	AC	GT	.	.	.
+1	1000000	.	C	CT	.	.	.
+21	8987004	.	TAT	TAGCGT	.	.	.
+21	8987005	.	A	AGCG	.	.	.
+21	8987005	.	T	TGCG	.	.	.
+21	25005812	.	CA	CAAA	.	.	.
+21	25573987	.	C	CG	.	.	.
+21	25585732	.	GC	G	.	.	.
+21	25585733	.	T	C	.	.	.
+21	25585733	.	c	t	.	.	.
+21	25587759	.	A	AC	.	.	.
+21	25587759	.	AC	A	.	.	.
+21	25592985	.	A	ATAAA	.	.	.
+21	25734893	.	C	CA	.	.	.
+21	25734894	.	A	AG	.	.	.
+21	25734981	.	A	AG	.	.	.
+21	25734982	.	C	CA	.	.	.
+MT	4472	.	T	A	.	.	.

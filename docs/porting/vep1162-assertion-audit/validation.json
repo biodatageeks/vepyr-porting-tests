@@ -1,0 +1,21 @@
+{
+  "result": "passed",
+  "assertion_sites": 2103,
+  "atomic_candidates": 831,
+  "mapped_assertion_sites": 566,
+  "unclassified": 0,
+  "checks": [
+    "exact enumeration against pinned upstream snapshot",
+    "unique assertion and candidate IDs",
+    "reciprocal assertion/candidate mappings",
+    "all 2103 source excerpts and hashes",
+    "all implementation function line anchors",
+    "full and per-file Markdown row counts",
+    "831 TOML entries and unique directory names",
+    "local Markdown links and case anchors",
+    "classification totals"
+  ],
+  "lint": "repository pre-commit ruff and ruff-format passed",
+  "vep_116_2_oracle_runs": 0,
+  "vepyr_differential_runs": 0
+}

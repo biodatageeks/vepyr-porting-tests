@@ -1,0 +1,8 @@
+{
+  "vepyr_sha": "b14bda3d4cf80c0f16d62ab371c28866ae589c33",
+  "extension_path": "/Users/mwiewior/research/git/vepyr/src/vepyr/_core.abi3.so",
+  "extension_sha256": "0d04a9bb2c8b1d147272ee7036dcf47de2f76790558494345e36149e33097cf4",
+  "build_command": "env -u CONDA_PREFIX RUSTFLAGS='-C target-cpu=native' uv sync --reinstall-package vepyr",
+  "build_exit": 0,
+  "vep_image": "ensemblorg/ensembl-vep@sha256:5c57abdc40b637cac198370b4c114777fa24de3336141fdf09d2b0c43cd4b8da"
+}

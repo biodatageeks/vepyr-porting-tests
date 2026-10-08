@@ -1,0 +1,228 @@
+[
+  {
+    "id": "DT-1d6dc19f25",
+    "status": "FAIL",
+    "detail": "Observed body mismatch: HGVSc, USED_REF. Primary property passes. See committed failure evidence.",
+    "fields": [
+      "HGVSc",
+      "USED_REF"
+    ],
+    "reference_mismatches": [
+      {
+        "chrom": "21",
+        "pos": 25587759,
+        "input_ref": "C",
+        "fasta_ref": "T"
+      },
+      {
+        "chrom": "21",
+        "pos": 25587760,
+        "input_ref": "C",
+        "fasta_ref": "A"
+      },
+      {
+        "chrom": "21",
+        "pos": 25587761,
+        "input_ref": "C",
+        "fasta_ref": "G"
+      },
+      {
+        "chrom": "21",
+        "pos": 25587762,
+        "input_ref": "C",
+        "fasta_ref": "T"
+      }
+    ]
+  },
+  {
+    "id": "DT-fb5d3dbc26",
+    "status": "FAIL",
+    "detail": "Observed body mismatch: HGVSc, USED_REF. Primary property passes. See committed failure evidence.",
+    "fields": [
+      "HGVSc",
+      "USED_REF"
+    ],
+    "reference_mismatches": [
+      {
+        "chrom": "21",
+        "pos": 25573985,
+        "input_ref": "C",
+        "fasta_ref": "A"
+      }
+    ]
+  },
+  {
+    "id": "DT-112b9b8d7b",
+    "status": "ERROR",
+    "detail": "NC_000021.9 contig alias: vepyr exits 2 because no input contig matches a variation shard; VEP resolves the same normalized input."
+  },
+  {
+    "id": "DT-2fa9d118a5",
+    "status": "ERROR",
+    "detail": "NC_000021.9 contig alias: vepyr exits 2 because no input contig matches a variation shard; VEP resolves the same normalized input."
+  },
+  {
+    "id": "DT-ce2724f603",
+    "status": "FAIL",
+    "detail": "Observed body mismatch: HGVSc, USED_REF. Primary property passes. See committed failure evidence.",
+    "fields": [
+      "HGVSc",
+      "USED_REF"
+    ],
+    "reference_mismatches": [
+      {
+        "chrom": "21",
+        "pos": 25587759,
+        "input_ref": "C",
+        "fasta_ref": "T"
+      },
+      {
+        "chrom": "21",
+        "pos": 25587760,
+        "input_ref": "C",
+        "fasta_ref": "A"
+      },
+      {
+        "chrom": "21",
+        "pos": 25587761,
+        "input_ref": "C",
+        "fasta_ref": "G"
+      },
+      {
+        "chrom": "21",
+        "pos": 25587762,
+        "input_ref": "C",
+        "fasta_ref": "T"
+      }
+    ]
+  },
+  {
+    "id": "DT-c852bd7045",
+    "status": "FAIL",
+    "detail": "Observed body mismatch: AF, AFR_AF, AMR_AF, Allele, EAS_AF, EUR_AF, Existing_variation, MAX_AF, MAX_AF_POPS, SAS_AF, gnomADe_AF, gnomADe_AFR_AF, gnomADe_AMR_AF, gnomADe_ASJ_AF, gnomADe_EAS_AF, gnomADe_FIN_AF, gnomADe_MID_AF, gnomADe_NFE_AF, gnomADe_REMAINING_AF, gnomADe_SAS_AF, gnomADg_AF, gnomADg_AFR_AF, gnomADg_AMI_AF, gnomADg_AMR_AF, gnomADg_ASJ_AF, gnomADg_EAS_AF, gnomADg_FIN_AF, gnomADg_MID_AF, gnomADg_NFE_AF, gnomADg_REMAINING_AF, gnomADg_SAS_AF. Primary property fails. See committed failure evidence.",
+    "fields": [
+      "AF",
+      "AFR_AF",
+      "AMR_AF",
+      "Allele",
+      "EAS_AF",
+      "EUR_AF",
+      "Existing_variation",
+      "MAX_AF",
+      "MAX_AF_POPS",
+      "SAS_AF",
+      "gnomADe_AF",
+      "gnomADe_AFR_AF",
+      "gnomADe_AMR_AF",
+      "gnomADe_ASJ_AF",
+      "gnomADe_EAS_AF",
+      "gnomADe_FIN_AF",
+      "gnomADe_MID_AF",
+      "gnomADe_NFE_AF",
+      "gnomADe_REMAINING_AF",
+      "gnomADe_SAS_AF",
+      "gnomADg_AF",
+      "gnomADg_AFR_AF",
+      "gnomADg_AMI_AF",
+      "gnomADg_AMR_AF",
+      "gnomADg_ASJ_AF",
+      "gnomADg_EAS_AF",
+      "gnomADg_FIN_AF",
+      "gnomADg_MID_AF",
+      "gnomADg_NFE_AF",
+      "gnomADg_REMAINING_AF",
+      "gnomADg_SAS_AF"
+    ],
+    "reference_mismatches": []
+  },
+  {
+    "id": "DT-2e50dd94b9",
+    "status": "FAIL",
+    "detail": "Observed body mismatch: USED_REF. Primary property passes. See committed failure evidence.",
+    "fields": [
+      "USED_REF"
+    ],
+    "reference_mismatches": [
+      {
+        "chrom": "21",
+        "pos": 25587759,
+        "input_ref": "AC",
+        "fasta_ref": "TA"
+      }
+    ]
+  },
+  {
+    "id": "DT-fe6e88ded9",
+    "status": "FAIL",
+    "detail": "Observed body mismatch: HGVSp. Primary property passes. See committed failure evidence.",
+    "fields": [
+      "HGVSp"
+    ],
+    "reference_mismatches": []
+  },
+  {
+    "id": "DT-f43eb8eb24",
+    "status": "FAIL",
+    "detail": "Observed body mismatch: HGVSp. Primary property passes. See committed failure evidence.",
+    "fields": [
+      "HGVSp"
+    ],
+    "reference_mismatches": []
+  },
+  {
+    "id": "DT-cce7b4c742",
+    "status": "FAIL",
+    "detail": "Observed body mismatch: USED_REF. Primary property passes. See committed failure evidence.",
+    "fields": [
+      "USED_REF"
+    ],
+    "reference_mismatches": [
+      {
+        "chrom": "21",
+        "pos": 25587759,
+        "input_ref": "AC",
+        "fasta_ref": "TA"
+      }
+    ]
+  },
+  {
+    "id": "DT-61ac08b70b",
+    "status": "FAIL",
+    "detail": "Observed body mismatch: HGVSc, USED_REF. Primary property passes. See committed failure evidence.",
+    "fields": [
+      "HGVSc",
+      "USED_REF"
+    ],
+    "reference_mismatches": [
+      {
+        "chrom": "21",
+        "pos": 25587759,
+        "input_ref": "G",
+        "fasta_ref": "T"
+      },
+      {
+        "chrom": "21",
+        "pos": 25587762,
+        "input_ref": "C",
+        "fasta_ref": "T"
+      }
+    ]
+  },
+  {
+    "id": "DT-dff61aedd9",
+    "status": "FAIL",
+    "detail": "Observed body mismatch: HGVSc, USED_REF. Primary property passes. See committed failure evidence.",
+    "fields": [
+      "HGVSc",
+      "USED_REF"
+    ],
+    "reference_mismatches": [
+      {
+        "chrom": "1",
+        "pos": 1000000,
+        "input_ref": "AC",
+        "fasta_ref": "GG"
+      }
+    ]
+  }
+]

@@ -1,0 +1,123 @@
+{
+  "vep_entries": 21,
+  "vepyr_entries": 21,
+  "ordered_entry_differences": [
+    {
+      "feature": "ENST00000304952",
+      "differences": {
+        "HGVSc": {
+          "vep": "ENST00000304952.11:c.-28C>A",
+          "vepyr": "ENST00000304952.11:c.-28_-27inv"
+        },
+        "USED_REF": {
+          "vep": "GG",
+          "vepyr": "AC"
+        }
+      }
+    },
+    {
+      "feature": "ENST00000428771",
+      "differences": {
+        "HGVSc": {
+          "vep": "ENST00000428771.6:c.-28C>A",
+          "vepyr": "ENST00000428771.6:c.-28_-27inv"
+        },
+        "USED_REF": {
+          "vep": "GG",
+          "vepyr": "AC"
+        }
+      }
+    },
+    {
+      "feature": "ENST00000481869",
+      "differences": {
+        "HGVSc": {
+          "vep": "ENST00000481869.1:n.96C>A",
+          "vepyr": "ENST00000481869.1:n.96_97inv"
+        },
+        "USED_REF": {
+          "vep": "GG",
+          "vepyr": "AC"
+        }
+      }
+    },
+    {
+      "feature": "ENST00000484667",
+      "differences": {
+        "HGVSc": {
+          "vep": "ENST00000484667.3:c.-28C>A",
+          "vepyr": "ENST00000484667.3:c.-28_-27inv"
+        },
+        "USED_REF": {
+          "vep": "GG",
+          "vepyr": "AC"
+        }
+      }
+    },
+    {
+      "feature": "ENST00000854802",
+      "differences": {
+        "HGVSc": {
+          "vep": "ENST00000854802.2:c.-28C>A",
+          "vepyr": "ENST00000854802.2:c.-28_-27inv"
+        },
+        "USED_REF": {
+          "vep": "GG",
+          "vepyr": "AC"
+        }
+      }
+    },
+    {
+      "feature": "ENST00000985004",
+      "differences": {
+        "HGVSc": {
+          "vep": "ENST00000985004.1:c.-28C>A",
+          "vepyr": "ENST00000985004.1:c.-28_-27inv"
+        },
+        "USED_REF": {
+          "vep": "GG",
+          "vepyr": "AC"
+        }
+      }
+    },
+    {
+      "feature": "ENST00001017706",
+      "differences": {
+        "HGVSc": {
+          "vep": "ENST00001017706.1:c.-28C>A",
+          "vepyr": "ENST00001017706.1:c.-28_-27inv"
+        },
+        "USED_REF": {
+          "vep": "GG",
+          "vepyr": "AC"
+        }
+      }
+    },
+    {
+      "feature": "ENST00001017707",
+      "differences": {
+        "HGVSc": {
+          "vep": "ENST00001017707.1:c.-28C>A",
+          "vepyr": "ENST00001017707.1:c.-28_-27inv"
+        },
+        "USED_REF": {
+          "vep": "GG",
+          "vepyr": "AC"
+        }
+      }
+    },
+    {
+      "feature": "ENST00001140281",
+      "differences": {
+        "HGVSc": {
+          "vep": "ENST00001140281.1:c.-28C>A",
+          "vepyr": "ENST00001140281.1:c.-28_-27inv"
+        },
+        "USED_REF": {
+          "vep": "GG",
+          "vepyr": "AC"
+        }
+      }
+    }
+  ]
+}
