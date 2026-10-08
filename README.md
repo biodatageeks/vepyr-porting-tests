@@ -100,7 +100,9 @@ separate PR, or pass `--old-vepyr-cache` to proceed with the old cache. The guar
 never changes what is fetched and never edits `PINS.toml`. It also applies under
 `--dry-run` and `--only`; `--list` and `--help` do not query the Hub. The summary
 then carries `old cache: no` when the guard passed, or `old cache: YES (consented)`
-when the flag let an old cache through, followed by one line per flavour with its
+when the flag let an old cache through, or
+`old cache: YES (refused; pass --old-vepyr-cache to consent)` on an exit-7 refusal,
+followed by one line per flavour with its
 pinned and HEAD shas. Offline and CI runs must pass `--old-vepyr-cache`
 explicitly.
 

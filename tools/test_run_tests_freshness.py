@@ -33,6 +33,15 @@ from run_tests.verdict import Exit
 
 NEWER: str = "f" * 40
 """A Hub HEAD that differs from every pin."""
+REFUSED: str = "old cache: YES (refused; pass --old-vepyr-cache to consent)"
+CONSENTED: str = "old cache: YES (consented)"
+
+
+def assert_refused(result: Outcome) -> None:
+    """Exit 7, and the summary says refused, never consented."""
+    assert result.code == int(Exit.STALE_CACHE), result.stderr
+    assert REFUSED in result.summary
+    assert CONSENTED not in result.summary
 
 
 def newer_head(repo_id: str, ref: str) -> str:
@@ -82,6 +91,7 @@ def test_fresh_pin_records_no_old_cache(harness: Harness) -> None:
 def test_newer_head_exits_stale(harness: Harness) -> None:
     result = _fetch(harness, head_resolver=newer_head)
     assert result.code == int(Exit.STALE_CACHE) == 7
+    assert_refused(result)
     assert REVISIONS[Flavour.ENSEMBL] in result.stderr
     assert NEWER in result.stderr
     assert "--old-vepyr-cache" in result.stderr
@@ -92,13 +102,14 @@ def test_newer_head_exits_stale(harness: Harness) -> None:
 def test_consent_flag_records_old_cache(harness: Harness) -> None:
     result = _fetch(harness, "--old-vepyr-cache", head_resolver=newer_head)
     assert result.code == int(Exit.OK), result.stderr
-    assert "old cache: YES (consented)" in result.summary
+    assert CONSENTED in result.summary
+    assert "refused" not in result.summary
     assert f"HEAD(main) {NEWER}" in result.summary
 
 
 def test_hub_unreachable_exits_stale(harness: Harness) -> None:
     result = _fetch(harness, head_resolver=unreachable_head)
-    assert result.code == int(Exit.STALE_CACHE)
+    assert_refused(result)
     assert "freshness unknown" in result.stderr
 
 
@@ -113,14 +124,15 @@ def fetched_env(harness: Harness, monkeypatch: pytest.MonkeyPatch) -> Harness:
 def test_no_provenance_exits_stale(fetched_env: Harness) -> None:
     # refseq is selected but the root (used as-is) has no PROVENANCE record for it.
     result = fetched_env.run("--flavours", "ensembl,refseq")
-    assert result.code == int(Exit.STALE_CACHE), result.stderr
+    assert_refused(result)
     assert "no PROVENANCE.json record" in result.stderr
 
 
 def test_no_provenance_with_consent_flag(fetched_env: Harness) -> None:
     result = fetched_env.run("--flavours", "ensembl,refseq", "--old-vepyr-cache")
     assert result.code == int(Exit.OK), result.stderr
-    assert "old cache: YES (consented)" in result.summary
+    assert CONSENTED in result.summary
+    assert "refused" not in result.summary
 
 
 def test_dry_run_exits_stale(harness: Harness) -> None:
@@ -208,3 +220,40 @@ def test_real_resolver_unreachable_hub_exits_stale(tmp_path: Path) -> None:
     assert "Traceback" not in proc.stderr
     assert "freshness unknown" in proc.stderr
     assert not (tmp_path / "root").exists()
+
+
+def test_resolver_gets_the_pins_ref(harness: Harness) -> None:
+    """The guard resolves the pin's own ``ref``, not a hard-coded ``main``."""
+    pins = harness.repo / "PINS.toml"
+    text = pins.read_text(encoding="utf-8")
+    marker = "[hf_cache_merged]"
+    head, _, tail = text.partition(marker)
+    pins.write_text(
+        head + marker + tail.replace('ref = "main"', 'ref = "release-x"', 1),
+        encoding="utf-8",
+    )
+    calls: list[tuple[str, str]] = []
+
+    def resolver(repo_id: str, ref: str) -> str:
+        calls.append((repo_id, ref))
+        return REVISIONS[Flavour.MERGED]
+
+    result = harness.run(
+        "--cache-dir",
+        str(harness.root),
+        "--flavours",
+        "merged",
+        "--dry-run",
+        head_resolver=resolver,
+    )
+    assert result.code == int(Exit.OK), result.stderr
+    assert calls == [("biodatageeks/vepyr_116_GRCh38_merged", "release-x")]
+
+
+def test_upper_case_head_sha_is_fresh(harness: Harness) -> None:
+    """Shas are hex: an upper-case Hub answer equal to the pin is not stale."""
+    result = _fetch(
+        harness, head_resolver=lambda repo_id, ref: fresh_head(repo_id, ref).upper()
+    )
+    assert result.code == int(Exit.OK), result.stderr
+    assert "old cache: no" in result.summary

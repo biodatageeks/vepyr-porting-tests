@@ -86,7 +86,13 @@ class FreshnessReport:
 
     def summary_lines(self) -> list[str]:
         """``old cache: no`` / ``old cache: YES (consented)`` plus per-flavour shas."""
-        head = "old cache: YES (consented)" if self.old else "old cache: no"
+        match (self.old, self.consented):
+            case (False, _):
+                head = "old cache: no"
+            case (True, True):
+                head = "old cache: YES (consented)"
+            case _:
+                head = f"old cache: YES (refused; pass {CONSENT_FLAG} to consent)"
         return [head, *(f"  {f.describe()}" for f in self.flavours)]
 
     def refusal(self) -> RunTestsError:
@@ -138,7 +144,9 @@ def check(
         head: str | None
         error: str | None = None
         try:
-            head = resolver(pin.repo_id, pin.ref)
+            # Shas are hex: compare case-insensitively, so an upper-case answer
+            # is not mistaken for a newer commit.
+            head = resolver(pin.repo_id, pin.ref).lower()
         except Exception as exc:  # any failure means "unknown": fail closed
             head, error = None, f"{type(exc).__name__}: {exc}".splitlines()[0]
         results.append(
@@ -146,7 +154,7 @@ def check(
                 flavour=flavour.value,
                 repo_id=pin.repo_id,
                 ref=pin.ref,
-                pinned=pin.revision,
+                pinned=pin.revision.lower(),
                 head=head,
                 error=error,
                 no_provenance=check_disk and flavour.value not in recorded,
