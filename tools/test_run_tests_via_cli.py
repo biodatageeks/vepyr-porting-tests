@@ -17,12 +17,19 @@ from dataclasses import dataclass, field
 from pathlib import Path
 
 import pytest
-from test_run_tests_cli import Harness, Outcome, _FakeGh, _tiny_ladder_toml
+from test_run_tests_cli import (
+    Harness,
+    Outcome,
+    _FakeGh,
+    _tiny_ladder_toml,
+    fresh_head,
+)
 from test_run_tests_cli import harness as harness  # re-exported pytest fixture
 
 from run_tests import cli, tests, via_cli
+from run_tests.fetch import HeadResolver
 from run_tests.verdict import Exit, RunTestsError
-from run_tests.via_cli import CliBuild, body_md5
+from run_tests.via_cli import CliBuild, VepyrBuilder, body_md5
 
 HEADER = b"##fileformat=VCFv4.2\n#CHROM\tPOS\n"
 GOOD_BODY = b"21\t100\t.\tA\tG\t.\t.\tCSQ=x\n"
@@ -89,8 +96,14 @@ def ready(harness: Harness, monkeypatch: pytest.MonkeyPatch) -> Harness:
     return harness
 
 
-def _run(h: Harness, fake: FakeCli, *dirs: Path) -> Outcome:
-    argv = ["--via-cli", "--vepyr", "0.7.0"]
+def _run(
+    h: Harness,
+    fake: FakeCli,
+    *dirs: Path,
+    head_resolver: HeadResolver = fresh_head,
+    builder: VepyrBuilder = _builder,
+) -> Outcome:
+    argv = ["--via-cli", "--vepyr", "0.7.0", "--flavours", "ensembl"]
     for d in dirs:
         argv += ["--only", str(d)]
     out, err = io.StringIO(), io.StringIO()
@@ -102,7 +115,8 @@ def _run(h: Harness, fake: FakeCli, *dirs: Path) -> Outcome:
             cargo_runner=h.cargo,
             gh_api=_FakeGh(_tiny_ladder_toml()),
             cli_runner=fake,
-            vepyr_builder=_builder,
+            vepyr_builder=builder,
+            head_resolver=head_resolver,
         )
     return Outcome(code=code, stdout=out.getvalue(), stderr=err.getvalue())
 
@@ -228,3 +242,25 @@ def test_build_failure_is_engine(
     with pytest.raises(RunTestsError) as caught:
         via_cli.build_vepyr("c" * 40, tmp_path)
     assert caught.value.code is Exit.ENGINE
+
+
+def test_stale_pin_exits_7_before_build_or_run(ready: Harness, tmp_path: Path) -> None:
+    """The #236 freshness guard also gates ``--via-cli``: no build, no vepyr run."""
+    built: list[str] = []
+
+    def spy_builder(sha: str, root: Path) -> CliBuild:
+        built.append(sha)
+        return BUILD
+
+    fake = FakeCli()
+    got = _run(
+        ready,
+        fake,
+        _data_test(tmp_path, "one"),
+        head_resolver=lambda repo_id, ref: "f" * 40,
+        builder=spy_builder,
+    )
+    assert got.code == int(Exit.STALE_CACHE) == 7, got.stderr
+    assert not built
+    assert not fake.calls
+    assert "PASS" not in got.stdout and "MISMATCH" not in got.stdout

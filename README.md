@@ -44,6 +44,7 @@ export VEPYR_CACHE_ROOT=/mnt/hf-cache
 | `--vepyr REF` | Resolves `REF` on biodatageeks/vepyr and path-patches that revision's dfbf/formats ladder. **Optional:** omitted, data-tests run against `master`'s current HEAD; the summary prints the full 40-char resolved sha either way. Pass `REF` whenever a pinned, reproducible run is wanted (CI, bisecting, ledger evidence) |
 | `--only DIR` | Repeatable. Runs only the named data-test directories (each holds `test.toml`; may be outside `tests/data`, e.g. a scratch copy): they are copied into a fresh temporary root that `DATA_DIRS_ROOT` names, cargo runs only the exact `data_dirs` test, and the root is deleted afterwards; `tests/data` is never touched. The summary's `targets` line lists exactly these names. A missing directory, one without `test.toml`, or two with the same basename is a usage error (exit 2, `not a data-test directory`). The engine is still `--vepyr REF` (or its default) |
 | `--via-cli` | Annotates each selected data-test (all of `tests/data`, or the `--only` directories, which may be outside `tests/data`) through the user-facing `python -m vepyr annotate` CLI instead of `cargo test --test data_dirs`; it complements the Rust loop, it does not replace it. See "`--via-cli` mode" below |
+| `--old-vepyr-cache` | Consent to a vepyr cache that is not provably the newest (see "Cache freshness guard" below): the run proceeds and the summary records `old cache: YES (consented)` |
 
 **"Targets" means data-test directories** — `tests/data/<name>/` holding a
 `test.toml` (see [Porting method](#porting-method)). `--list` prints their names.
@@ -81,7 +82,8 @@ Xet download concurrency/buffers via `hf_xet` (already pulled in with
 Exit codes: `0` ok, `1` data-tests failed, `2` usage (missing cache),
 `3` revision clash vs `PINS.toml`, `4` incomplete selection or missing cache
 pieces, `5` verification failure, `6` engine resolve/checkout failure (with
-`--via-cli` also a failed vepyr build or run), `8` `--via-cli` body MISMATCH. Every run
+`--via-cli` also a failed vepyr build or run), `7` stale cache (see below;
+`--old-vepyr-cache` consents), `8` `--via-cli` body MISMATCH. Every run
 ends with a summary of effective flags, the cache directory, targets, the
 contigs accumulated per flavour, and the `vepyr sha` line naming the exact
 40-char revision the run tested against.
@@ -111,9 +113,31 @@ prints `PASS <dir-name>` on stdout; a mismatching one prints exactly
 directory, the first mismatching run), and the run exits `8` (`Exit.MISMATCH`).
 Precedence: any other error wins and sets the exit code (`2` unmappable or unusable
 `test.toml`, `6` vepyr build failure or a vepyr run that exits non-zero or writes no
-output, `3`/`4` cache errors), while the `MISMATCH` lines of the compared directories
+output, `3`/`4` cache errors, `7` stale cache), while the `MISMATCH` lines of the compared directories
 are still printed. Exit `8` therefore means every selected run was compared and at
 least one mismatched.
+
+**Cache freshness guard.** Whenever a cache root is given (`--cache-dir` or
+`$VEPYR_CACHE_ROOT`), before any download or data-test, `./run_tests` asks the
+Hugging Face Hub, once per flavour selected by `--flavours` (one `dataset_info`
+call, 10 s timeout), which commit the pin's `ref` (`main`) points to now, and
+compares it with the `sha` in `PINS.toml`. The run exits `7` when:
+
+- the Hub HEAD differs from the pinned `sha` (a newer dataset exists);
+- the Hub cannot be reached or the HEAD cannot be resolved (`freshness unknown`);
+- the root is used as-is (no `--cache-dir`, no `--dry-run`) and `PROVENANCE.json`
+  has no record for a selected flavour (freshness cannot be established).
+
+The message names the pinned and HEAD shas. Bump `PINS.toml` deliberately in a
+separate PR, or pass `--old-vepyr-cache` to proceed with the old cache. The guard
+never changes what is fetched and never edits `PINS.toml`. It also applies under
+`--dry-run` and `--only`; `--list` and `--help` do not query the Hub. The summary
+then carries `old cache: no` when the guard passed, or `old cache: YES (consented)`
+when the flag let an old cache through, or
+`old cache: YES (refused; pass --old-vepyr-cache to consent)` on an exit-7 refusal,
+followed by one line per flavour with its
+pinned and HEAD shas. Offline and CI runs must pass `--old-vepyr-cache`
+explicitly.
 
 Without a cache root (`--cache-dir` or `$VEPYR_CACHE_ROOT`), an invocation
 (without `--help` / `--list`) exits 2. With targets present, the cargo run needs

@@ -72,6 +72,7 @@ __all__ = [
     "FastaPin",
     "FetchOutcome",
     "Flavour",
+    "HeadResolver",
     "Provenance",
     "RemoteFile",
     "Selection",
@@ -81,6 +82,7 @@ __all__ = [
     "fetch_fasta",
     "git_sha",
     "hub_downloader",
+    "hub_head_resolver",
     "hub_lister",
     "load_dataset_pins",
     "plan",
@@ -157,6 +159,9 @@ class DatasetPin:
     name: str
     repo_id: str
     revision: str
+    ref: str = "main"
+    """The pin's ``ref`` (the Hub branch it was taken from); the freshness guard
+    resolves it to the Hub HEAD sha and compares that with :attr:`revision`."""
 
     @classmethod
     def from_table(cls, name: str, table: dict[str, object]) -> DatasetPin:
@@ -171,6 +176,7 @@ class DatasetPin:
             name=name,
             repo_id=repo.removeprefix(_DATASET_HOST).rstrip("/"),
             revision=str(table["sha"]),
+            ref=str(table.get("ref", "main")),
         )
 
 
@@ -291,6 +297,37 @@ class Downloader(Protocol):
     ) -> None:
         """Fetch the matching files of ``repo_id``@``revision`` into ``local_dir``."""
         ...
+
+
+class HeadResolver(Protocol):
+    """Resolves a Hub ref to its current commit sha (the freshness guard, #236).
+
+    Injected so tests never touch the network. Any exception means the HEAD is
+    unknown; the guard then fails closed.
+    """
+
+    def __call__(self, repo_id: str, ref: str) -> str:
+        """The 40-char commit sha ``ref`` of dataset ``repo_id`` points to now."""
+        ...
+
+
+HEAD_TIMEOUT_S: Final[float] = 10.0
+"""Timeout of the one ``dataset_info`` call per flavour the freshness guard makes."""
+
+
+def hub_head_resolver(repo_id: str, ref: str) -> str:
+    """The real resolver: one ``dataset_info(revision=ref)`` call, no file metadata.
+
+    Raises:
+        Exception: whatever ``huggingface_hub`` raises (unreachable Hub, timeout,
+            unknown repo or ref); the guard reports it as "freshness unknown".
+    """
+    from huggingface_hub import HfApi
+
+    info = HfApi().dataset_info(repo_id, revision=ref, timeout=HEAD_TIMEOUT_S)
+    if not info.sha:
+        raise ValueError(f"{repo_id}@{ref}: the Hub answered without a commit sha")
+    return info.sha
 
 
 def hub_lister(repo_id: str, revision: str) -> list[RemoteFile]:
