@@ -1,4 +1,4 @@
-"""Load and validate ``PINS.toml`` — dataset pins for the VEP 116 corpus.
+"""Load and validate ``PINS.toml`` — dataset pins for the VEP cache 116 corpus.
 
 This repository pins Hugging Face cache datasets and the GRCh38 FASTA only.
 The engine under test is a run-time argument, not a pin in this file.

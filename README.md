@@ -26,13 +26,15 @@ export VEPYR_CACHE_ROOT=/mnt/hf-cache
 ./run_tests
 # run only chosen data-test directories (repeatable; may be scratch copies):
 ./run_tests --only tests/data/intergenic_variant_single_record --vepyr master
+# annotate through the user-facing `python -m vepyr annotate` CLI instead of cargo:
+./run_tests --cache-dir /mnt/hf-cache --via-cli --only tests/data/intergenic_variant_single_record
 ```
 
 | Flag | Status in this commit |
 |------|------------------------|
 | `--help` | Exit 0 |
 | `--list` | Lists the data-test directories `tests/data/<name>/` present in the working tree; exit 0 |
-| `--cache-dir DIR` | Downloads the pinned VEP 116 shards into `DIR` and writes `PROVENANCE.json`; then runs data-tests when targets exist |
+| `--cache-dir DIR` | Downloads the pinned VEP cache 116 shards into `DIR` and writes `PROVENANCE.json`; then runs data-tests when targets exist |
 | `--add-contigs LIST` | Adds the named contigs to `DIR` (not `--contigs`). Default: whole genome |
 | `--flavours LIST` | Default `ensembl,refseq,merged` |
 | `--dry-run` | Lists Hub files and byte totals; writes nothing; does not run tests |
@@ -41,6 +43,8 @@ export VEPYR_CACHE_ROOT=/mnt/hf-cache
 | `--no-trim-manifests` | Leaves `chrom_manifest.json` naming shards that were not fetched |
 | `--vepyr REF` | Resolves `REF` on biodatageeks/vepyr and path-patches that revision's dfbf/formats ladder. **Optional:** omitted, data-tests run against `master`'s current HEAD; the summary prints the full 40-char resolved sha either way. Pass `REF` whenever a pinned, reproducible run is wanted (CI, bisecting, ledger evidence) |
 | `--only DIR` | Repeatable. Runs only the named data-test directories (each holds `test.toml`; may be outside `tests/data`, e.g. a scratch copy): they are copied into a fresh temporary root that `DATA_DIRS_ROOT` names, cargo runs only the exact `data_dirs` test, and the root is deleted afterwards; `tests/data` is never touched. The summary's `targets` line lists exactly these names. A missing directory, one without `test.toml`, or two with the same basename is a usage error (exit 2, `not a data-test directory`). The engine is still `--vepyr REF` (or its default) |
+| `--via-cli` | Annotates each selected data-test (all of `tests/data`, or the `--only` directories, which may be outside `tests/data`) through the user-facing `python -m vepyr annotate` CLI instead of `cargo test --test data_dirs`; it complements the Rust loop, it does not replace it. See "`--via-cli` mode" below |
+| `--old-vepyr-cache` | Consent to a vepyr cache that is not provably the newest (see "Cache freshness guard" below): the run proceeds and the summary records `old cache: YES (consented)` |
 
 **"Targets" means data-test directories** — `tests/data/<name>/` holding a
 `test.toml` (see [Porting method](#porting-method)). `--list` prints their names.
@@ -77,10 +81,63 @@ Xet download concurrency/buffers via `hf_xet` (already pulled in with
 
 Exit codes: `0` ok, `1` data-tests failed, `2` usage (missing cache),
 `3` revision clash vs `PINS.toml`, `4` incomplete selection or missing cache
-pieces, `5` verification failure, `6` engine resolve/checkout failure. Every run
+pieces, `5` verification failure, `6` engine resolve/checkout failure (with
+`--via-cli` also a failed vepyr build or run), `7` stale cache (see below;
+`--old-vepyr-cache` consents), `8` `--via-cli` body MISMATCH. Every run
 ends with a summary of effective flags, the cache directory, targets, the
 contigs accumulated per flavour, and the `vepyr sha` line naming the exact
 40-char revision the run tested against.
+
+**`--via-cli` mode** (#231). The vepyr CLI is built from `biodatageeks/vepyr` at
+the sha that `--vepyr REF` (default: `master` HEAD) resolves to, once per sha, into
+`<cache root>/.vepyr_cli/<sha>/` (a shallow git fetch of that sha, `uv build --wheel`,
+`uv venv` + `uv pip install`); `BUILD.json` there and the summary detail record the
+vepyr sha and the wheel's sha256. For each directory, `tools/run_tests/cli_argv.py`
+derives the argv from `test.toml` `[vepyr]` and each `[[vepyr_run]]` override:
+`flavour` -> `--dir_cache <root>/116_GRCh38_<flavour>`, `reference_fasta = true` ->
+`--fasta <root>/fasta/<pinned .fa>`, `everything = true` -> `--everything`, plus
+`--cache_version 116 --no_progress`; `preserve_record_layout = true` and
+`buffer_size = 5000` are the CLI's defaults (no flag); `required_contigs` emits no
+flag. A value the CLI cannot express (`buffer_size != 5000`,
+`preserve_record_layout = false`, `everything = false`, `reference_fasta = false`)
+or an unknown key is an `UnmappableKey`: that directory is not run, each such run is
+named on stderr, and the exit code is `2`. At vepyr `af305aff` this applies to 4 of
+the 5 runs of `runner_buffer_size_invariance` (`buffer_size = 1, 2, 3, 5`), which
+therefore cannot run via the CLI; the default cargo path still runs them.
+
+Each output is compared by the same rule as `tests/data_dirs.rs`: md5 of the body
+(every line not starting with `#`, line terminators kept) against
+`[compare] body_md5`. Body-mismatch contract: a directory whose every run matched
+prints `PASS <dir-name>` on stdout; a mismatching one prints exactly
+`MISMATCH <dir-name> expected=<md5> actual=<md5>` on stdout (one line per
+directory, the first mismatching run), and the run exits `8` (`Exit.MISMATCH`).
+Precedence: any other error wins and sets the exit code (`2` unmappable or unusable
+`test.toml`, `6` vepyr build failure or a vepyr run that exits non-zero or writes no
+output, `3`/`4` cache errors, `7` stale cache), while the `MISMATCH` lines of the compared directories
+are still printed. Exit `8` therefore means every selected run was compared and at
+least one mismatched.
+
+**Cache freshness guard.** Whenever a cache root is given (`--cache-dir` or
+`$VEPYR_CACHE_ROOT`), before any download or data-test, `./run_tests` asks the
+Hugging Face Hub, once per flavour selected by `--flavours` (one `dataset_info`
+call, 10 s timeout), which commit the pin's `ref` (`main`) points to now, and
+compares it with the `sha` in `PINS.toml`. The run exits `7` when:
+
+- the Hub HEAD differs from the pinned `sha` (a newer dataset exists);
+- the Hub cannot be reached or the HEAD cannot be resolved (`freshness unknown`);
+- the root is used as-is (no `--cache-dir`, no `--dry-run`) and `PROVENANCE.json`
+  has no record for a selected flavour (freshness cannot be established).
+
+The message names the pinned and HEAD shas. Bump `PINS.toml` deliberately in a
+separate PR, or pass `--old-vepyr-cache` to proceed with the old cache. The guard
+never changes what is fetched and never edits `PINS.toml`. It also applies under
+`--dry-run` and `--only`; `--list` and `--help` do not query the Hub. The summary
+then carries `old cache: no` when the guard passed, or `old cache: YES (consented)`
+when the flag let an old cache through, or
+`old cache: YES (refused; pass --old-vepyr-cache to consent)` on an exit-7 refusal,
+followed by one line per flavour with its
+pinned and HEAD shas. Offline and CI runs must pass `--old-vepyr-cache`
+explicitly.
 
 Without a cache root (`--cache-dir` or `$VEPYR_CACHE_ROOT`), an invocation
 (without `--help` / `--list`) exits 2. With targets present, the cargo run needs
@@ -164,6 +221,48 @@ one failing fixture per check id, `not-json.txt`); `tools/fixtures/gh_stub/gh` i
 offline `gh` that serves one fixture from `$GH_STUB_STATE` and logs every call to
 `$GH_STUB_STATE.log`. Tests: `tools/test_pr_status.py`.
 
+## ./issue_status (read-only issue hand-over gate)
+
+`./issue_status N` answers whether issue `N` may be handed over to the owner
+(`state:manual-reviewing-issue`; #178, the rules are in `AGENTS.md`, "Issue and pull
+request lifecycle"). It only reads: one `gh issue view N --json
+number,body,labels,comments`. It never changes a label, a comment or the body.
+
+```bash
+./issue_status 178                                                       # real mode
+./issue_status --from-json tools/fixtures/issue_status/ready.json        # READY, exit 0
+./issue_status --from-json tools/fixtures/issue_status/status-stale.json # FAIL status-stale: ..., exit 1
+```
+
+It prints one `FAIL <check>: <reason>` line per failed check (all of them) or `READY`.
+A record is pinned to the body by `body_sha256`, the sha256 of the UTF-8 bytes of the
+`body` string `gh issue view N --json body` returns (nothing appended). The checks:
+`status-missing`, `status-duplicate` (exactly one issue comment whose first non-empty
+line is `### issue-status:v1`, with a valid fenced `json` block), `status-stale`
+(`"stale": true`, or its `body_sha256` is not the current body's), `issue-check` (its
+`issue_check` is not 0), `ac-passes-on-master` (no AC rows, or a row with
+`master_exit` = `expected` that is not a `regression_guard`), `verdict-missing` (no
+`### issue-review:v1` verdict whose `body_sha256` is the current body's: a verdict for
+an older body never counts), `verdict-findings` (the latest such verdict is not exactly
+`CLEAN`), `dry-run-mismatch` (a status AC id missing from the verdict's `ac_dry_run`, a
+dry-run exit that differs from the row's `master_exit`, or the verdict's `master`
+differing from the status `master`), and `state-label` (exactly one `state:*` label,
+`state:auto-reviewing-issue` or `state:manual-reviewing-issue`, so the gate passes
+before the hand-over move). Checks that need the status data are skipped when it is
+missing or duplicated, the verdict checks when there is no current verdict.
+
+The verdicts are ordered by `createdAt`; with equal `createdAt` the comment later in the `comments` list is the later verdict (a stable sort). A status comment without a valid `json` block is `FAIL status-missing` (exit 1), but a `### issue-review:v1` comment without a valid block, or with a block that does not follow the schema, is a tool error (exit 2) naming the comment by `createdAt` and URL, even when a compliant verdict sits next to it. A review written before #178 under that heading (`"role":"review"`, verdict `APPROVE`/`CHANGES_REQUESTED`) is such a comment: change its first line to `### issue-review-legacy:v0`, which the gate ignores, or delete it (the `gh api` command is in `AGENTS.md`, "Issue records").
+
+Exit codes: `0` ready, `1` not ready, `2` usage or tool error (no argument, non-numeric
+`N`, unreadable or non-JSON input, `gh` missing or failing, or malformed input: every
+field the gate reads is type-checked, including `body_sha256` as 64 and `master` as 40
+lowercase hex characters, and a verdict comment without a valid `json` block is one
+`issue_status: malformed input:` line, never a pass). Fixtures:
+`tools/fixtures/issue_status/` (`ready.json`, one failing fixture per check id,
+`not-json.txt`); real-mode tests serve the issue through `tools/fixtures/gh_stub/gh`.
+Tests: `tools/test_issue_status.py`. The parsing helpers and exit codes are shared with
+`./pr_status` (`tools/pr_status/gate.py`), which is unchanged.
+
 ## ./set_state (state-label writer)
 
 `./set_state` is the only tool that writes the `state:*` labels (#158). It reads the
@@ -171,7 +270,8 @@ current labels, refuses any move that is not one of the 20 legal transitions (th
 table is in `AGENTS.md`), and runs the `./pr_status` gate and refuses unless it is READY
 before two PR moves: `state:manual-reviewing` (the hand-over stage,
 `./pr_status --handover N`) and `state:awaiting-merge` (the owner's stage,
-`./pr_status N`). Then it makes one `gh <kind> edit` call per moved item and reads the
+`./pr_status N`); and it runs the `./issue_status N` gate and refuses unless it is READY
+before the issue hand-over `state:manual-reviewing-issue` (#178). Then it makes one `gh <kind> edit` call per moved item and reads the
 labels back.
 
 A PR move is mirrored to each closing issue (#177): the PR's
@@ -208,8 +308,10 @@ the offline `gh` stub.
 
 `tools/check_ledger` checks that the assertion ledger CSV (`ledger/assertions.csv`,
 schema of #109; committed by #109: 1965 assertions of 49 files, one row each) has
-exactly one row per assertion of the 49 upstream `t/*.t` files of Ensembl VEP
-`release/116.0` (#110), and nothing else.
+exactly one row per assertion of the 49 upstream `t/*.t` files of Ensembl VEP at
+the upstream tag pinned in `tools/check_ledger` (`DEFAULT_REF`, #110), and nothing
+else. The ledger is its own axis: it stays at that tag (VEP 116.0) while the
+data-test oracles use the VEP 116.2 pin of `tools/vep_pin.toml` (#239).
 
 ```bash
 tools/check_ledger --csv ledger/assertions.csv               # schema + coverage, clones upstream
@@ -222,7 +324,7 @@ tools/check_ledger --upstream UP --sweep --glob 't/*.pm'      # the 8 support mo
 Without `--upstream` it makes a partial sparse clone of the tag into a temp dir
 (`t/*.t`, `t/*.pm` and `modules/Bio/EnsEMBL/VEP/Config.pm`, about 1 MB); with
 `--upstream DIR` it uses that checkout. Either way `git rev-parse HEAD` must be
-`57ea5c52340acc1f156267f810ad162e26597082` and `git status --porcelain` empty;
+`PINNED_COMMIT` of `tools/check_ledger` and `git status --porcelain` empty;
 `--ref` only picks the tag to clone, the pin does not move. The files the glob
 selects on disk must also equal those in `git ls-tree -r HEAD` at the pin: a clean,
 pinned but sparse checkout that omits or adds a file exits 2 (`files matching ...
@@ -252,6 +354,30 @@ two sweeps and, once `ledger/assertions.csv` exists, the CSV check (Actions is
 disabled, see `AGENTS.md`). Tests: `tools/test_check_ledger.py` (offline, against a
 synthetic upstream repository).
 
+## tools/check_vep_version (one VEP software pin)
+
+Every data-test oracle is produced by **VEP software 116.2** against **VEP cache
+116** (VEP point releases reuse the release-116 cache; there is no 116.2 cache).
+The pin is defined once, in `tools/vep_pin.toml` (`[vep]` `image_tag`,
+`image_digest`, `upstream_tag`, `upstream_commit`, `cache_version`); `./bless`,
+`tools/check_campaign.py` and the `tests/data_dirs.rs` self-test read it, and no
+other code spells the digest or the commit (#239).
+
+```bash
+tools/check_vep_version          # exit 0 consistent, 1 a violation, 2 pin/allow-list/git unusable
+```
+
+It requires every `tests/data/*/test.toml` to record the pinned `[vep] image`
+digest, `[origin] vep_test_pinned` / `vep_subject` at the pinned commit and
+`vep_test` at the pinned tag or commit, with no VEP 116.0 literal in the file, and
+`git grep`s the rest of the repo for VEP 116.0 literals (the ledger axis,
+`tests/INDEX.csv`, `docs/porting/**` and the checker's own two files are skipped).
+**Temporary:** the 16 data-tests blessed with VEP 116.0 before the pin are named in
+`tools/vep_pin_legacy_allowlist.txt` (exactly 16 entries, each still recording the
+116.0 digest; a missing file is an empty list). #237 re-blesses them and deletes the
+list. The `test-index` workflow runs the check and its unit tests
+(`tools/test_check_vep_version.py`).
+
 ## ./check_env (local prerequisites)
 
 `./check_env` (issue #170) answers "can the repo tools run on this machine" with
@@ -277,7 +403,7 @@ environment before checking `UV_PROJECT_ENVIRONMENT`. The skill helper `dt env` 
 ## ./bless
 
 `./bless` makes and checks the oracle of a data-test directory `tests/data/<name>/`:
-`expected_output.vcf`, the real output of native VEP 116 on the directory's
+`expected_output.vcf`, the real output of native VEP 116.2 on the directory's
 normalised `input.vcf` (made by `tools/normalize_input`, #85). It runs Ensembl's
 official image `ensemblorg/ensembl-vep:release_116.2`, with the same fixed command plus
 the flags listed in `[vep] extra_flags`:
@@ -452,7 +578,7 @@ file, `VEP_ARGV` and this table disagree.
 | `--vcf` | `preserve_record_layout = true` | VCF output: VEP copies each input line and only appends CSQ to INFO |
 
 `[vepyr]` has no `fields` key: vepyr emits its full `--everything` CSQ layout (80
-fields in VEP 116, regulatory and motif fields included), as VEP does, and the
+fields in VEP 116.2, regulatory and motif fields included), as VEP does, and the
 loader rejects `fields` as an unknown key. The other VEP flags of the fixed command
 (`--offline`, `--cache`, `--dir_cache`, `--species`, `--cache_version`,
 `--assembly`, input/output names) select the cache and files, not annotation, and
@@ -627,7 +753,7 @@ walks the directories; there is no hand-typed expected table in Rust code.
 ```
 tests/data/<name>/
   input.vcf             # normalised input: tools/normalize_input (#85)
-  expected_output.vcf   # real VEP 116 output on input.vcf: ./bless (#32)
+  expected_output.vcf   # real VEP 116.2 output on input.vcf: ./bless (#32)
   test.toml             # provenance, how vepyr runs, the body md5
 ```
 
@@ -651,9 +777,9 @@ this list, and any other key fails the test with `[<name>] unknown key: <key>`:
 name = "runner_consequence_content"   # equals the directory name
 description = "..."                    # one sentence
 [origin]
-vep_test        = "https://github.com/Ensembl/ensembl-vep/blob/release/116.0/t/Runner.t#L244-L292"
-vep_test_pinned = ".../blob/57ea5c52340acc1f156267f810ad162e26597082/t/Runner.t#L244-L292"
-vep_subject     = ".../blob/57ea5c52.../modules/Bio/EnsEMBL/VEP/Runner.pm#L396"
+vep_test        = "https://github.com/Ensembl/ensembl-vep/blob/release/116.2/t/Runner.t#L244-L292"
+vep_test_pinned = ".../blob/2cb0bbe216bb31c75de8f8000e2da7ff4fb7b451/t/Runner.t#L244-L292"
+vep_subject     = ".../blob/2cb0bbe2.../modules/Bio/EnsEMBL/VEP/Runner.pm#L396"
 ledger          = "Runner.ledger.toml n=16"   # ? source row (t/Runner.t, n=16) of ledger/assertions.csv
 issue           = 16                           # ? issue that introduced the test
 [input]                                        # written by tools/normalize_input
@@ -681,7 +807,7 @@ buffer_size = 1
 `https://github.com/<owner>/<repo>/blob/<40 lowercase hex commit>/<path>` (a `#L..`
 anchor is allowed); a branch, a tag or a short hash fails the test with
 `[<name>] origin.<key> is not a commit-pinned permalink: <value>`. `vep_test` is the
-readable `release/116.0` tag link and is not checked for shape. The *Data-test*
+readable `release/116.2` tag link and is not checked for shape. The *Data-test*
 issue form has one field per link: *VEP test link* (`vep_test`, `vep_test_pinned`)
 and *VEP subject link* (`vep_subject`).
 
@@ -714,7 +840,8 @@ Corpus dataset pins (`PINS.toml`) are documented in
 ### How do we know there are no more assertions in the Perl files?
 
 **How they are enumerated.** The upstream test files are the 49 `t/*.t` of Ensembl
-VEP at tag `release/116.0` = `57ea5c52340acc1f156267f810ad162e26597082`. A line is
+VEP at the tag and commit pinned in `tools/check_ledger` (`DEFAULT_REF`,
+`PINNED_COMMIT`; the ledger axis, still VEP 116.0). A line is
 one assertion if it matches a line-start regex over 22 function names:
 `ok is isnt like unlike is_deeply cmp_ok isa_ok can_ok new_ok pass fail use_ok
 require_ok` (Test::More), `throws_ok dies_ok lives_ok lives_and` (Test::Exception)
@@ -761,6 +888,11 @@ git's autocrlf CRLF-to-LF conversion hash to the blob id, which changes no line
 number or assertion kind.
 
 ## Agent setup (per machine)
+
+**Platform.** `dt` and the repo's local tooling (the scripts at the repo root, such as
+`./run_tests`, `./bless` and `./check_env`, and those under `tools/`) have so far been run
+and tested only on macOS (Darwin, Docker Desktop, `uv`, bash/zsh). Linux is untested, and
+no CI run covers it (the GitHub workflows are disabled).
 
 The agent rules and skills are versioned here and nowhere else: `AGENTS.md`
 (workflow rules), `CLAUDE.md` (project requirements) and the project skills in
@@ -836,32 +968,39 @@ raw rows to the external evidence directory, runs `tools/normalize_input`, then
 passes the resulting `input.vcf` to both engines. `./bless` verifies the SHA-256 of
 its Docker input copy; the campaign verifies that the normalized file stays
 unchanged before VEP, before vepyr and after vepyr. The expected VCF comes only
-from VEP 116.2. Its body MD5 is recorded in `test.toml`; the vepyr body MD5 and both
-commands are recorded in `cases.json`. Header lines are excluded from comparison.
+from VEP 116.2. Its body MD5 is recorded in `test.toml`. vepyr is run and compared
+by `./run_tests --cache-dir <cache> --via-cli --only <dir>`; the campaign records
+`PASS` on exit 0, `FAIL` on exit 8 with a `MISMATCH <dir> expected=<md5>
+actual=<md5>` line on stdout (that `actual` is the recorded vepyr body MD5), and
+`ERROR` on any other exit. All commands, their exit codes and the `./run_tests`
+output are recorded in `cases.json` and the evidence directory, and the campaign
+exits non-zero unless every processed case passes. Header lines are excluded
+from comparison.
 `--regenerate` repeats normalization and both runs for existing fixtures that
 have not completed this input-identity audit. Use a new external evidence directory
 for that pass; prior run evidence is retained.
 
-The campaign accepts the owner's existing local merged caches directly. These
-have no Hub download receipt; the campaign records local paths and scoped file
-checksums without inventing Hub provenance. The general `./run_tests` entry point
-continues to require its pinned Hub cache layout and `PROVENANCE.json`.
+`--vep-cache` (the native cache used by `./bless` for the oracle) may be a local
+cache. `--cache-dir` is passed to `./run_tests` and must be a Hub-layout cache
+root with `PROVENANCE.json` (populate it with
+`./run_tests --cache-dir <cache> --add-contigs chr21`).
 
 ```bash
 python tools/port_campaign.py --limit 10 \
   --vep-cache /path/to/native-cache-parent \
-  --vepyr-cache /path/to/116_GRCh38_merged \
+  --cache-dir /path/to/hub-layout-cache \
   --fasta /path/to/Homo_sapiens.GRCh38.dna.primary_assembly.fa \
-  --vepyr-python /path/to/verified-vepyr/.venv/bin/python \
-  --vepyr-source /path/to/verified-vepyr \
   --evidence /path/to/run-evidence
 python tools/check_campaign.py --require-complete --require-normalized
 ```
 
-The engine revision is evidence for each run, not a fixed repository requirement.
 Primary-property checks select the case's specific field or record property;
 the existing body comparison also checks all incidental fields. A focus pass
-with a body failure remains a failing data test.
+with a body failure remains a failing data test. For runs made through
+`./run_tests --via-cli` the primary property of vepyr's output is not checked:
+the campaign does not keep vepyr's output file, so only the whole-body md5
+verdict and the oracle's own focus witness are recorded, and the status table
+shows the focus as `not checked`.
 
 This campaign contains 189 executed ports (171 SNVs, 15 small indels, two
 nonvariant cases and one MNV): 177 whole-body passes, 10 differences and two

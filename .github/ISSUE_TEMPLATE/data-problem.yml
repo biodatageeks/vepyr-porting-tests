@@ -47,7 +47,7 @@ body:
         Expected CSQ for ENST00000003084:
         T|splice_donor_5th_base_variant|LOW|...
 
-        Source: ensemblorg/ensembl-vep:release_116.0, --everything, merged cache.
+        Source: ensemblorg/ensembl-vep:release_116.2, --everything, merged cache.
     validations:
       required: true
 
@@ -77,11 +77,8 @@ body:
         need to know which one you ran. Pick "Not applicable" if you are not comparing
         against Ensembl VEP.
       options:
-        - "116.1"
+        - "116.2"
         - "116.0"
-        - "115.2"
-        - "115.1"
-        - "115.0"
         - "Other (state it in the description)"
         - "Not applicable — not comparing against Ensembl VEP"
     validations:
@@ -222,7 +219,7 @@ body:
       placeholder: |
         macOS 15.6 (arm64), Python 3.12
         vepyr installed from PyPI wheel
-        Cache: build_cache() from ensembl-vep release_116.0 merged cache
+        Cache: build_cache() from ensembl-vep release_116.2 (cache 116) merged cache
     validations:
       required: true
 

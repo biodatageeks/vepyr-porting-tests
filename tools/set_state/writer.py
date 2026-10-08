@@ -4,8 +4,9 @@ Reads the current labels with ``gh <kind> view N --json labels``, refuses any
 move that is not in :data:`TRANSITIONS` (or that starts from more than one
 ``state:*`` label), runs the ``./pr_status`` gate before a gated state (the
 hand-over stage before ``state:manual-reviewing``, #177; the owner's stage before
-``state:awaiting-merge``), then makes one ``gh <kind> edit`` call and reads the
-labels back.
+``state:awaiting-merge``) and the ``./issue_status`` gate before an issue's
+``state:manual-reviewing-issue`` (#178), then makes one ``gh <kind> edit`` call
+and reads the labels back.
 
 A PR move is mirrored to the PR's closing issues (#177 part 5): every closing
 issue whose single ``state:*`` label is the PR's old state gets the same move,
@@ -28,6 +29,7 @@ from dataclasses import dataclass
 from enum import StrEnum
 from typing import Any, Final
 
+from issue_status import gate as issue_gate
 from pr_status import gate
 
 DONE: Final = 0
@@ -113,6 +115,8 @@ GATED: Final = f"{PREFIX}awaiting-merge"
 HANDOVER: Final = f"{PREFIX}manual-reviewing"
 #: The gated PR states and the ``./pr_status`` stage each one runs first.
 GATE_STAGES: Final[dict[str, gate.Stage]] = {HANDOVER: "handover", GATED: "owner"}
+#: The gated issue state: the hand-over to the owner needs ``./issue_status`` READY.
+ISSUE_HANDOVER: Final = f"{PREFIX}manual-reviewing-issue"
 
 
 class ToolError(Exception):
@@ -207,6 +211,14 @@ def run_gate(
     """The ``./pr_status`` gate at ``stage`` on the live PR; errors are ToolError."""
     try:
         return gate.evaluate(gate.fetch(number, repo), stage=stage)
+    except gate.GateError as exc:
+        raise ToolError(str(exc)) from exc
+
+
+def run_issue_gate(number: int, repo: str | None) -> list[issue_gate.Failure]:
+    """The ``./issue_status`` gate on the live issue; errors are ToolError."""
+    try:
+        return issue_gate.evaluate(issue_gate.fetch(number, repo))
     except gate.GateError as exc:
         raise ToolError(str(exc)) from exc
 
@@ -314,6 +326,14 @@ def apply(
             print(failure)
         flag = " --handover" if stage == "handover" else ""
         raise Refusal(f"./pr_status{flag} {number} is not READY")
+    if (
+        move.kind is Kind.ISSUE
+        and move.new == ISSUE_HANDOVER
+        and (issue_failures := run_issue_gate(number, repo))
+    ):
+        for issue_failure in issue_failures:
+            print(issue_failure)
+        raise Refusal(f"./issue_status {number} is not READY")
     edits = mirror_moves(move, number, repo) if kind is Kind.PR and mirror else []
     edits.append((number, move))  # the issues first, the PR last
     if dry_run:
@@ -363,7 +383,8 @@ def build_parser() -> argparse.ArgumentParser:
         description="Move an issue or PR to STATE (with or without the 'state:' "
         "prefix) along the legal transitions; "
         "state:manual-reviewing needs ./pr_status --handover READY, "
-        "state:awaiting-merge needs ./pr_status READY. "
+        "state:awaiting-merge needs ./pr_status READY, "
+        "state:manual-reviewing-issue needs ./issue_status READY. "
         "A PR move is mirrored to every closing issue that carries the PR's old "
         "state (all or nothing); an issue enters the PR family only by "
         "'issue N implementing'. "

@@ -72,7 +72,7 @@ def _parser() -> argparse.ArgumentParser:
     p = argparse.ArgumentParser(
         prog="bless",
         description=(
-            "Make or check a data-test's VEP 116 oracle (expected_output.vcf) "
+            "Make or check a data-test's VEP 116.2 oracle (expected_output.vcf) "
             "by running "
             f"{vep.IMAGE_TAG} (pinned by digest) on its normalised input.vcf."
         ),

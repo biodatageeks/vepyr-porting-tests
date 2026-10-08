@@ -1,11 +1,13 @@
 """Command line for ``./run_tests`` — fetch, ``--vepyr``, and data-test runs.
 
-``--cache-dir`` materialises the pinned VEP 116 corpus. With a cache root
+``--cache-dir`` materialises the pinned VEP cache 116 corpus. With a cache root
 (``--cache-dir`` or ``$VEPYR_CACHE_ROOT``), discovered ``tests/data/<name>/`` test
 directories run under a path-patched engine ladder: ``--vepyr REF`` pins the
 revision, and omitting it resolves ``biodatageeks/vepyr``'s current ``master`` HEAD
 (issue #30). ``--only DIR`` (repeatable) runs just the named data-test directories,
 which may live outside ``tests/data``, from a temporary copy (issue #168).
+``--via-cli`` annotates the same directories through the user-facing
+``python -m vepyr annotate`` built at that REF instead of cargo (issue #231).
 """
 
 from __future__ import annotations
@@ -16,11 +18,11 @@ import subprocess
 import sys
 from collections.abc import Callable, Mapping, Sequence
 from contextlib import ExitStack
-from dataclasses import dataclass
+from dataclasses import dataclass, replace
 from pathlib import Path
 from typing import Final
 
-from run_tests import engine, fetch, summary, tests
+from run_tests import engine, fetch, freshness, summary, tests, via_cli
 from run_tests.verdict import Exit, RunTestsError
 
 __all__ = [
@@ -38,7 +40,7 @@ DEFAULT_VEPYR_REF: Final[str] = "master"
 """Ref resolved when ``--vepyr`` is omitted: ``biodatageeks/vepyr`` master HEAD."""
 DESCRIPTION: Final[str] = (
     "Entry point for curated data-problem porting tests. "
-    "--cache-dir materialises the pinned VEP 116 corpus; "
+    "--cache-dir materialises the pinned VEP cache 116 corpus; "
     "with a cache root, discovered data-tests run against --vepyr REF "
     f"(default: biodatageeks/vepyr {DEFAULT_VEPYR_REF!r} HEAD)."
 )
@@ -68,6 +70,12 @@ class Invocation:
     trim_manifests: bool
     only: tuple[Path, ...] = ()
     """``--only`` directories, absolute and validated; empty = all of ``tests/data``."""
+    via_cli: bool = False
+    """``--via-cli``: run ``python -m vepyr annotate`` instead of cargo (#231)."""
+    old_vepyr_cache: bool = False
+    """``--old-vepyr-cache``: consent to run on a cache that is not the newest."""
+    freshness_report: freshness.FreshnessReport | None = None
+    """The freshness guard's report, attached once the guard ran (not parsed)."""
 
     @property
     def vepyr_ref(self) -> str:
@@ -100,8 +108,8 @@ def _parser() -> argparse.ArgumentParser:
         type=Path,
         default=None,
         metavar="DIR",
-        help="cache directory for the VEP 116 corpus; shards are downloaded into it "
-        "(the reference FASTA comes along automatically). It is also the "
+        help="cache directory for the VEP cache 116 corpus; shards are downloaded "
+        "into it (the reference FASTA comes along automatically). It is also the "
         "$VEPYR_CACHE_ROOT the data-test run reads.",
     )
     data.add_argument(
@@ -151,6 +159,15 @@ def _parser() -> argparse.ArgumentParser:
         f"{DEFAULT_VEPYR_REF}'s current HEAD, whose resolved 40-char sha the run "
         "summary prints either way; pass REF for a pinned, reproducible run.",
     )
+    engine_g.add_argument(
+        freshness.CONSENT_FLAG,
+        action="store_true",
+        help="consent to a vepyr cache that is not provably the newest. By default, "
+        "before any download or test, each --flavours pin is compared with the Hub "
+        "HEAD of its ref; a newer HEAD, an unreachable Hub, or a cache root used "
+        "as-is without a PROVENANCE.json record for the flavour exits 7. With this "
+        "flag the run proceeds and the summary records 'old cache: YES (consented)'.",
+    )
     run = parser.add_argument_group("Run")
     run.add_argument(
         "--list",
@@ -167,6 +184,21 @@ def _parser() -> argparse.ArgumentParser:
         "tests/data, e.g. a scratch copy); repeatable. The directories are copied "
         f"into a temporary ${tests.ROOT_ENV} root, deleted afterwards; tests/data is "
         "never touched. The engine is still --vepyr REF (or its default).",
+    )
+    run.add_argument(
+        "--via-cli",
+        action="store_true",
+        help="annotate each selected data-test through the user-facing "
+        "'python -m vepyr annotate' CLI instead of cargo test --test data_dirs "
+        "(a complement, not a replacement). The CLI is built once from "
+        "biodatageeks/vepyr at the engine REF that --vepyr REF (default: master "
+        f"HEAD) resolves, into <cache root>/{via_cli.BUILD_DIR}/<sha>/. Its argv is "
+        "derived from test.toml [vepyr] / [[vepyr_run]]; a value the CLI cannot "
+        "express (e.g. buffer_size != 5000) fails that directory with exit 2. "
+        "Compare rule: md5 of the output body (every line not starting with '#', "
+        "line terminators kept) == [compare] body_md5; prints 'PASS <dir>' or "
+        "'MISMATCH <dir> expected=<md5> actual=<md5>' and exits 8 on any mismatch "
+        "(any other error wins with its own exit code).",
     )
     return parser
 
@@ -203,6 +235,8 @@ def parse_args(argv: Sequence[str]) -> Invocation:
         fast=args.fast,
         trim_manifests=fetch.TRIM_DEFAULT and not args.no_trim_manifests,
         only=tests.only_dirs(args.only),
+        via_cli=args.via_cli,
+        old_vepyr_cache=args.old_vepyr_cache,
     )
 
 
@@ -259,6 +293,11 @@ def _summary(
             trim_manifests=inv.trim_manifests,
             outcome=outcome,
             detail=detail,
+            freshness=(
+                tuple(inv.freshness_report.summary_lines())
+                if inv.freshness_report is not None
+                else ()
+            ),
         ),
         accumulated,
     )
@@ -316,9 +355,7 @@ def _run_fetch(
 def _default_cargo(argv: Sequence[str], env: Mapping[str, str]) -> int:
     """Run cargo from the repo root (manifests + ``--config``)."""
     merged = {**os.environ, **dict(env)}
-    completed = subprocess.run(
-        list(argv), env=merged, cwd=_repo_root(), check=False
-    )
+    completed = subprocess.run(list(argv), env=merged, cwd=_repo_root(), check=False)
     return int(completed.returncode)
 
 
@@ -358,9 +395,7 @@ def _run_data_tests(
     repo = _repo_root()
     pins_toml = repo / "PINS.toml"
     tests.precheck_cache(cache_root, pins_toml=pins_toml)
-    plan, config_path = engine.materialise(
-        inv.vepyr_ref, repo_root=repo, api=gh_api
-    )
+    plan, config_path = engine.materialise(inv.vepyr_ref, repo_root=repo, api=gh_api)
     argv = tests.cargo_argv(targets, config=config_path, exact=bool(inv.only))
     env = {tests.CACHE_ENV: str(cache_root)}
     with ExitStack() as stack:
@@ -379,6 +414,69 @@ def _run_data_tests(
         f"cargo test exited {code} ({len(targets)} target(s))",
         plan.vepyr_sha,
     )
+
+
+def _run_via_cli(
+    inv: Invocation,
+    *,
+    cache_root: Path,
+    targets: Sequence[str],
+    cli_runner: via_cli.CliRunner,
+    vepyr_builder: via_cli.VepyrBuilder,
+    gh_api: engine.GhApi | None,
+) -> tuple[Exit, str | None, str | None]:
+    """Precheck + resolve REF + build the CLI + annotate. ``(code, detail, sha)``."""
+    repo = _repo_root()
+    pins_toml = repo / "PINS.toml"
+    tests.precheck_cache(cache_root, pins_toml=pins_toml)
+    _, fasta_pin = fetch.load_dataset_pins(pins_toml)
+    assert fasta_pin is not None  # precheck_cache refuses a PINS.toml without it
+    fasta = cache_root / fetch.FASTA_DIR / fasta_pin.fa_name
+    sha = engine.resolve_sha(gh_api or engine.GhCli(), inv.vepyr_ref)
+    build = vepyr_builder(sha, cache_root)
+    dirs = inv.only or tuple(repo / tests.DATA_DIR / name for name in targets)
+    report = via_cli.run_dirs(
+        dirs, build=build, cache_root=cache_root, fasta=fasta, runner=cli_runner
+    )
+    return report.code, f"{report.detail}; {build.label}", sha
+
+
+def _via_cli_phase(
+    inv: Invocation,
+    *,
+    cache_root: Path,
+    targets: Sequence[str],
+    cli_runner: via_cli.CliRunner,
+    vepyr_builder: via_cli.VepyrBuilder,
+    gh_api: engine.GhApi | None,
+) -> int:
+    """``--via-cli``: like :func:`_data_test_phase`, through the vepyr CLI (#231)."""
+    vepyr_resolved: str | None = None
+    try:
+        code, detail, vepyr_resolved = _run_via_cli(
+            inv,
+            cache_root=cache_root,
+            targets=targets,
+            cli_runner=cli_runner,
+            vepyr_builder=vepyr_builder,
+            gh_api=gh_api,
+        )
+    except RunTestsError as exc:
+        code, detail = exc.code, str(exc)
+        _print_error(exc)
+    print(
+        _summary(
+            inv,
+            code,
+            detail,
+            cache_dir=cache_root,
+            targets=targets,
+            vepyr_resolved=vepyr_resolved,
+            vepyr_effective=inv.vepyr_ref,
+        ),
+        end="",
+    )
+    return int(code)
 
 
 def _parse_phase(argv: Sequence[str]) -> Invocation | int:
@@ -520,6 +618,70 @@ def _data_test_phase(
     return int(code)
 
 
+def _freshness_phase(
+    inv: Invocation,
+    *,
+    cache_root: Path,
+    targets: Sequence[str],
+    head_resolver: fetch.HeadResolver,
+) -> Invocation | int:
+    """Run the freshness guard before any download or data-test (issue #236).
+
+    Case (c) (no ``PROVENANCE.json`` record) applies only when the root is used
+    as-is: a ``--cache-dir`` fetch or a ``--dry-run`` writes or lists the pinned
+    revision itself, so there only the pin-vs-HEAD comparison applies.
+
+    Returns:
+        ``inv`` with the report attached, or the exit code once the run is refused
+        (the summary has then already been printed).
+    """
+    try:
+        flavours = tuple(fetch.Flavour(name) for name in inv.flavours)
+    except ValueError as exc:
+        error = RunTestsError(Exit.USAGE, f"--flavours: {exc}")
+        _print_error(error)
+        print(
+            _summary(
+                inv, error.code, str(error), cache_dir=cache_root, targets=targets
+            ),
+            end="",
+        )
+        return int(error.code)
+    try:
+        pins, _ = fetch.load_dataset_pins(_repo_root() / "PINS.toml")
+    except RunTestsError as exc:
+        _print_error(exc)
+        print(
+            _summary(inv, exc.code, str(exc), cache_dir=cache_root, targets=targets),
+            end="",
+        )
+        return int(exc.code)
+    report = freshness.check(
+        flavours,
+        pins,
+        head_resolver,
+        root=cache_root,
+        check_disk=inv.cache_dir is None and not inv.dry_run,
+        consented=inv.old_vepyr_cache,
+    )
+    guarded = replace(inv, freshness_report=report)
+    if report.old and not report.consented:
+        refusal = report.refusal()
+        _print_error(refusal)
+        print(
+            _summary(
+                guarded,
+                refusal.code,
+                str(refusal),
+                cache_dir=cache_root,
+                targets=targets,
+            ),
+            end="",
+        )
+        return int(refusal.code)
+    return guarded
+
+
 def main(
     argv: Sequence[str] | None = None,
     *,
@@ -528,8 +690,11 @@ def main(
     fasta_fetcher: Callable[[str, Path], None] = fetch.url_fetcher,
     cargo_runner: CargoRunner = _default_cargo,
     gh_api: engine.GhApi | None = None,
+    cli_runner: via_cli.CliRunner = via_cli.default_runner,
+    vepyr_builder: via_cli.VepyrBuilder = via_cli.build_vepyr,
+    head_resolver: fetch.HeadResolver = fetch.hub_head_resolver,
 ) -> int:
-    """Entry point: parse -> resolve -> fetch -> dispatch; returns the exit code."""
+    """Entry point: parse -> resolve -> guard -> fetch -> dispatch; the exit code."""
     argv = list(sys.argv[1:] if argv is None else argv)
     parsed = _parse_phase(argv)
     if isinstance(parsed, int):
@@ -549,6 +714,16 @@ def main(
         return int(Exit.OK)
 
     cache_root = _resolve_cache_root(inv)
+
+    # Freshness guard (#236): before any download or data-test, also under
+    # --dry-run and --only; only the --flavours selection is queried.
+    if cache_root is not None:
+        guarded = _freshness_phase(
+            inv, cache_root=cache_root, targets=targets, head_resolver=head_resolver
+        )
+        if isinstance(guarded, int):
+            return guarded
+        inv = guarded
 
     # Fetch-only dry-run: no cargo / no engine. Gated on the *resolved* root so
     # ``$VEPYR_CACHE_ROOT`` honours --dry-run exactly like --cache-dir (#27).
@@ -578,6 +753,15 @@ def main(
             targets=targets,
             detail=detail,
             fetched=fetched,
+        )
+    if inv.via_cli:
+        return _via_cli_phase(
+            inv,
+            cache_root=cache_root,
+            targets=targets,
+            cli_runner=cli_runner,
+            vepyr_builder=vepyr_builder,
+            gh_api=gh_api,
         )
     return _data_test_phase(
         inv,
