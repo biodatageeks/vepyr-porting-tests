@@ -53,6 +53,9 @@ class RunSummary:
     vepyr_default: bool = False
     """``--vepyr`` was omitted and :attr:`vepyr` is the implicit default ref."""
     targets: tuple[str, ...] = ()
+    freshness: tuple[str, ...] = ()
+    """The freshness guard's lines (``old cache: ...`` first); empty when it did not
+    run (no cache root, ``--list``, or a usage error)."""
 
 
 def accumulated_contigs(
@@ -117,6 +120,7 @@ def render(
         ]
     else:
         lines.append(f"  {_NONE}")
+    lines += summary.freshness
     lines.append(
         f"outcome          : {summary.outcome.name.lower()} "
         f"(exit {int(summary.outcome)})"
