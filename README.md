@@ -41,6 +41,7 @@ export VEPYR_CACHE_ROOT=/mnt/hf-cache
 | `--no-trim-manifests` | Leaves `chrom_manifest.json` naming shards that were not fetched |
 | `--vepyr REF` | Resolves `REF` on biodatageeks/vepyr and path-patches that revision's dfbf/formats ladder. **Optional:** omitted, data-tests run against `master`'s current HEAD; the summary prints the full 40-char resolved sha either way. Pass `REF` whenever a pinned, reproducible run is wanted (CI, bisecting, ledger evidence) |
 | `--only DIR` | Repeatable. Runs only the named data-test directories (each holds `test.toml`; may be outside `tests/data`, e.g. a scratch copy): they are copied into a fresh temporary root that `DATA_DIRS_ROOT` names, cargo runs only the exact `data_dirs` test, and the root is deleted afterwards; `tests/data` is never touched. The summary's `targets` line lists exactly these names. A missing directory, one without `test.toml`, or two with the same basename is a usage error (exit 2, `not a data-test directory`). The engine is still `--vepyr REF` (or its default) |
+| `--old-vepyr-cache` | Consent to a vepyr cache that is not provably the newest (see "Cache freshness guard" below): the run proceeds and the summary records `old cache: YES (consented)` |
 
 **"Targets" means data-test directories** — `tests/data/<name>/` holding a
 `test.toml` (see [Porting method](#porting-method)). `--list` prints their names.
@@ -77,10 +78,33 @@ Xet download concurrency/buffers via `hf_xet` (already pulled in with
 
 Exit codes: `0` ok, `1` data-tests failed, `2` usage (missing cache),
 `3` revision clash vs `PINS.toml`, `4` incomplete selection or missing cache
-pieces, `5` verification failure, `6` engine resolve/checkout failure. Every run
+pieces, `5` verification failure, `6` engine resolve/checkout failure,
+`7` stale cache (see below; `--old-vepyr-cache` consents). Every run
 ends with a summary of effective flags, the cache directory, targets, the
 contigs accumulated per flavour, and the `vepyr sha` line naming the exact
 40-char revision the run tested against.
+
+**Cache freshness guard.** Whenever a cache root is given (`--cache-dir` or
+`$VEPYR_CACHE_ROOT`), before any download or data-test, `./run_tests` asks the
+Hugging Face Hub, once per flavour selected by `--flavours` (one `dataset_info`
+call, 10 s timeout), which commit the pin's `ref` (`main`) points to now, and
+compares it with the `sha` in `PINS.toml`. The run exits `7` when:
+
+- the Hub HEAD differs from the pinned `sha` (a newer dataset exists);
+- the Hub cannot be reached or the HEAD cannot be resolved (`freshness unknown`);
+- the root is used as-is (no `--cache-dir`, no `--dry-run`) and `PROVENANCE.json`
+  has no record for a selected flavour (freshness cannot be established).
+
+The message names the pinned and HEAD shas. Bump `PINS.toml` deliberately in a
+separate PR, or pass `--old-vepyr-cache` to proceed with the old cache. The guard
+never changes what is fetched and never edits `PINS.toml`. It also applies under
+`--dry-run` and `--only`; `--list` and `--help` do not query the Hub. The summary
+then carries `old cache: no` when the guard passed, or `old cache: YES (consented)`
+when the flag let an old cache through, or
+`old cache: YES (refused; pass --old-vepyr-cache to consent)` on an exit-7 refusal,
+followed by one line per flavour with its
+pinned and HEAD shas. Offline and CI runs must pass `--old-vepyr-cache`
+explicitly.
 
 Without a cache root (`--cache-dir` or `$VEPYR_CACHE_ROOT`), an invocation
 (without `--help` / `--list`) exits 2. With targets present, the cargo run needs
@@ -164,6 +188,48 @@ one failing fixture per check id, `not-json.txt`); `tools/fixtures/gh_stub/gh` i
 offline `gh` that serves one fixture from `$GH_STUB_STATE` and logs every call to
 `$GH_STUB_STATE.log`. Tests: `tools/test_pr_status.py`.
 
+## ./issue_status (read-only issue hand-over gate)
+
+`./issue_status N` answers whether issue `N` may be handed over to the owner
+(`state:manual-reviewing-issue`; #178, the rules are in `AGENTS.md`, "Issue and pull
+request lifecycle"). It only reads: one `gh issue view N --json
+number,body,labels,comments`. It never changes a label, a comment or the body.
+
+```bash
+./issue_status 178                                                       # real mode
+./issue_status --from-json tools/fixtures/issue_status/ready.json        # READY, exit 0
+./issue_status --from-json tools/fixtures/issue_status/status-stale.json # FAIL status-stale: ..., exit 1
+```
+
+It prints one `FAIL <check>: <reason>` line per failed check (all of them) or `READY`.
+A record is pinned to the body by `body_sha256`, the sha256 of the UTF-8 bytes of the
+`body` string `gh issue view N --json body` returns (nothing appended). The checks:
+`status-missing`, `status-duplicate` (exactly one issue comment whose first non-empty
+line is `### issue-status:v1`, with a valid fenced `json` block), `status-stale`
+(`"stale": true`, or its `body_sha256` is not the current body's), `issue-check` (its
+`issue_check` is not 0), `ac-passes-on-master` (no AC rows, or a row with
+`master_exit` = `expected` that is not a `regression_guard`), `verdict-missing` (no
+`### issue-review:v1` verdict whose `body_sha256` is the current body's: a verdict for
+an older body never counts), `verdict-findings` (the latest such verdict is not exactly
+`CLEAN`), `dry-run-mismatch` (a status AC id missing from the verdict's `ac_dry_run`, a
+dry-run exit that differs from the row's `master_exit`, or the verdict's `master`
+differing from the status `master`), and `state-label` (exactly one `state:*` label,
+`state:auto-reviewing-issue` or `state:manual-reviewing-issue`, so the gate passes
+before the hand-over move). Checks that need the status data are skipped when it is
+missing or duplicated, the verdict checks when there is no current verdict.
+
+The verdicts are ordered by `createdAt`; with equal `createdAt` the comment later in the `comments` list is the later verdict (a stable sort). A status comment without a valid `json` block is `FAIL status-missing` (exit 1), but a `### issue-review:v1` comment without a valid block, or with a block that does not follow the schema, is a tool error (exit 2) naming the comment by `createdAt` and URL, even when a compliant verdict sits next to it. A review written before #178 under that heading (`"role":"review"`, verdict `APPROVE`/`CHANGES_REQUESTED`) is such a comment: change its first line to `### issue-review-legacy:v0`, which the gate ignores, or delete it (the `gh api` command is in `AGENTS.md`, "Issue records").
+
+Exit codes: `0` ready, `1` not ready, `2` usage or tool error (no argument, non-numeric
+`N`, unreadable or non-JSON input, `gh` missing or failing, or malformed input: every
+field the gate reads is type-checked, including `body_sha256` as 64 and `master` as 40
+lowercase hex characters, and a verdict comment without a valid `json` block is one
+`issue_status: malformed input:` line, never a pass). Fixtures:
+`tools/fixtures/issue_status/` (`ready.json`, one failing fixture per check id,
+`not-json.txt`); real-mode tests serve the issue through `tools/fixtures/gh_stub/gh`.
+Tests: `tools/test_issue_status.py`. The parsing helpers and exit codes are shared with
+`./pr_status` (`tools/pr_status/gate.py`), which is unchanged.
+
 ## ./set_state (state-label writer)
 
 `./set_state` is the only tool that writes the `state:*` labels (#158). It reads the
@@ -171,7 +237,8 @@ current labels, refuses any move that is not one of the 20 legal transitions (th
 table is in `AGENTS.md`), and runs the `./pr_status` gate and refuses unless it is READY
 before two PR moves: `state:manual-reviewing` (the hand-over stage,
 `./pr_status --handover N`) and `state:awaiting-merge` (the owner's stage,
-`./pr_status N`). Then it makes one `gh <kind> edit` call per moved item and reads the
+`./pr_status N`); and it runs the `./issue_status N` gate and refuses unless it is READY
+before the issue hand-over `state:manual-reviewing-issue` (#178). Then it makes one `gh <kind> edit` call per moved item and reads the
 labels back.
 
 A PR move is mirrored to each closing issue (#177): the PR's

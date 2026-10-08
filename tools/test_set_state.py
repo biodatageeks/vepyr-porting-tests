@@ -16,17 +16,29 @@ from set_state.writer import Kind, Transition
 
 REPO_ROOT: Final = Path(__file__).resolve().parents[1]
 FIXTURES: Final = Path(__file__).parent / "fixtures" / "pr_status"
+ISSUE_FIXTURES: Final = Path(__file__).parent / "fixtures" / "issue_status"
 STUB_DIR: Final = Path(__file__).parent / "fixtures" / "gh_stub"
 ISSUE: Final = 1
 PR: Final = 7
 
 
-def make_state(tmp_path: Path, labels: list[str], fixture: str = "ready") -> Path:
+def make_state(
+    tmp_path: Path,
+    labels: list[str],
+    fixture: str = "ready",
+    issue_fixture: str = "ready",
+) -> Path:
     """A stub state file: ``fixture`` with ``labels`` on the PR and on issue 1.
 
     Issue 1 (the PR's closing issue) gets only the non-state and ``-issue``
     labels, so a PR move finds it not opted in and does not mirror (#177 part 5).
+    Its ``body`` and ``comments`` come from the ``issue_status`` fixture
+    ``issue_fixture`` (READY by default), so the gated issue hand-over to
+    ``state:manual-reviewing-issue`` passes ``./issue_status`` (#178).
     """
+    issue_doc: dict[str, Any] = json.loads(
+        (ISSUE_FIXTURES / f"{issue_fixture}.json").read_text(encoding="utf-8")
+    )
     doc: dict[str, Any] = json.loads(
         (FIXTURES / f"{fixture}.json").read_text(encoding="utf-8")
     )
@@ -34,6 +46,8 @@ def make_state(tmp_path: Path, labels: list[str], fixture: str = "ready") -> Pat
     doc["issues"] = [
         {
             "number": ISSUE,
+            "body": issue_doc["body"],
+            "comments": issue_doc["comments"],
             "labels": [
                 lab
                 for lab in doc["labels"]
@@ -128,6 +142,82 @@ def test_illegal_moves_are_refused_without_edit(
     number = str(PR if kind == "pr" else ISSUE)
     assert run_cli(state, kind, number, *args).returncode == writer.REFUSED
     assert not [c for c in log(state) if " edit " in f" {c}"]
+
+
+def test_issue_gate_allows_the_handover_when_ready(tmp_path: Path) -> None:
+    state = make_state(tmp_path, ["state:auto-reviewing-issue"])
+    done = run_cli(state, "issue", str(ISSUE), "manual-reviewing-issue")
+    assert done.returncode == writer.DONE, done.stdout + done.stderr
+    assert state_labels(state, Kind.ISSUE) == ["state:manual-reviewing-issue"]
+    calls = log(state)
+    gate_read = f"issue view {ISSUE} --json number,body,labels,comments"
+    edit = [c for c in calls if " edit " in f" {c}"]
+    assert gate_read in calls
+    assert calls.index(gate_read) < calls.index(edit[0])
+    assert len(edit) == 1
+
+
+@pytest.mark.parametrize(
+    "fixture",
+    [
+        "status-missing",
+        "status-stale",
+        "verdict-missing",
+        "verdict-findings",
+        "dry-run-mismatch",
+    ],
+)
+def test_issue_gate_refuses_the_handover_without_ready(
+    tmp_path: Path, fixture: str
+) -> None:
+    state = make_state(tmp_path, ["state:auto-reviewing-issue"], issue_fixture=fixture)
+    done = run_cli(state, "issue", str(ISSUE), "manual-reviewing-issue")
+    assert done.returncode == writer.REFUSED
+    assert f"FAIL {fixture}:" in done.stdout
+    assert "./issue_status 1 is not READY" in done.stderr
+    assert not [c for c in log(state) if " edit " in f" {c}"]
+    assert state_labels(state, Kind.ISSUE) == ["state:auto-reviewing-issue"]
+
+
+def test_issue_gate_refuses_a_dry_run_too(tmp_path: Path) -> None:
+    state = make_state(
+        tmp_path, ["state:auto-reviewing-issue"], issue_fixture="verdict-missing"
+    )
+    done = run_cli(state, "issue", str(ISSUE), "manual-reviewing-issue", "--dry-run")
+    assert done.returncode == writer.REFUSED
+    assert "DRY-RUN" not in done.stdout
+
+
+def test_issue_gate_malformed_record_is_a_tool_error(tmp_path: Path) -> None:
+    state = make_state(tmp_path, ["state:auto-reviewing-issue"])
+    doc = json.loads(state.read_text(encoding="utf-8"))
+    doc["issues"][0]["comments"].append(
+        {
+            "body": "### issue-review:v1\n\nno block\n",
+            "createdAt": "2026-10-09T00:00:00Z",
+        }
+    )
+    state.write_text(json.dumps(doc), encoding="utf-8")
+    done = run_cli(state, "issue", str(ISSUE), "manual-reviewing-issue")
+    assert done.returncode == writer.TOOL_ERROR
+    assert not [c for c in log(state) if " edit " in f" {c}"]
+
+
+@pytest.mark.parametrize(
+    ("current", "target"),
+    [
+        ("state:implementing-issue", "auto-reviewing-issue"),
+        ("state:auto-reviewing-issue", "fixing-issue"),
+        ("state:manual-reviewing-issue", "fixing-issue"),
+    ],
+)
+def test_issue_gate_leaves_other_issue_moves_ungated(
+    tmp_path: Path, current: str, target: str
+) -> None:
+    state = make_state(tmp_path, [current], issue_fixture="status-missing")
+    done = run_cli(state, "issue", str(ISSUE), target)
+    assert done.returncode == writer.DONE, done.stdout + done.stderr
+    assert not [c for c in log(state) if "number,body,labels,comments" in c]
 
 
 def test_awaiting_merge_refused_when_gate_fails(tmp_path: Path) -> None:
