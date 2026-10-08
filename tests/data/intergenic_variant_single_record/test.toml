@@ -5,7 +5,7 @@ description = "vepyr annotates 21 25832817 C>A, a variant with no transcript wit
 vep_test = "https://github.com/Ensembl/ensembl-vep/blob/release/116.0/t/OutputFactory.t#L507-L515"
 vep_test_pinned = "https://github.com/Ensembl/ensembl-vep/blob/57ea5c52340acc1f156267f810ad162e26597082/t/OutputFactory.t#L507-L515"
 vep_subject = "https://github.com/Ensembl/ensembl-vep/blob/57ea5c52340acc1f156267f810ad162e26597082/modules/Bio/EnsEMBL/VEP/OutputFactory.pm#L476"
-ledger = "https://github.com/sitekwb/vepyr-porting-tests/blob/c4f4eb8eae415b1f58841ef15cebf2bb081ce750/ledger/OutputFactory.ledger.toml#L552-L561"
+ledger = "OutputFactory.ledger.toml n=42"
 issue = 120
 
 [input]

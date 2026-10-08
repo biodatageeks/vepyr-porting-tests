@@ -11,8 +11,9 @@
 //!   wider “just in case” set, not narrower than the input loci.
 //! - This module only **reads** the field and feeds [`super::cache::requires_shards`].
 //!
-//! The sitekwb ledger (`sitekwb/vepyr-porting-tests`, `ledger/*.ledger.toml`) is the
-//! source of candidate tests; a directory names its source row in `[origin] ledger`.
+//! The assertion ledger `ledger/assertions.csv` is the source of candidate tests; a
+//! directory names its row in `[origin] ledger` as `"<Stem>.ledger.toml n=<N>"`
+//! (`t/<Stem>.t`, row `n`).
 
 use super::cache::{Entity, FullCache, requires_shards};
 
