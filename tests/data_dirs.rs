@@ -49,6 +49,9 @@
 //! - `[<name>] oracle edited` — `[compare] body_md5` is not the md5 of the body of
 //!   `expected_output.vcf`;
 //! - `[<name>] unknown key: <key>` — panic while loading `test.toml`;
+//! - `[<name>] origin.<key> is not a commit-pinned permalink: <value>` — panic while
+//!   loading `test.toml` when `[origin] vep_test_pinned` or `vep_subject` is not
+//!   `https://github.com/<owner>/<repo>/blob/<40 lowercase hex>/<path>` (#35);
 //! - `[<name>] body md5 mismatch`, then `expected <md5>, got <md5>`, then the first
 //!   differing record on a line starting `VEP:` and one starting `vepyr:`;
 //! - with `[[vepyr_run]]`, each run first prints `run <n>/<N>: <overrides>`.
@@ -150,6 +153,50 @@ const ORIGIN_KEYS: &[Key] = &[
     ("ledger", Kind::Str, false),
     ("issue", Kind::Int, false),
 ];
+
+/// `[origin]` keys that must be commit-pinned GitHub permalinks (#35).
+///
+/// `vep_test` is the readable tag link and `ledger` is not a URL, so neither is here.
+const PINNED_ORIGIN_KEYS: &[&str] = &["vep_test_pinned", "vep_subject"];
+
+/// Whether `url` is `https://github.com/<owner>/<repo>/blob/<40 lowercase hex>/<path>`.
+///
+/// `<path>` is non-empty and may end in a `#L..` anchor. A branch, a tag or an
+/// abbreviated hash in place of the commit fails, so the link cannot drift.
+fn is_commit_permalink(url: &str) -> bool {
+    let Some(rest) = url.strip_prefix("https://github.com/") else {
+        return false;
+    };
+    let mut parts = rest.splitn(5, '/');
+    let (Some(owner), Some(repo), Some("blob"), Some(commit), Some(path)) = (
+        parts.next(),
+        parts.next(),
+        parts.next(),
+        parts.next(),
+        parts.next(),
+    ) else {
+        return false;
+    };
+    let segment_ok = |part: &str| !part.is_empty() && !part.contains(char::is_whitespace);
+    segment_ok(owner)
+        && segment_ok(repo)
+        && segment_ok(path)
+        && commit.len() == 40
+        && commit
+            .bytes()
+            .all(|byte| matches!(byte, b'0'..=b'9' | b'a'..=b'f'))
+}
+
+/// Panic unless every [`PINNED_ORIGIN_KEYS`] value of `origin` is a commit permalink.
+#[track_caller]
+fn require_pinned_origin(name: &str, origin: &Table) {
+    for key in PINNED_ORIGIN_KEYS {
+        let value = origin[*key].as_str().expect("checked by check_table");
+        if !is_commit_permalink(value) {
+            panic!("[{name}] origin.{key} is not a commit-pinned permalink: {value}");
+        }
+    }
+}
 
 const INPUT_KEYS: &[Key] = &[
     ("command", Kind::Str, true),
@@ -426,6 +473,8 @@ impl TestDir {
             let label = format!("[[vepyr_run]] #{}", index + 1);
             check_table(&name, &label, entry, VEPYR_KEYS, true);
         }
+
+        require_pinned_origin(&name, sub_table(&doc, "origin"));
 
         let declared = doc["name"].as_str().expect("checked");
         if declared != name {
@@ -1032,4 +1081,44 @@ fn vep_extra_flags_wrong_type_is_rejected() {
     });
     assert!(not_array.is_err(), "a string extra_flags was accepted");
     load_fixture_with_vep_line("extra_flags = [1]");
+}
+
+#[test]
+fn commit_permalink_shape() {
+    let commit = "57ea5c52340acc1f156267f810ad162e26597082";
+    for good in [
+        format!("https://github.com/Ensembl/ensembl-vep/blob/{commit}/t/Runner.t#L244-L292"),
+        format!("https://github.com/Ensembl/ensembl-vep/blob/{commit}/modules/X.pm"),
+    ] {
+        assert!(is_commit_permalink(&good), "{good}");
+    }
+    for bad in [
+        "https://github.com/Ensembl/ensembl-vep/blob/master/t/Runner.t#L1".to_owned(),
+        "https://github.com/Ensembl/ensembl-vep/blob/release/116.0/t/Runner.t".to_owned(),
+        "https://github.com/Ensembl/ensembl-vep/blob/57ea5c52/t/Runner.t".to_owned(),
+        format!(
+            "https://github.com/Ensembl/ensembl-vep/blob/{}/t/R.t",
+            commit.to_uppercase()
+        ),
+        format!("https://github.com/Ensembl/ensembl-vep/tree/{commit}/t/Runner.t"),
+        format!("https://github.com/Ensembl/ensembl-vep/blob/{commit}/"),
+        format!("http://github.com/Ensembl/ensembl-vep/blob/{commit}/t/Runner.t"),
+        format!(".../blob/{commit}/t/Runner.t"),
+    ] {
+        assert!(!is_commit_permalink(&bad), "{bad}");
+    }
+}
+
+#[test]
+#[should_panic(expected = "[t] origin.vep_subject is not a commit-pinned permalink: \
+                           https://github.com/Ensembl/ensembl-vep/blob/master/m.pm")]
+fn unpinned_origin_rejected() {
+    let origin: Table = format!(
+        "vep_test_pinned = \"https://github.com/o/r/blob/{}/t/a.t\"\n\
+         vep_subject = \"https://github.com/Ensembl/ensembl-vep/blob/master/m.pm\"\n",
+        "a".repeat(40)
+    )
+    .parse()
+    .expect("toml");
+    require_pinned_origin("t", &origin);
 }
