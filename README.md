@@ -194,6 +194,8 @@ differing from the status `master`), and `state-label` (exactly one `state:*` la
 before the hand-over move). Checks that need the status data are skipped when it is
 missing or duplicated, the verdict checks when there is no current verdict.
 
+The verdicts are ordered by `createdAt`; with equal `createdAt` the comment later in the `comments` list is the later verdict (a stable sort). A status comment without a valid `json` block is `FAIL status-missing` (exit 1), but a `### issue-review:v1` comment without a valid block, or with a block that does not follow the schema, is a tool error (exit 2) naming the comment by `createdAt` and URL, even when a compliant verdict sits next to it. A review written before #178 under that heading (`"role":"review"`, verdict `APPROVE`/`CHANGES_REQUESTED`) is such a comment: change its first line to `### issue-review-legacy:v0`, which the gate ignores, or delete it (the `gh api` command is in `AGENTS.md`, "Issue records").
+
 Exit codes: `0` ready, `1` not ready, `2` usage or tool error (no argument, non-numeric
 `N`, unreadable or non-JSON input, `gh` missing or failing, or malformed input: every
 field the gate reads is type-checked, including `body_sha256` as 64 and `master` as 40

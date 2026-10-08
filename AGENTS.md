@@ -107,7 +107,13 @@ Known limits of the tier: a tier file renamed out of the tier shows only its new
 
 - **Gate.** `./issue_status N` (read-only, one `gh issue view N --json number,body,labels,comments`; `--from-json FILE`; `--repo`) prints one `FAIL <check>: <reason>` line per failed check or `READY`; exit 0 ready, 1 not ready, 2 tool error (malformed json anywhere). Checks: `status-missing`, `status-duplicate`, `status-stale`, `issue-check`, `ac-passes-on-master`, `verdict-missing` (no verdict for the current `body_sha256`; older verdicts never count), `verdict-findings`, `dry-run-mismatch`, `state-label` (`state:auto-reviewing-issue` or `state:manual-reviewing-issue`, so it passes before the move). The hand-over `./set_state issue N manual-reviewing-issue` runs it first and refuses unless READY.
 
-Review comments written before #178 (ad-hoc json with `round`/`design`/`checks`/`findings` and verdicts like `APPROVE`/`CHANGES_REQUESTED`) do not satisfy the gate: an issue now in `state:auto-reviewing-issue` needs a status comment and a compliant `### issue-review:v1` verdict for its current body before it can be handed over. Back-filling issues already in `state:manual-reviewing-issue` is out of scope of #178.
+Review comments written before #178 do not satisfy the gate, and those that already start with `### issue-review:v1` but use the old ad-hoc schema (`"role":"review"`, `round`/`design`/`checks`/`findings`, verdicts `APPROVE`/`CHANGES_REQUESTED`) block it: the gate exits 2 (`issue_status: malformed input: verdict posted <createdAt> (<comment URL>): ...`), **even when a compliant verdict sits next to them**. Before the hand-over, re-head each such comment, i.e. change its first line to `### issue-review-legacy:v0` (the gate ignores it), or delete it. `ID` is the number after `#issuecomment-` in the URL the error names:
+
+```bash
+gh api repos/OWNER/REPO/issues/comments/ID --jq .body | python3 -c 'import sys; sys.stdout.write(sys.stdin.read().replace("### issue-review:v1", "### issue-review-legacy:v0", 1))' > legacy-ID.md && gh api -X PATCH repos/OWNER/REPO/issues/comments/ID -F body=@legacy-ID.md
+```
+
+An issue in `state:auto-reviewing-issue` then needs a status comment and a compliant `### issue-review:v1` verdict for its current body before it can be handed over. Back-filling issues already in `state:manual-reviewing-issue` is out of scope of #178.
 
 ### `tests/INDEX.csv` in parallel PRs (since 2026-10-02, #151)
 
