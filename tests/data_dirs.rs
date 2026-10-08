@@ -20,12 +20,27 @@
 //! | table | keys (`?` = optional) |
 //! |---|---|
 //! | top level | `name` (= directory name), `description` |
-//! | `[origin]` | `vep_test`, `vep_test_pinned`, `vep_subject`, `ledger?`, `issue?` |
+//! | `[origin]`? | `vep_test`, `vep_test_pinned`, `vep_subject`, `ledger?`, `issue?` |
+//! | `[[property]]`? | `id`, `description`, `vep_test`, `vep_test_pinned`, `vep_subject`, `ledger?`, `issue?`, `source_assertions?`, `focus?` |
 //! | `[input]` | `command` (the #85 command), `bcftools_version` |
 //! | `[vep]` | `image`, `command`, `date`, `cache_source`, `cache_checksum`, `fasta_source`, `fasta_checksum` — exactly what `./bless` writes |
 //! | `[vepyr]` | `flavour`, `required_contigs`, `everything`, `preserve_record_layout`, `reference_fasta`, `buffer_size?` |
 //! | `[compare]` | `body_md5` |
 //! | `[[vepyr_run]]?` | any `[vepyr]` key, overriding it for that run |
+//!
+//! # One directory per distinct (input, oracle) (#238)
+//!
+//! A directory holds one comparison and one or more *properties* (the VEP
+//! assertions that comparison covers). A single-property directory describes it
+//! with `description` + `[origin]` (the property id is the directory name). A
+//! directory covering several properties has `[[property]]` tables instead and no
+//! `[origin]`: exactly one of the two is present. Property `id`s are unique within
+//! the directory and one of them is the directory name, so every former directory
+//! name survives as a property id. `focus` (optional) records the selector of
+//! `tools/port_campaign.py` `focus_value` (`kind` + `field`/`where`/`column`/`key`/
+//! `ordered`); it is metadata only: the runner still compares the whole body.
+//! `tools/check_unique_dirs` fails when two directories share (input body, oracle
+//! body, `[vepyr]`, `[[vepyr_run]]`, `[vep] command`).
 //!
 //! `[vepyr]` is mapped by hand onto `AnnotateVcfConfig` (it has no serde):
 //! `everything`, `preserve_record_layout` and `buffer_size` are config fields;
@@ -51,7 +66,8 @@
 //! - `[<name>] unknown key: <key>` — panic while loading `test.toml`;
 //! - `[<name>] origin.<key> is not a commit-pinned permalink: <value>` — panic while
 //!   loading `test.toml` when `[origin] vep_test_pinned` or `vep_subject` is not
-//!   `https://github.com/<owner>/<repo>/blob/<40 lowercase hex>/<path>` (#35);
+//!   `https://github.com/<owner>/<repo>/blob/<40 lowercase hex>/<path>` (#35); for a
+//!   `[[property]]` the same check reports `property <id>.<key>`;
 //! - `[<name>] body md5 mismatch`, then `expected <md5>, got <md5>`, then the first
 //!   differing record on a line starting `VEP:` and one starting `vepyr:`;
 //! - with `[[vepyr_run]]`, each run first prints `run <n>/<N>: <overrides>`.
@@ -67,6 +83,7 @@
 
 mod common;
 
+use std::collections::HashMap;
 use std::fmt::Write as _;
 use std::path::{Path, PathBuf};
 use std::sync::Arc;
@@ -142,7 +159,8 @@ type Key = (&'static str, Kind, bool);
 const TOP_KEYS: &[Key] = &[
     ("name", Kind::Str, true),
     ("description", Kind::Str, true),
-    ("origin", Kind::Table, true),
+    ("origin", Kind::Table, false),
+    ("property", Kind::TableList, false),
     ("input", Kind::Table, true),
     ("vep", Kind::Table, true),
     ("vepyr", Kind::Table, true),
@@ -157,6 +175,34 @@ const ORIGIN_KEYS: &[Key] = &[
     ("ledger", Kind::Str, false),
     ("issue", Kind::Int, false),
 ];
+
+/// Keys of one `[[property]]` table (#238): an `[origin]` plus its own id and
+/// description, the upstream assertions it stands for, and an optional selector.
+const PROPERTY_KEYS: &[Key] = &[
+    ("id", Kind::Str, true),
+    ("description", Kind::Str, true),
+    ("vep_test", Kind::Str, true),
+    ("vep_test_pinned", Kind::Str, true),
+    ("vep_subject", Kind::Str, true),
+    ("ledger", Kind::Str, false),
+    ("issue", Kind::Int, false),
+    ("source_assertions", Kind::StrList, false),
+    ("focus", Kind::Table, false),
+];
+
+/// Keys of a `[[property]]` `focus` table: the selector of `tools/port_campaign.py`
+/// `focus_value`.
+const FOCUS_KEYS: &[Key] = &[
+    ("kind", Kind::Str, true),
+    ("field", Kind::Str, false),
+    ("where", Kind::Table, false),
+    ("column", Kind::Int, false),
+    ("key", Kind::Str, false),
+    ("ordered", Kind::Bool, false),
+];
+
+/// The `focus` kinds `tools/port_campaign.py` `focus_value` implements.
+const FOCUS_KINDS: &[&str] = &["csq", "csq_values", "column", "info", "record_count"];
 
 /// `[origin]` keys that must be commit-pinned GitHub permalinks (#35).
 ///
@@ -194,10 +240,90 @@ fn is_commit_permalink(url: &str) -> bool {
 /// Panic unless every [`PINNED_ORIGIN_KEYS`] value of `origin` is a commit permalink.
 #[track_caller]
 fn require_pinned_origin(name: &str, origin: &Table) {
+    require_pinned(name, "origin", origin);
+}
+
+/// Panic unless every [`PINNED_ORIGIN_KEYS`] value of `table` is a commit permalink;
+/// `label` names the table in the message (`origin` or `property <id>`).
+#[track_caller]
+fn require_pinned(name: &str, label: &str, table: &Table) {
     for key in PINNED_ORIGIN_KEYS {
-        let value = origin[*key].as_str().expect("checked by check_table");
+        let value = table[*key].as_str().expect("checked by check_table");
         if !is_commit_permalink(value) {
-            panic!("[{name}] origin.{key} is not a commit-pinned permalink: {value}");
+            panic!("[{name}] {label}.{key} is not a commit-pinned permalink: {value}");
+        }
+    }
+}
+
+/// Validate the provenance of one directory and return its property ids (#238).
+///
+/// Exactly one of `[origin]` and a non-empty `[[property]]` list is present. With
+/// `[origin]` the one property id is `name`. With `[[property]]` every table is
+/// checked against [`PROPERTY_KEYS`] (and its `focus` against [`FOCUS_KEYS`]), its
+/// links must be commit-pinned, ids are unique and one of them is `name`.
+#[track_caller]
+fn check_properties(name: &str, doc: &Table) -> Vec<String> {
+    let properties: Vec<&Table> = doc
+        .get("property")
+        .map(|list| {
+            list.as_array()
+                .expect("checked")
+                .iter()
+                .map(|item| item.as_table().expect("checked"))
+                .collect()
+        })
+        .unwrap_or_default();
+    match (doc.get("origin"), properties.is_empty()) {
+        (Some(_), false) => {
+            panic!("[{name}] has both [origin] and [[property]]; keep exactly one (#238)")
+        }
+        (None, true) => panic!("[{name}] needs [origin] or at least one [[property]] (#238)"),
+        (Some(origin), true) => {
+            let origin = origin.as_table().expect("checked");
+            check_table(name, "[origin]", origin, ORIGIN_KEYS, false);
+            require_pinned_origin(name, origin);
+            return vec![name.to_owned()];
+        }
+        (None, false) => {}
+    }
+    let mut ids: Vec<String> = Vec::with_capacity(properties.len());
+    for (index, property) in properties.iter().enumerate() {
+        check_table(
+            name,
+            &format!("[[property]] #{}", index + 1),
+            property,
+            PROPERTY_KEYS,
+            false,
+        );
+        let id = property["id"].as_str().expect("checked").to_owned();
+        if ids.contains(&id) {
+            panic!("[{name}] duplicate [[property]] id: {id}");
+        }
+        require_pinned(name, &format!("property {id}"), property);
+        if let Some(focus) = property.get("focus") {
+            check_focus(name, &id, focus.as_table().expect("checked"));
+        }
+        ids.push(id);
+    }
+    if !ids.iter().any(|id| id == name) {
+        panic!("[{name}] no [[property]] has id = the directory name (#238)");
+    }
+    ids
+}
+
+/// Check one `[[property]]` `focus` table: keys, a known `kind`, string `where`.
+#[track_caller]
+fn check_focus(name: &str, id: &str, focus: &Table) {
+    let label = format!("[[property]] {id} focus");
+    check_table(name, &label, focus, FOCUS_KEYS, false);
+    let kind = focus["kind"].as_str().expect("checked");
+    if !FOCUS_KINDS.contains(&kind) {
+        panic!("[{name}] {label} kind = {kind:?} is not one of {FOCUS_KINDS:?}");
+    }
+    if let Some(selector) = focus.get("where") {
+        let selector = selector.as_table().expect("checked");
+        if let Some((key, value)) = selector.iter().find(|(_, value)| !value.is_str()) {
+            panic!("[{name}] {label} where.{key} must be a string, got {value}");
         }
     }
 }
@@ -428,6 +554,8 @@ struct TestDir {
     dir: PathBuf,
     runs: Vec<Run>,
     body_md5: String,
+    /// The property ids this directory's one comparison covers (#238).
+    properties: Vec<String>,
 }
 
 impl TestDir {
@@ -449,7 +577,6 @@ impl TestDir {
 
         check_table(&name, "the top level", &doc, TOP_KEYS, false);
         for (key, keys) in [
-            ("origin", ORIGIN_KEYS),
             ("input", INPUT_KEYS),
             ("vep", VEP_KEYS),
             ("vepyr", VEPYR_KEYS),
@@ -478,7 +605,7 @@ impl TestDir {
             check_table(&name, &label, entry, VEPYR_KEYS, true);
         }
 
-        require_pinned_origin(&name, sub_table(&doc, "origin"));
+        let properties = check_properties(&name, &doc);
 
         let declared = doc["name"].as_str().expect("checked");
         if declared != name {
@@ -545,6 +672,23 @@ impl TestDir {
             dir: dir.to_path_buf(),
             runs,
             body_md5,
+            properties,
+        }
+    }
+}
+
+/// Property ids are unique across directories, not only within one (#238).
+#[track_caller]
+fn check_unique_property_ids(tests: &[TestDir]) {
+    let mut owners: HashMap<&str, &str> = HashMap::new();
+    for test in tests {
+        for id in &test.properties {
+            if let Some(owner) = owners.insert(id, &test.name) {
+                panic!(
+                    "property id {id} is declared by both [{owner}] and [{}]",
+                    test.name
+                );
+            }
         }
     }
 }
@@ -694,8 +838,10 @@ async fn check_dir(test: &TestDir, cache_root: CacheRoot<'_>) -> bool {
 async fn run_all(root: &Path, cache_root: CacheRoot<'_>) {
     let dirs = test_dirs(root);
     let mut failed = Vec::new();
+    let mut properties = 0;
     for dir in &dirs {
         let test = TestDir::load(dir);
+        properties += test.properties.len();
         if check_dir(&test, cache_root).await {
             println!("[{}] ok", test.name);
         } else {
@@ -703,7 +849,7 @@ async fn run_all(root: &Path, cache_root: CacheRoot<'_>) {
         }
     }
     println!(
-        "data_dirs: {} directory(ies) under {}, {} failed",
+        "data_dirs: {} directory(ies) ({properties} propert(ies)) under {}, {} failed",
         dirs.len(),
         root.display(),
         failed.len()
@@ -1144,4 +1290,188 @@ fn unpinned_origin_rejected() {
     .parse()
     .expect("toml");
     require_pinned_origin("t", &origin);
+}
+
+// ---------------------------------------------------------------------------------
+// [[property]] (#238)
+// ---------------------------------------------------------------------------------
+
+/// The self-test fixture's `[origin]` block, verbatim (header to the next table).
+fn fixture_origin() -> String {
+    let text = include_str!("fixtures/data_dirs_selftest/case/test.toml");
+    let start = text
+        .find(
+            "
+[origin]
+",
+        )
+        .expect("fixture has [origin]")
+        + 1;
+    let end = start
+        + text[start..]
+            .find(
+                "
+[",
+            )
+            .expect("a table follows [origin]")
+        + 1;
+    text[start..end].to_owned()
+}
+
+/// One `[[property]]` table with id `id`, pinned links, and `extra` lines appended.
+fn property_table(id: &str, extra: &str) -> String {
+    // Any 40-hex commit: only the permalink shape is checked here.
+    let commit = "0123456789abcdef0123456789abcdef01234567";
+    format!(
+        "[[property]]\n\
+         id = \"{id}\"\n\
+         description = \"Property {id}.\"\n\
+         vep_test = \"https://github.com/Ensembl/ensembl-vep/blob/{commit}/t/Runner.t#L1-L2\"\n\
+         vep_test_pinned = \"https://github.com/Ensembl/ensembl-vep/blob/{commit}/t/Runner.t#L1-L2\"\n\
+         vep_subject = \"https://github.com/Ensembl/ensembl-vep/blob/{commit}/modules/R.pm#L3\"\n\
+         {extra}"
+    )
+}
+
+/// Load the fixture with its `[origin]` replaced by `tables`.
+fn load_fixture_with_properties(tables: &str) -> TestDir {
+    load_fixture_edited(&fixture_origin(), tables)
+}
+
+#[test]
+fn origin_dir_has_its_name_as_the_one_property() {
+    let test = load_fixture_edited("issue = 80\n", "issue = 81\n");
+    assert_eq!(test.properties, ["case"]);
+}
+
+#[test]
+fn property_tables_accepted() {
+    let tables = [
+        property_table(
+            "case",
+            "issue = 238\nsource_assertions = [\"t/Runner.t#L1\"]\n",
+        ),
+        property_table(
+            "case_symbol",
+            "[property.focus]\nkind = \"csq\"\nfield = \"SYMBOL\"\n\
+             where = { Feature = \"ENST1\" }\n",
+        ),
+        property_table("case_count", "focus = { kind = \"record_count\" }\n"),
+    ]
+    .join("\n");
+    let test = load_fixture_with_properties(&tables);
+    assert_eq!(test.properties, ["case", "case_symbol", "case_count"]);
+}
+
+#[test]
+#[should_panic(expected = "unknown key")]
+fn property_unknown_key_panics() {
+    let table = property_table("case", "").replace("vep_test_pinned", "vep_test_pinnned");
+    load_fixture_with_properties(&table);
+}
+
+#[test]
+#[should_panic(expected = "unknown key: descripton")]
+fn property_misspelt_description_panics() {
+    let table = property_table("case", "descripton = \"typo\"\n");
+    load_fixture_with_properties(&table);
+}
+
+#[test]
+#[should_panic(expected = "is missing required key vep_subject")]
+fn property_missing_required_key_panics() {
+    let table = property_table("case", "").replace("vep_subject", "ledger");
+    load_fixture_with_properties(&table);
+}
+
+#[test]
+#[should_panic(expected = "has both [origin] and [[property]]")]
+fn origin_and_property_together_rejected() {
+    let tables = format!("{}\n{}", fixture_origin(), property_table("case", ""));
+    load_fixture_with_properties(&tables);
+}
+
+#[test]
+#[should_panic(expected = "needs [origin] or at least one [[property]]")]
+fn no_origin_and_no_property_rejected() {
+    load_fixture_with_properties("");
+}
+
+#[test]
+#[should_panic(expected = "duplicate [[property]] id: case_x")]
+fn duplicate_property_id_rejected() {
+    let tables = [
+        property_table("case", ""),
+        property_table("case_x", ""),
+        property_table("case_x", ""),
+    ]
+    .join("\n");
+    load_fixture_with_properties(&tables);
+}
+
+#[test]
+fn distinct_property_ids_across_dirs_accepted() {
+    let second = TestDir {
+        name: "other".to_owned(),
+        properties: vec!["other".to_owned()],
+        ..load_fixture_with_properties(&property_table("case", ""))
+    };
+    check_unique_property_ids(&[
+        load_fixture_with_properties(&property_table("case", "")),
+        second,
+    ]);
+}
+
+#[test]
+#[should_panic(expected = "property id case is declared by both [case] and [other]")]
+fn duplicate_property_id_across_dirs_rejected() {
+    let first = load_fixture_with_properties(&property_table("case", ""));
+    let second = TestDir {
+        name: "other".to_owned(),
+        ..load_fixture_with_properties(&property_table("case", ""))
+    };
+    check_unique_property_ids(&[first, second]);
+}
+
+#[test]
+#[should_panic(expected = "no [[property]] has id = the directory name")]
+fn property_ids_must_name_the_directory() {
+    load_fixture_with_properties(&property_table("other", ""));
+}
+
+#[test]
+#[should_panic(expected = "[case] property case.vep_subject is not a commit-pinned permalink")]
+fn property_unpinned_link_rejected() {
+    let table = property_table("case", "").replace(
+        "0123456789abcdef0123456789abcdef01234567/modules",
+        "master/modules",
+    );
+    load_fixture_with_properties(&table);
+}
+
+#[test]
+#[should_panic(expected = "focus kind = \"fields\" is not one of")]
+fn property_focus_unknown_kind_rejected() {
+    let table = property_table("case", "focus = { kind = \"fields\" }\n");
+    load_fixture_with_properties(&table);
+}
+
+#[test]
+#[should_panic(expected = "unknown key: wehre")]
+fn property_focus_unknown_key_rejected() {
+    let table = property_table("case", "focus = { kind = \"csq\", wehre = {} }\n");
+    load_fixture_with_properties(&table);
+}
+
+/// Every committed `tests/data` directory passes the loader (schema, pins, mode,
+/// `[[property]]` rules) without any cache (#238).
+#[test]
+fn committed_dirs_load() {
+    let root = Path::new(env!("CARGO_MANIFEST_DIR")).join("tests/data");
+    let dirs = test_dirs(&root);
+    let tests: Vec<TestDir> = dirs.iter().map(|dir| TestDir::load(dir)).collect();
+    check_unique_property_ids(&tests);
+    let properties: usize = tests.iter().map(|test| test.properties.len()).sum();
+    println!("{} directories, {properties} properties", dirs.len());
+    assert!(!dirs.is_empty());
 }

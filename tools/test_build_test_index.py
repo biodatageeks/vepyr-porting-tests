@@ -23,7 +23,7 @@ SCRIPT: Final[Path] = TOOLS / "build_test_index"
 FIXTURES: Final[Path] = TOOLS / "fixtures" / "build_test_index"
 REPO: Final[Path] = TOOLS.parent
 HEADER: Final[str] = (
-    "name,description,vep_test_pinned,vep_subject,ledger,issue,"
+    "dir,id,description,vep_test_pinned,vep_subject,ledger,issue,"
     "required_contigs,vepyr_runs,body_md5\n"
 )
 
@@ -62,7 +62,8 @@ def test_fixture_rows_and_format(root: Path, tmp_path: Path) -> None:
     text = raw.decode("utf-8")
     assert text.startswith(HEADER)
     rows = list(csv.DictReader(text.splitlines()))
-    assert [r["name"] for r in rows] == ["alpha_full", "beta_minimal"]
+    assert [r["dir"] for r in rows] == ["alpha_full", "beta_minimal"]
+    assert [r["id"] for r in rows] == ["alpha_full", "beta_minimal"]
     alpha, beta = rows
     assert alpha["description"] == 'Synthetic test, with a comma and a "quoted" word.'
     assert (alpha["issue"], alpha["vepyr_runs"]) == ("1001", "2")
@@ -175,3 +176,35 @@ def test_script_runs_as_executable(root: Path, tmp_path: Path) -> None:
     )
     assert proc.returncode == 0
     assert out.read_text().startswith(HEADER)
+
+
+def test_property_tables_give_one_row_each(root: Path, tmp_path: Path) -> None:
+    """#238: a [[property]] directory gives one row per table, in file order."""
+    beta = (root / "beta_minimal" / "test.toml").read_text()
+    start = beta.index("[origin]")
+    end = beta.index("\n[", start + 1) + 1
+    commit = "a" * 40
+    props = "".join(
+        f"""[[property]]
+id = "{pid}"
+description = "Property {pid}."
+vep_test = "https://github.com/o/r/blob/{commit}/t/{pid}.t"
+vep_test_pinned = "https://github.com/o/r/blob/{commit}/t/{pid}.t"
+vep_subject = "https://github.com/o/r/blob/{commit}/m/{pid}.pm"
+{extra}
+"""
+        for pid, extra in (("gamma", "issue = 238"), ("gamma_b", 'ledger = "L n=1"'))
+    )
+    gamma = root / "gamma"
+    gamma.mkdir()
+    text = beta[:start] + beta[end:]
+    text = text.replace('name = "beta_minimal"', 'name = "gamma"')
+    (gamma / "test.toml").write_text(text + "\n" + props)
+    out = tmp_path / "i.csv"
+    assert _run("--root", root, "--out", out) == 0
+    rows = list(csv.DictReader(out.read_text().splitlines()))
+    got = [(r["dir"], r["id"], r["issue"], r["ledger"]) for r in rows[2:]]
+    assert got == [("gamma", "gamma", "238", ""), ("gamma", "gamma_b", "", "L n=1")]
+    assert rows[3]["description"] == "Property gamma_b."
+    assert rows[3]["vep_subject"].endswith("/m/gamma_b.pm")
+    assert rows[2]["body_md5"] == rows[3]["body_md5"]

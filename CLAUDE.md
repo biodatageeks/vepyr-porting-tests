@@ -24,6 +24,8 @@ Every data-test compares the output of native VEP 116.2 (the file `expected_outp
 
 `tests/data/<name>/` contains: `input.vcf` (normalised, as above), `expected_output.vcf` (real VEP 116.2 output; cache 116), `test.toml` (name, description, links to the VEP test at tag `release/116.2` and at commit `2cb0bbe2`, both from `tools/vep_pin.toml`, the VEP command, the vepyr invocation, `body_md5`). One generic cargo test walks the directories. Oracle audit: metadata in `test.toml` + repeatability (`./bless --check` runs VEP again and compares the md5). Hash: md5.
 
+Extension (#238, option A; owner decided, **Marek's agreement pending**): one directory per distinct (input, oracle) comparison. A directory covering several VEP assertions lists them as `[[property]]` tables (`id` = former directory name, `description`, the links) in place of `[origin]`; `tools/check_unique_dirs` forbids duplicate directories.
+
 ## Issue acceptance criteria (reminder)
 
 Every issue has numbered acceptance criteria with backticked commands (machine-checkable or semi-machine-checkable, with a negative control). We do not start implementation work until the owner has verified the issues by hand.
