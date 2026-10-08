@@ -329,3 +329,61 @@ def test_real_mode_not_ready(tmp_path: Path) -> None:
 def test_real_mode_gh_failure_exits_2(tmp_path: Path) -> None:
     env, _ = stub_env(tmp_path, fixture("ready"))
     assert run_cli("999", env=env).returncode == gate.TOOL_ERROR
+
+
+# --- legacy reviews (round 2 of PR #246) ------------------------------------
+
+LEGACY_URL: Final = "https://github.com/o/r/issues/123#issuecomment-1"
+
+
+def legacy_comment(marker: str = gate.VERDICT_MARKER) -> dict[str, Any]:
+    """A pre-#178 review under ``marker`` with the old ad-hoc schema."""
+    data = {"v": 1, "role": "review", "verdict": "APPROVE", "round": 2, "findings": []}
+    return {
+        "body": f"{marker}\n\nOld review.\n\n```json\n{json.dumps(data)}\n```\n",
+        "createdAt": "2026-09-30T08:00:00Z",
+        "url": LEGACY_URL,
+    }
+
+
+def test_legacy_verdict_next_to_a_compliant_one_is_a_tool_error() -> None:
+    doc = fixture("ready")
+    doc["comments"].insert(0, legacy_comment())
+    with pytest.raises(gate.GateError) as err:
+        gate.evaluate(doc)
+    assert LEGACY_URL in str(err.value)
+    assert gate.LEGACY_MARKER in str(err.value)
+
+
+def test_legacy_verdict_cli_exits_2_naming_the_comment(tmp_path: Path) -> None:
+    doc = fixture("ready")
+    doc["comments"].insert(0, legacy_comment())
+    path = tmp_path / "legacy.json"
+    path.write_text(json.dumps(doc), encoding="utf-8")
+    done = run_cli("--from-json", str(path))
+    assert done.returncode == gate.TOOL_ERROR
+    assert done.stdout == ""
+    assert LEGACY_URL in done.stderr
+    assert f"change its first line to {gate.LEGACY_MARKER}" in done.stderr
+
+
+def test_re_headed_legacy_verdict_is_ignored() -> None:
+    doc = fixture("ready")
+    doc["comments"].insert(0, legacy_comment(gate.LEGACY_MARKER))
+    assert ids(doc) == []
+
+
+def test_equal_created_at_the_later_comment_wins() -> None:
+    doc = fixture("ready")
+    clean = next(
+        c for c in doc["comments"] if gate.first_line(c["body"]) == gate.VERDICT_MARKER
+    )
+    findings = rewrite(
+        fixture("ready"), gate.VERDICT_MARKER, lambda d: d.update(verdict="FINDINGS")
+    )["comments"][-1]
+    findings["createdAt"] = clean["createdAt"]
+    doc["comments"].append(findings)  # same timestamp, later in the list
+    assert ids(doc) == ["verdict-findings"]
+    doc["comments"].remove(findings)
+    doc["comments"].insert(doc["comments"].index(clean), findings)  # now earlier
+    assert ids(doc) == []

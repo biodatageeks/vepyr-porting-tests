@@ -19,8 +19,13 @@ holding one fenced ``json`` block:
 
 A record is pinned to the body by ``body_sha256``: the sha256 of the UTF-8
 bytes of the ``body`` string ``gh issue view N --json body`` returns. A verdict
-for any other body never counts. The parsing helpers and the exit codes are
-those of :mod:`pr_status.gate`; ``./pr_status`` itself is unchanged.
+for any other body never counts. Verdicts are ordered by ``createdAt``; on equal
+timestamps the comment later in ``comments`` is the later one (stable sort). A
+status comment without a valid block is ``status-missing`` (exit 1); a verdict
+comment without a valid, schema-conforming block is exit 2 naming the comment
+(a pre-#178 review is re-headed ``### issue-review-legacy:v0``). The parsing
+helpers and the exit codes are those of :mod:`pr_status.gate`;
+``./pr_status`` itself is unchanged.
 
 Exit codes: 0 ready, 1 not ready, 2 usage or tool error.
 """
@@ -71,6 +76,8 @@ __all__ = [
 
 STATUS_MARKER: Final = "### issue-status:v1"
 VERDICT_MARKER: Final = "### issue-review:v1"
+#: The heading a pre-#178 review comment is re-headed to; the gate ignores it.
+LEGACY_MARKER: Final = "### issue-review-legacy:v0"
 ISSUE_VIEW_FIELDS: Final = "number,body,labels,comments"
 ROLE: Final = "issue-review"
 CLEAN: Final = "CLEAN"
@@ -208,15 +215,39 @@ def _bodies(doc: Mapping[str, Any], marker: str) -> list[tuple[str, str]]:
     ]
 
 
+def _verdict_where(comment: Mapping[str, Any]) -> str:
+    """Name a verdict comment so the user can find it: its time and its URL."""
+    url = comment.get("url")
+    return f"verdict posted {comment['createdAt']}" + (
+        f" ({url})" if isinstance(url, str) and url else ""
+    )
+
+
 def collect_verdicts(doc: Mapping[str, Any]) -> list[Verdict]:
-    """All verdicts, oldest first; a verdict without a valid block is exit 2."""
+    """All verdicts, oldest first; a verdict without a valid block is exit 2.
+
+    Ties on ``createdAt`` keep the comments' order (a stable sort), so with equal
+    timestamps the comment later in the list counts as the later verdict. A
+    comment headed ``### issue-review:v1`` that does not follow this schema (e.g.
+    a review written before #178) is a tool error naming that comment: re-head it
+    as :data:`LEGACY_MARKER` or delete it.
+    """
     verdicts: list[Verdict] = []
-    for body, at in _bodies(doc, VERDICT_MARKER):
-        where = f"verdict posted {at}"
-        data = json_block(body)
-        if not isinstance(data, dict):
-            _fail(where, "no valid json object block")
-        validate_verdict(data, where)
+    for comment in doc["comments"]:
+        body, at = comment["body"], comment["createdAt"]
+        if first_line(body) != VERDICT_MARKER:
+            continue
+        where = _verdict_where(comment)
+        try:
+            data = json_block(body)
+            if not isinstance(data, dict):
+                _fail(where, "no valid json object block")
+            validate_verdict(data, where)
+        except GateError as exc:
+            raise GateError(
+                f"{exc}; if this is a review written before #178, change its first "
+                f"line to {LEGACY_MARKER} (or delete it)"
+            ) from exc
         verdicts.append(
             Verdict(
                 model=data["model"],
