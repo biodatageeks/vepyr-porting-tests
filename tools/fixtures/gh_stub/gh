@@ -15,6 +15,8 @@ arguments (without ``gh``, space-joined) are appended to ``$GH_STUB_STATE.log``.
   an array of pages of at most 100 entries (``filename``; ``patch`` for
   ``README.md`` from ``readme_diff`` unless ``$GH_STUB_NO_PATCH`` is set);
   ``$GH_STUB_DROP_FILES=K`` drops the last K entries (an incomplete list);
+- ``pr view N --json headRefOid`` (the gate's head re-read): ``headRefOid``,
+  or ``$GH_STUB_HEAD_AFTER`` when set (a push during the reads);
 - ``api ... repos/.../contents/README.md...``: the document's ``readme``;
 - ``issue view N --json ...``: the ``issues[]`` entry numbered N;
 - ``pr edit N`` / ``issue edit N`` with ``--add-label``/``--remove-label``: edits the state file.
@@ -82,7 +84,10 @@ def main() -> None:
 
     head = args[:2]
     files = doc.get("files") or []
-    if head == ["pr", "view"] and len(args) > 2:
+    if head == ["pr", "view"] and args[3:] == ["--json", "headRefOid"]:
+        moved = os.environ.get("GH_STUB_HEAD_AFTER")
+        print(json.dumps({"headRefOid": moved or doc.get("headRefOid")}))
+    elif head == ["pr", "view"] and len(args) > 2:
         out = {k: v for k, v in doc.items() if k not in ("issues", "readme", "readme_diff")}
         out["closingIssuesReferences"] = [{"number": e.get("number")} for e in issues]
         out["changedFiles"] = doc.get("changedFiles", len(files))

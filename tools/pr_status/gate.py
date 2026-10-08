@@ -28,6 +28,7 @@ import json
 import re
 import subprocess
 import sys
+from collections import Counter
 from collections.abc import Iterable, Mapping, Sequence
 from dataclasses import dataclass
 from enum import StrEnum
@@ -581,6 +582,8 @@ def fetch(number: int, repo: str | None = None) -> dict[str, Any]:
         raise GateError("gh pr view returned no object")
     entries = changed_files(number, repo)
     match doc.get("changedFiles"):
+        case bool() as flag:
+            raise GateError(f"gh pr view: changedFiles is {flag!r}, not a number")
         case int(expected) if expected == len(entries):
             pass
         case int(expected):
@@ -591,6 +594,14 @@ def fetch(number: int, repo: str | None = None) -> dict[str, Any]:
             )
         case other:
             raise GateError(f"gh pr view: changedFiles is {other!r}, not a number")
+    counts = Counter(str(e["filename"]) for e in entries)
+    if dupes := {name: n for name, n in counts.items() if n > 1}:
+        listed = ", ".join(f"{name} x{n}" for name, n in sorted(dupes.items()))
+        raise GateError(
+            f"file list for PR {number} repeats filenames ({listed}): "
+            f"{len(counts)} unique of {len(entries)} entries; review the tier "
+            "by hand with git diff --name-only origin/master...<head>"
+        )
     doc["files"] = [{"path": str(e["filename"])} for e in entries]
     refs = [r.get("number") for r in doc.get("closingIssuesReferences") or ()]
     doc["issues"] = [
@@ -616,7 +627,26 @@ def fetch(number: int, repo: str | None = None) -> dict[str, Any]:
                 f"repos/{slug}/contents/{README}?ref={doc['headRefOid']}",
             ]
         )
+    _same_head(number, where, doc["headRefOid"])
     return doc
+
+
+def _same_head(number: int, where: Sequence[str], head: str) -> None:
+    """Fail closed (#249) when PR ``number`` moved off ``head`` during the reads.
+
+    The file list is not pinned to a commit, so a push between ``pr view`` and
+    the paginated list could pair one head's sticky with another head's files.
+    """
+    match _gh_json(["pr", "view", str(number), *where, "--json", "headRefOid"]):
+        case {"headRefOid": str(now)} if now == head:
+            return
+        case {"headRefOid": str(now)}:
+            raise GateError(
+                f"PR {number} head moved from {head} to {now} while reading "
+                "its files; re-run ./pr_status"
+            )
+        case other:
+            raise GateError(f"gh pr view: no headRefOid in {other!r}")
 
 
 def load(path: Path) -> dict[str, Any]:

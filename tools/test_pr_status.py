@@ -615,3 +615,54 @@ def test_tier_beyond_first_100_requires_superreview(tmp_path: Path) -> None:
     # Control: without that path the same 420-file PR is READY.
     done, _ = _run_stub(tmp_path, _large("ready", readme=False))
     assert (done.returncode, done.stdout) == (gate.READY, "READY\n")
+
+
+def test_duplicate_filenames_are_a_tool_error(tmp_path: Path) -> None:
+    """Super-review #252: changedFiles=3 with pages [[a, a, b]] -> exit 2.
+
+    Mutation: removing the uniqueness check in ``fetch`` makes this READY.
+    """
+    doc = fixture("ready")
+    doc["files"] = [{"path": p} for p in ("docs/a.md", "docs/a.md", "docs/b.md")]
+    doc["changedFiles"] = 3
+    done, _ = _run_stub(tmp_path, doc)
+    assert (done.returncode, done.stdout, done.stderr) == (
+        gate.TOOL_ERROR,
+        "",
+        (
+            "pr_status: file list for PR 7 repeats filenames (docs/a.md x2): "
+            "2 unique of 3 entries; review the tier by hand with "
+            "git diff --name-only origin/master...<head>\n"
+        ),
+    )
+    # Control: three unique names with the same count give a verdict.
+    doc["files"][1] = {"path": "docs/c.md"}
+    assert _run_stub(tmp_path, doc)[0].returncode == gate.READY
+
+
+@pytest.mark.parametrize("bad", [True, False, "3", 3.0, None])
+def test_changed_files_must_be_a_plain_int(tmp_path: Path, bad: object) -> None:
+    """A bool (an ``int`` subclass) or non-int ``changedFiles`` -> exit 2."""
+    doc = _large("ready", size=1, readme=False)
+    doc["changedFiles"] = bad
+    done, _ = _run_stub(tmp_path, doc)
+    assert (done.returncode, done.stdout) == (gate.TOOL_ERROR, "")
+    assert f"changedFiles is {bad!r}, not a number" in done.stderr
+
+
+def test_head_moved_during_reads_is_a_tool_error(tmp_path: Path) -> None:
+    """Finding 4 (#252): head re-read after the file list differs -> exit 2.
+
+    Mutation: dropping the ``_same_head`` call in ``fetch`` makes this READY.
+    """
+    doc = fixture("ready")
+    done, calls = _run_stub(tmp_path, doc, GH_STUB_HEAD_AFTER="f" * 40)
+    assert (done.returncode, done.stdout) == (gate.TOOL_ERROR, "")
+    assert done.stderr == (
+        f"pr_status: PR 7 head moved from {doc['headRefOid']} to {'f' * 40} "
+        "while reading its files; re-run ./pr_status\n"
+    )
+    files_at = next(i for i, c in enumerate(calls) if "/files" in c)
+    assert calls[-1].endswith("--json headRefOid") and len(calls) - 1 > files_at
+    # Control: the same head on the re-read gives a verdict.
+    assert _run_stub(tmp_path, doc)[0].returncode == gate.READY
