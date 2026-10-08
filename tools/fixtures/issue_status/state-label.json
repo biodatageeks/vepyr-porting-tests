@@ -1,0 +1,38 @@
+{
+  "number": 123,
+  "body": "### Problem statement\n\nThe gate is missing.\n\n### Acceptance criteria\n\n1. `test -x ./issue_status` -> exit 0. Master: exit 1.\n2. `uv run --frozen pytest tools/test_pr_status.py -q` -> exit 0. Master: exit 0 (regression guard).\n",
+  "labels": [
+    {
+      "name": "tooling"
+    },
+    {
+      "name": "severity:low"
+    },
+    {
+      "name": "state:fixing-issue"
+    }
+  ],
+  "comments": [
+    {
+      "author": {
+        "login": "someone"
+      },
+      "body": "A plain comment.",
+      "createdAt": "2026-10-01T09:00:00Z"
+    },
+    {
+      "author": {
+        "login": "writer"
+      },
+      "body": "### issue-status:v1\n\n| AC | cmd | master | expected | guard |\n\n```json\n{\"v\": 1, \"issue\": 123, \"body_sha256\": \"215cdc495f4234f9a171ca5f70c19641a04c96591011cafa40b2f741df039a16\", \"master\": \"91bad00000000000000000000000000000000000\", \"issue_check\": 0, \"stale\": false, \"ac\": [{\"id\": 1, \"cmd\": \"test -x ./issue_status\", \"master_exit\": 1, \"expected\": 0, \"regression_guard\": false}, {\"id\": 2, \"cmd\": \"uv run --frozen pytest tools/test_pr_status.py -q\", \"master_exit\": 0, \"expected\": 0, \"regression_guard\": true}]}\n```\n",
+      "createdAt": "2026-10-01T10:00:00Z"
+    },
+    {
+      "author": {
+        "login": "writer"
+      },
+      "body": "### issue-review:v1\n\nFresh issue review.\n\n```json\n{\"v\": 1, \"role\": \"issue-review\", \"model\": \"opus-low\", \"verdict\": \"CLEAN\", \"body_sha256\": \"215cdc495f4234f9a171ca5f70c19641a04c96591011cafa40b2f741df039a16\", \"master\": \"91bad00000000000000000000000000000000000\", \"issue_check\": 0, \"ac_dry_run\": [{\"id\": 1, \"exit\": 1}, {\"id\": 2, \"exit\": 0}]}\n```\n",
+      "createdAt": "2026-10-01T11:00:00Z"
+    }
+  ]
+}
