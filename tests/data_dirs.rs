@@ -1279,17 +1279,32 @@ fn unpinned_origin_rejected() {
 // [[property]] (#238)
 // ---------------------------------------------------------------------------------
 
-/// The self-test fixture's `[origin]` block, verbatim.
-const FIXTURE_ORIGIN: &str = "[origin]
-vep_test = \"https://github.com/Ensembl/ensembl-vep/blob/release/116.0/t/Runner.t#L244-L292\"
-vep_test_pinned = \"https://github.com/Ensembl/ensembl-vep/blob/57ea5c52340acc1f156267f810ad162e26597082/t/Runner.t#L244-L292\"
-vep_subject = \"https://github.com/Ensembl/ensembl-vep/blob/57ea5c52340acc1f156267f810ad162e26597082/modules/Bio/EnsEMBL/VEP/Runner.pm#L396\"
-issue = 80
-";
+/// The self-test fixture's `[origin]` block, verbatim (header to the next table).
+fn fixture_origin() -> String {
+    let text = include_str!("fixtures/data_dirs_selftest/case/test.toml");
+    let start = text
+        .find(
+            "
+[origin]
+",
+        )
+        .expect("fixture has [origin]")
+        + 1;
+    let end = start
+        + text[start..]
+            .find(
+                "
+[",
+            )
+            .expect("a table follows [origin]")
+        + 1;
+    text[start..end].to_owned()
+}
 
 /// One `[[property]]` table with id `id`, pinned links, and `extra` lines appended.
 fn property_table(id: &str, extra: &str) -> String {
-    let commit = "57ea5c52340acc1f156267f810ad162e26597082";
+    // Any 40-hex commit: only the permalink shape is checked here.
+    let commit = "0123456789abcdef0123456789abcdef01234567";
     format!(
         "[[property]]\n\
          id = \"{id}\"\n\
@@ -1303,7 +1318,7 @@ fn property_table(id: &str, extra: &str) -> String {
 
 /// Load the fixture with its `[origin]` replaced by `tables`.
 fn load_fixture_with_properties(tables: &str) -> TestDir {
-    load_fixture_edited(FIXTURE_ORIGIN, tables)
+    load_fixture_edited(&fixture_origin(), tables)
 }
 
 #[test]
@@ -1355,7 +1370,7 @@ fn property_missing_required_key_panics() {
 #[test]
 #[should_panic(expected = "has both [origin] and [[property]]")]
 fn origin_and_property_together_rejected() {
-    let tables = format!("{FIXTURE_ORIGIN}\n{}", property_table("case", ""));
+    let tables = format!("{}\n{}", fixture_origin(), property_table("case", ""));
     load_fixture_with_properties(&tables);
 }
 
@@ -1387,7 +1402,7 @@ fn property_ids_must_name_the_directory() {
 #[should_panic(expected = "[case] property case.vep_subject is not a commit-pinned permalink")]
 fn property_unpinned_link_rejected() {
     let table = property_table("case", "").replace(
-        "57ea5c52340acc1f156267f810ad162e26597082/modules",
+        "0123456789abcdef0123456789abcdef01234567/modules",
         "master/modules",
     );
     load_fixture_with_properties(&table);
