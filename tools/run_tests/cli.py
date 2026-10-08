@@ -6,6 +6,8 @@ directories run under a path-patched engine ladder: ``--vepyr REF`` pins the
 revision, and omitting it resolves ``biodatageeks/vepyr``'s current ``master`` HEAD
 (issue #30). ``--only DIR`` (repeatable) runs just the named data-test directories,
 which may live outside ``tests/data``, from a temporary copy (issue #168).
+``--via-cli`` annotates the same directories through the user-facing
+``python -m vepyr annotate`` built at that REF instead of cargo (issue #231).
 """
 
 from __future__ import annotations
@@ -20,7 +22,7 @@ from dataclasses import dataclass
 from pathlib import Path
 from typing import Final
 
-from run_tests import engine, fetch, summary, tests
+from run_tests import engine, fetch, summary, tests, via_cli
 from run_tests.verdict import Exit, RunTestsError
 
 __all__ = [
@@ -68,6 +70,8 @@ class Invocation:
     trim_manifests: bool
     only: tuple[Path, ...] = ()
     """``--only`` directories, absolute and validated; empty = all of ``tests/data``."""
+    via_cli: bool = False
+    """``--via-cli``: run ``python -m vepyr annotate`` instead of cargo (#231)."""
 
     @property
     def vepyr_ref(self) -> str:
@@ -168,6 +172,21 @@ def _parser() -> argparse.ArgumentParser:
         f"into a temporary ${tests.ROOT_ENV} root, deleted afterwards; tests/data is "
         "never touched. The engine is still --vepyr REF (or its default).",
     )
+    run.add_argument(
+        "--via-cli",
+        action="store_true",
+        help="annotate each selected data-test through the user-facing "
+        "'python -m vepyr annotate' CLI instead of cargo test --test data_dirs "
+        "(a complement, not a replacement). The CLI is built once from "
+        "biodatageeks/vepyr at the engine REF that --vepyr REF (default: master "
+        f"HEAD) resolves, into <cache root>/{via_cli.BUILD_DIR}/<sha>/. Its argv is "
+        "derived from test.toml [vepyr] / [[vepyr_run]]; a value the CLI cannot "
+        "express (e.g. buffer_size != 5000) fails that directory with exit 2. "
+        "Compare rule: md5 of the output body (every line not starting with '#', "
+        "line terminators kept) == [compare] body_md5; prints 'PASS <dir>' or "
+        "'MISMATCH <dir> expected=<md5> actual=<md5>' and exits 8 on any mismatch "
+        "(any other error wins with its own exit code).",
+    )
     return parser
 
 
@@ -203,6 +222,7 @@ def parse_args(argv: Sequence[str]) -> Invocation:
         fast=args.fast,
         trim_manifests=fetch.TRIM_DEFAULT and not args.no_trim_manifests,
         only=tests.only_dirs(args.only),
+        via_cli=args.via_cli,
     )
 
 
@@ -316,9 +336,7 @@ def _run_fetch(
 def _default_cargo(argv: Sequence[str], env: Mapping[str, str]) -> int:
     """Run cargo from the repo root (manifests + ``--config``)."""
     merged = {**os.environ, **dict(env)}
-    completed = subprocess.run(
-        list(argv), env=merged, cwd=_repo_root(), check=False
-    )
+    completed = subprocess.run(list(argv), env=merged, cwd=_repo_root(), check=False)
     return int(completed.returncode)
 
 
@@ -358,9 +376,7 @@ def _run_data_tests(
     repo = _repo_root()
     pins_toml = repo / "PINS.toml"
     tests.precheck_cache(cache_root, pins_toml=pins_toml)
-    plan, config_path = engine.materialise(
-        inv.vepyr_ref, repo_root=repo, api=gh_api
-    )
+    plan, config_path = engine.materialise(inv.vepyr_ref, repo_root=repo, api=gh_api)
     argv = tests.cargo_argv(targets, config=config_path, exact=bool(inv.only))
     env = {tests.CACHE_ENV: str(cache_root)}
     with ExitStack() as stack:
@@ -379,6 +395,69 @@ def _run_data_tests(
         f"cargo test exited {code} ({len(targets)} target(s))",
         plan.vepyr_sha,
     )
+
+
+def _run_via_cli(
+    inv: Invocation,
+    *,
+    cache_root: Path,
+    targets: Sequence[str],
+    cli_runner: via_cli.CliRunner,
+    vepyr_builder: via_cli.VepyrBuilder,
+    gh_api: engine.GhApi | None,
+) -> tuple[Exit, str | None, str | None]:
+    """Precheck + resolve REF + build the CLI + annotate. ``(code, detail, sha)``."""
+    repo = _repo_root()
+    pins_toml = repo / "PINS.toml"
+    tests.precheck_cache(cache_root, pins_toml=pins_toml)
+    _, fasta_pin = fetch.load_dataset_pins(pins_toml)
+    assert fasta_pin is not None  # precheck_cache refuses a PINS.toml without it
+    fasta = cache_root / fetch.FASTA_DIR / fasta_pin.fa_name
+    sha = engine.resolve_sha(gh_api or engine.GhCli(), inv.vepyr_ref)
+    build = vepyr_builder(sha, cache_root)
+    dirs = inv.only or tuple(repo / tests.DATA_DIR / name for name in targets)
+    report = via_cli.run_dirs(
+        dirs, build=build, cache_root=cache_root, fasta=fasta, runner=cli_runner
+    )
+    return report.code, f"{report.detail}; {build.label}", sha
+
+
+def _via_cli_phase(
+    inv: Invocation,
+    *,
+    cache_root: Path,
+    targets: Sequence[str],
+    cli_runner: via_cli.CliRunner,
+    vepyr_builder: via_cli.VepyrBuilder,
+    gh_api: engine.GhApi | None,
+) -> int:
+    """``--via-cli``: like :func:`_data_test_phase`, through the vepyr CLI (#231)."""
+    vepyr_resolved: str | None = None
+    try:
+        code, detail, vepyr_resolved = _run_via_cli(
+            inv,
+            cache_root=cache_root,
+            targets=targets,
+            cli_runner=cli_runner,
+            vepyr_builder=vepyr_builder,
+            gh_api=gh_api,
+        )
+    except RunTestsError as exc:
+        code, detail = exc.code, str(exc)
+        _print_error(exc)
+    print(
+        _summary(
+            inv,
+            code,
+            detail,
+            cache_dir=cache_root,
+            targets=targets,
+            vepyr_resolved=vepyr_resolved,
+            vepyr_effective=inv.vepyr_ref,
+        ),
+        end="",
+    )
+    return int(code)
 
 
 def _parse_phase(argv: Sequence[str]) -> Invocation | int:
@@ -528,6 +607,8 @@ def main(
     fasta_fetcher: Callable[[str, Path], None] = fetch.url_fetcher,
     cargo_runner: CargoRunner = _default_cargo,
     gh_api: engine.GhApi | None = None,
+    cli_runner: via_cli.CliRunner = via_cli.default_runner,
+    vepyr_builder: via_cli.VepyrBuilder = via_cli.build_vepyr,
 ) -> int:
     """Entry point: parse -> resolve -> fetch -> dispatch; returns the exit code."""
     argv = list(sys.argv[1:] if argv is None else argv)
@@ -578,6 +659,15 @@ def main(
             targets=targets,
             detail=detail,
             fetched=fetched,
+        )
+    if inv.via_cli:
+        return _via_cli_phase(
+            inv,
+            cache_root=cache_root,
+            targets=targets,
+            cli_runner=cli_runner,
+            vepyr_builder=vepyr_builder,
+            gh_api=gh_api,
         )
     return _data_test_phase(
         inv,

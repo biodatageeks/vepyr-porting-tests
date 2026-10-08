@@ -36,6 +36,7 @@ __all__ = [
     "engine_toml",
     "materialise",
     "resolve",
+    "resolve_sha",
     "validate_ref",
     "workspace_crate_dirs",
 ]
@@ -232,6 +233,15 @@ def _resolve_sha(api: GhApi, ref: str) -> str:
     return sha
 
 
+def resolve_sha(api: GhApi, ref: str) -> str:
+    """Public :func:`_resolve_sha`: the 40-char sha ``ref`` names on biodatageeks/vepyr.
+
+    Raises:
+        RunTestsError: exit 2 for a malformed ref, exit 6 when it does not resolve.
+    """
+    return _resolve_sha(api, ref)
+
+
 def _read_cargo_toml(api: GhApi, sha: str) -> dict[str, Any]:
     try:
         payload = api.get(f"repos/{VEPYR_REPO}/contents/Cargo.toml?ref={sha}")
@@ -421,8 +431,7 @@ def engine_toml(*, dfbf: Checkout, formats: Checkout) -> str:
     if missing_dfbf:
         raise RunTestsError(
             Exit.ENGINE,
-            f"dfbf checkout at {dfbf.path} missing crates: "
-            f"{', '.join(missing_dfbf)}",
+            f"dfbf checkout at {dfbf.path} missing crates: {', '.join(missing_dfbf)}",
         )
     if missing_fmt:
         raise RunTestsError(
