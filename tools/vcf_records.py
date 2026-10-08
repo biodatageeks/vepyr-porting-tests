@@ -18,7 +18,7 @@ committed data-test files are never compressed.
 from __future__ import annotations
 
 from collections.abc import Iterable, Iterator
-from dataclasses import dataclass
+from dataclasses import dataclass, field
 from pathlib import Path
 from typing import Final
 
@@ -43,6 +43,10 @@ class VcfRecord:
         ref: REF allele, verbatim.
         alt: ALT allele(s), verbatim (comma-separated if several).
         line: 1-based line number of the record in its file.
+        columns: Every tab-separated column of the record, verbatim, including
+            the five fixed ones (QUAL, FILTER, INFO, FORMAT and samples follow
+            when present). Excluded from equality and ``repr``, so records
+            still compare by their identifying columns (#235).
     """
 
     chrom: str
@@ -51,6 +55,7 @@ class VcfRecord:
     ref: str
     alt: str
     line: int
+    columns: tuple[str, ...] = field(default=(), compare=False, repr=False)
 
 
 def iter_records(lines: Iterable[str], *, where: str = "<vcf>") -> Iterator[VcfRecord]:
@@ -75,7 +80,13 @@ def iter_records(lines: Iterable[str], *, where: str = "<vcf>") -> Iterator[VcfR
         match cols:
             case [chrom, pos, id_, ref, alt, *_] if pos.isdecimal() and pos.isascii():
                 yield VcfRecord(
-                    chrom=chrom, pos=int(pos), id=id_, ref=ref, alt=alt, line=lineno
+                    chrom=chrom,
+                    pos=int(pos),
+                    id=id_,
+                    ref=ref,
+                    alt=alt,
+                    line=lineno,
+                    columns=tuple(cols),
                 )
             case _:
                 raise VcfFormatError(
