@@ -14,7 +14,8 @@ The pin is ``tools/vep_pin.toml`` (VEP software 116.2, cache 116). For every
 
 * ``[vep] image`` equal to the pinned digest reference;
 * ``[origin] vep_test_pinned`` and ``vep_subject`` to be upstream permalinks at
-  the pinned commit, and ``vep_test`` at the pinned tag or commit;
+  the pinned commit, and ``vep_test`` at the pinned tag or commit; in a
+  multi-property directory (#238) the same holds for every ``[[property]]``;
 * none of the legacy literals (:data:`LEGACY_PATTERN`) in the file.
 
 A directory named in the **temporary** allow-list
@@ -162,6 +163,48 @@ def check_allowlist(data: Path, names: Sequence[str]) -> Iterator[Violation]:
             )
 
 
+def _provenance(doc: dict[str, Any]) -> list[tuple[str, dict[str, Any]]]:
+    """The link tables of a ``test.toml``: each ``[[property]]``, else ``[origin]``.
+
+    Returns:
+        ``(label, table)`` pairs; a missing or mistyped table is checked as empty.
+    """
+    match doc.get("property"):
+        case list() as props if props:
+            return [
+                (f"[[property]] {p.get('id')!r}", p if isinstance(p, dict) else {})
+                for p in props
+            ]
+    origin = doc.get("origin", {})
+    return [("[origin]", origin if isinstance(origin, dict) else {})]
+
+
+def _check_links(
+    where: str, label: str, links: dict[str, Any], pin: VepPin
+) -> Iterator[Violation]:
+    """Check the upstream links of one ``[origin]`` / ``[[property]]`` table."""
+    for key in ("vep_test_pinned", "vep_subject"):
+        if (ref := _commit_of(links.get(key))) != pin.upstream_commit:
+            yield Violation(
+                where,
+                f"{label} {key} is at {ref!r}, pin is commit {pin.upstream_commit}",
+            )
+    match links.get("vep_test"):
+        case str() as url if url.startswith(
+            tuple(
+                f"{UPSTREAM_REPO_URL}/blob/{ref}/"
+                for ref in (pin.upstream_tag, pin.upstream_commit)
+            )
+        ):
+            pass
+        case url:
+            yield Violation(
+                where,
+                f"{label} vep_test {url!r} is not at tag {pin.upstream_tag} "
+                f"or commit {pin.upstream_commit}",
+            )
+
+
 def check_test_toml(toml_path: Path, pin: VepPin) -> Iterator[Violation]:
     """Check one non-allow-listed ``test.toml`` against the pin (#239 AC7c).
 
@@ -180,32 +223,11 @@ def check_test_toml(toml_path: Path, pin: VepPin) -> Iterator[Violation]:
         yield Violation(where, f"not valid TOML: {exc}")
         return
     vep = doc.get("vep", {})
-    origin = doc.get("origin", {})
     if not isinstance(vep, dict) or vep.get("image") != pin.pinned_image:
         image = vep.get("image") if isinstance(vep, dict) else None
         yield Violation(where, f"[vep] image is {image!r}, pin is {pin.pinned_image!r}")
-    if not isinstance(origin, dict):
-        origin = {}
-    for key in ("vep_test_pinned", "vep_subject"):
-        if (ref := _commit_of(origin.get(key))) != pin.upstream_commit:
-            yield Violation(
-                where,
-                f"[origin] {key} is at {ref!r}, pin is commit {pin.upstream_commit}",
-            )
-    match origin.get("vep_test"):
-        case str() as url if url.startswith(
-            tuple(
-                f"{UPSTREAM_REPO_URL}/blob/{ref}/"
-                for ref in (pin.upstream_tag, pin.upstream_commit)
-            )
-        ):
-            pass
-        case url:
-            yield Violation(
-                where,
-                f"[origin] vep_test {url!r} is not at tag {pin.upstream_tag} "
-                f"or commit {pin.upstream_commit}",
-            )
+    for label, links in _provenance(doc):
+        yield from _check_links(where, label, links, pin)
     for lineno, line in enumerate(text.splitlines(), 1):
         if match := LEGACY_IN_TOML.search(line):
             yield Violation(f"{where}:{lineno}", f"legacy literal {match[0]!r}")

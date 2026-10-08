@@ -64,7 +64,10 @@ body:
     id: description
     attributes:
       label: One-sentence description
-      description: Feeds `description` in `test.toml`.
+      description: >-
+        Feeds `description` in `test.toml` (or the `[[property]]` `description` when the
+        test's input and oracle equal an existing directory's: it is then added as a
+        property of that directory, #238).
       placeholder: "Missense SNVs on chr21 get the same CSQ as VEP 116."
     validations:
       required: true

@@ -18,6 +18,7 @@ description: Use when implementing, re-blessing, verifying or reviewing a data-t
   - Schema: `tests/data_dirs.rs` header, README "Porting method".
 - `[origin] ledger` = README short form `"<Stem>.ledger.toml n=<N>"` (e.g. `"Runner.ledger.toml n=16"`); never a URL to a former source repository, even if older rows have one.
 - Extra VEP flags: none. `--check_existing` is the only allowlisted one (`ALLOWED_VEP_FLAGS`, `tools/bless/vep.py`). `--everything` already enables it in VEP 116 (`Config.pm` `@OPTION_SETS`: everything -> af/pubmed -> check_existing), so adding it leaves the body and `body_md5` unchanged. It changes only the `##VEP-command-line` header and `[vep] command`/`extra_flags`. `dt` has no pass-through.
+- One directory per distinct (input, oracle) (#238): before adding a directory run `tools/check_unique_dirs tests/data`; if the new test's input and oracle bodies and config equal an existing directory's, add a `[[property]]` table (id = the would-be slug, `description`, the `[origin]` links) to that directory instead of a new one (README "One directory per distinct comparison"). Never commit a new duplicate.
 - Input: only `tools/normalize_input` (`bcftools norm -m -both`, no `-f`); VEP and vepyr read the same `input.vcf`; oracle is always VEP.
 
 ## Recipe (in order)
