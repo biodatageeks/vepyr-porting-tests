@@ -52,7 +52,7 @@ CONTIGS: Final = ("chr1", "chr21", "chr22")
 REVISIONS: Final[dict[Flavour, str]] = {
     Flavour.ENSEMBL: "15a048f0585a7a40d2d40cb1c2f7806638ee500b",
     Flavour.REFSEQ: "d1b97a0a72d8ed94418b7a65562e89d8a0a5b3ca",
-    Flavour.MERGED: "13c9f50ce73e08f10d29fa62751bdf009dfc4e43",
+    Flavour.MERGED: "5b83dd8d249106c6cc3f1c04c522b4bec716cc97",
 }
 PINS_TOML: Final = (
     "\n".join(

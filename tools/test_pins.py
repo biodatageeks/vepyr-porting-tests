@@ -14,7 +14,7 @@ REPO_ROOT = Path(__file__).resolve().parent.parent
 EXPECTED_SHAS: Final[dict[str, str]] = {
     "hf_cache_ensembl": "15a048f0585a7a40d2d40cb1c2f7806638ee500b",
     "hf_cache_refseq": "d1b97a0a72d8ed94418b7a65562e89d8a0a5b3ca",
-    "hf_cache_merged": "13c9f50ce73e08f10d29fa62751bdf009dfc4e43",
+    "hf_cache_merged": "5b83dd8d249106c6cc3f1c04c522b4bec716cc97",
     "grch38_fasta": "1e74081a49ceb9739cc14c812fbb8b3db978eb80ba8e5350beb80d8ad8dfef3b",
 }
 """Tripwire: editing any SHA in ``PINS.toml`` must fail here in the same PR."""

@@ -25,9 +25,9 @@ note = "VEP 116 GRCh38 refseq; deterministic rebuild 2026-09-03T16:39:02Z; pinne
 [hf_cache_merged]
 repo = "https://huggingface.co/datasets/biodatageeks/vepyr_116_GRCh38_merged"
 ref  = "main"
-sha  = "13c9f50ce73e08f10d29fa62751bdf009dfc4e43"
+sha  = "5b83dd8d249106c6cc3f1c04c522b4bec716cc97"
 role = "dataset"
-note = "VEP 116 GRCh38 merged; deterministic rebuild 2026-09-03T16:38:59Z; pinned tree 7697 files, 37 510 035 193 B"
+note = "VEP 116 GRCh38 merged; Hub commit 2026-10-07T05:31:06Z (measured 2026-10-08); pinned tree 7699 files, 37 702 759 839 B"
 
 [grch38_fasta]
 repo = "https://ftp.ensembl.org/pub/release-116/fasta/homo_sapiens/dna"
