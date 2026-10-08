@@ -829,6 +829,11 @@ number or assertion kind.
 
 ## Agent setup (per machine)
 
+**Platform.** `dt` and the repo's local tooling (the scripts at the repo root, such as
+`./run_tests`, `./bless` and `./check_env`, and those under `tools/`) have so far been run
+and tested only on macOS (Darwin, Docker Desktop, `uv`, bash/zsh). Linux is untested, and
+no CI run covers it (the GitHub workflows are disabled).
+
 The agent rules and skills are versioned here and nowhere else: `AGENTS.md`
 (workflow rules), `CLAUDE.md` (project requirements) and the project skills in
 `.claude/skills/` (`impl-vepyr-data-test` with its `scripts/dt`, and
