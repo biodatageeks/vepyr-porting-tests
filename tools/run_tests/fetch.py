@@ -1031,7 +1031,7 @@ def fetch(
         write_provenance(root, provenance)
     out(
         f"ok: {added} added, {skipped} already present, "
-        f"{refreshed} manifest(s) trimmed -> {root / PROVENANCE}"
+        f"{refreshed} manifest(s) refreshed -> {root / PROVENANCE}"
     )
     return FetchOutcome(code=Exit.OK, fetched=shards_fetched, present=shards_present)
 

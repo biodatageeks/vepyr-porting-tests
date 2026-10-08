@@ -9,6 +9,7 @@ unreachable Hub is a clean exit 4 and not a traceback.
 
 from __future__ import annotations
 
+import fcntl
 import gzip
 import hashlib
 import json
@@ -506,7 +507,7 @@ def test_a_top_up_with_a_new_contig_refreshes_every_trimmed_manifest(
     root = tmp_path / "root"
     _run(remote, pins, root, contigs=("chr21",), flavours=(Flavour.ENSEMBL,))
     _, out = _run(remote, pins, root, contigs=("chr22",), flavours=(Flavour.ENSEMBL,))
-    assert "7 manifest(s) trimmed" in out[-1]
+    assert "7 manifest(s) refreshed" in out[-1]
     assert read_provenance(root).runs[-1].refreshed_manifests == 7  # type: ignore[union-attr]
     for entity in ENTITIES:
         assert _chroms(root, entity) == ["chr21", "chr22"], entity
@@ -645,9 +646,11 @@ def test_a_whole_genome_run_untrims_a_per_contig_root_once(
     root = tmp_path / "root"
     _run(remote, pins, root, contigs=("chr21",), flavours=(Flavour.ENSEMBL,))
     before = _forced_calls(remote)
-    code, _ = _run(remote, pins, root, flavours=(Flavour.ENSEMBL,))
+    code, out = _run(remote, pins, root, flavours=(Flavour.ENSEMBL,))
     assert code is Exit.OK
     assert _forced_calls(remote) - before == 1
+    assert "7 manifest(s) refreshed" in out[-1]
+    assert "trimmed" not in out[-1]  # an untrim is not a trim (PR #228 review)
     record = read_provenance(root).datasets["ensembl"]  # type: ignore[union-attr]
     assert (record.contigs, record.manifests_trimmed) == ("ALL", False)
     assert read_provenance(root).runs[-1].refreshed_manifests == 7  # type: ignore[union-attr]
@@ -676,6 +679,73 @@ def test_a_whole_genome_run_with_a_hub_omitted_shard_settles_after_untrim(
         assert code is Exit.OK
     assert (root / "116_GRCh38_ensembl" / "exon" / "GL000009.2.parquet").is_file()
     assert _forced_calls(remote) - before == 1
+
+
+def test_the_untrim_trigger_is_per_flavour(
+    remote: FakeHub, pins: Path, tmp_path: Path
+) -> None:
+    """#223: only the flavour whose record says ``manifests_trimmed`` is untrimmed.
+
+    A root holding whole-genome refseq and per-contig ensembl: one whole-genome run
+    over both makes exactly one forced call, for ensembl, and none for refseq.
+    """
+    root = tmp_path / "root"
+    _run(remote, pins, root, flavours=(Flavour.REFSEQ,))
+    _run(remote, pins, root, contigs=("chr21",), flavours=(Flavour.ENSEMBL,))
+    start = len(remote.calls)
+    code, _ = _run(remote, pins, root, flavours=(Flavour.ENSEMBL, Flavour.REFSEQ))
+    assert code is Exit.OK
+    forced = [
+        repo_id.rsplit("_", 1)[1]
+        for repo_id, _, patterns, _ in remote.calls[start:]
+        if patterns == [f"*/{MANIFEST}"]
+    ]
+    assert forced == ["ensembl"]
+    datasets = read_provenance(root).datasets  # type: ignore[union-attr]
+    for name in ("ensembl", "refseq"):
+        assert (datasets[name].contigs, datasets[name].manifests_trimmed) == (
+            "ALL",
+            False,
+        ), name
+
+
+def test_the_untrim_call_runs_under_the_provenance_lock(
+    remote: FakeHub, pins: Path, tmp_path: Path
+) -> None:
+    """#223: the forced manifests-only call of an untrim holds ``PROVENANCE.lock``.
+
+    The downloader probes the lock with a non-blocking ``flock`` from a second open
+    file description: during the forced call the probe must find it taken.
+    """
+    root = tmp_path / "root"
+    _run(remote, pins, root, contigs=("chr21",), flavours=(Flavour.ENSEMBL,))
+    probes: list[bool] = []
+
+    def probing_downloader(
+        repo_id: str, revision: str, patterns: list[str], local_dir: Path
+    ) -> None:
+        if patterns == [f"*/{MANIFEST}"]:
+            with (root / fetch_cache.PROVENANCE_LOCK).open("a+") as handle:
+                try:
+                    fcntl.flock(handle, fcntl.LOCK_EX | fcntl.LOCK_NB)
+                except BlockingIOError:
+                    probes.append(True)
+                else:
+                    fcntl.flock(handle, fcntl.LOCK_UN)
+                    probes.append(False)
+        remote.downloader(repo_id, revision, patterns, local_dir)
+
+    dataset_pins, fasta_pin = load_dataset_pins(pins)
+    code = fetch(
+        _selection(root, flavours=(Flavour.ENSEMBL,)),
+        dataset_pins,
+        fasta_pin,
+        lister=remote.lister,
+        downloader=probing_downloader,
+        out=lambda _: None,
+    ).code
+    assert code is Exit.OK
+    assert probes == [True]
 
 
 def test_a_whole_genome_root_topped_up_with_one_contig_stays_all(
