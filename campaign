@@ -1,0 +1,4 @@
+#!/usr/bin/env bash
+# ./campaign — the VEP 116.2 merged-cache port campaign: port, check, report; `./campaign --help`.
+here="$(cd -- "$(dirname -- "${BASH_SOURCE[0]}")" && pwd)"
+exec env PYTHONPATH="$here/tools" uv run --frozen --project "$here" python -m campaign "$@"

@@ -360,7 +360,7 @@ Every data-test oracle is produced by **VEP software 116.2** against **VEP cache
 116** (VEP point releases reuse the release-116 cache; there is no 116.2 cache).
 The pin is defined once, in `tools/vep_pin.toml` (`[vep]` `image_tag`,
 `image_digest`, `upstream_tag`, `upstream_commit`, `cache_version`); `./bless`,
-`tools/check_campaign.py` and the `tests/data_dirs.rs` self-test read it, and no
+`./campaign check` (`tools/campaign/check.py`) and the `tests/data_dirs.rs` self-test read it, and no
 other code spells the digest or the commit (#239).
 
 ```bash
@@ -963,7 +963,8 @@ candidate, its source assertions and implementation lines, and separate old-cach
 vepyr-difference and unsupported-feature columns. Queued and blocked candidates
 are excluded from ported counts.
 
-`tools/port_campaign.py` runs qualified cases in batches of ten. It first writes
+`./campaign port` (package `tools/campaign/`, #235) runs qualified cases in batches
+of `batch_size` (`docs/porting/vep1162-merged/campaign.toml`, 10). It first writes
 raw rows to the external evidence directory, runs `tools/normalize_input`, then
 passes the resulting `input.vcf` to both engines. `./bless` verifies the SHA-256 of
 its Docker input copy; the campaign verifies that the normalized file stays
@@ -980,19 +981,39 @@ from comparison.
 have not completed this input-identity audit. Use a new external evidence directory
 for that pass; prior run evidence is retained.
 
+A batch is crash-safe: each case is built in a staging directory `tests/.campaign-*`
+and moved into `tests/data/<name>/` only after every step finished, its evidence is
+written to `<evidence>/.<name>.partial/` and renamed likewise, and `cases.json` is
+rewritten atomically after each case. An exception or Ctrl-C leaves no partial
+data-test and no partial manifest; re-running the same command resumes with the
+cases still queued. A failed `normalize_input`/`./bless` step, a changed witness or
+a leftover `tests/data/<name>/` of a queued case stops the batch with
+`campaign: error: ...` (exit 2).
+
 `--vep-cache` (the native cache used by `./bless` for the oracle) may be a local
 cache. `--cache-dir` is passed to `./run_tests` and must be a Hub-layout cache
 root with `PROVENANCE.json` (populate it with
 `./run_tests --cache-dir <cache> --add-contigs chr21`).
 
 ```bash
-python tools/port_campaign.py --limit 10 \
+./campaign port --limit 10 \
   --vep-cache /path/to/native-cache-parent \
   --cache-dir /path/to/hub-layout-cache \
   --fasta /path/to/Homo_sapiens.GRCh38.dna.primary_assembly.fa \
   --evidence /path/to/run-evidence
-python tools/check_campaign.py --require-complete --require-normalized
+./campaign check --require-complete --require-normalized
+./campaign report   # regenerates docs/porting/vep1162-merged/README.md
 ```
+
+`./campaign check` recomputes every value it can from committed files and compares
+it with `cases.json`: the sha256 of `input.vcf`, the body md5 and focus of
+`expected_output.vcf` (also against `test.toml [compare] body_md5`), the pinned
+image, and the recorded vepyr body md5 against the re-read vepyr output (the oracle
+for `PASS`; `docs/porting/vep1162-merged/failures/<id>/actual_output.vcf` for
+`FAIL`, which must be committed). It prints one `check: <id>: ...` line per
+violation and exits 1, or prints the summary and exits 0; it uses no `assert`, so
+`python -O` checks the same. The report's prose above the table is the
+`[report] head` template in `campaign.toml`. Tests: `tools/campaign/test_*.py`.
 
 Primary-property checks select the case's specific field or record property;
 the existing body comparison also checks all incidental fields. A focus pass

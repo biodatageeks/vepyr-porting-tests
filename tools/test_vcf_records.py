@@ -21,6 +21,13 @@ def test_reads_fixed_columns_and_skips_headers(tmp_path: Path) -> None:
     ]
 
 
+def test_all_columns_are_kept_verbatim() -> None:
+    """``columns`` holds every column (INFO and samples too); equality ignores it."""
+    (r,) = iter_records(["21\t1\t.\tA\tG\t.\tPASS\tCSQ=x|y\tGT\t0/1\n"])
+    assert r.columns == ("21", "1", ".", "A", "G", ".", "PASS", "CSQ=x|y", "GT", "0/1")
+    assert r == VcfRecord(chrom="21", pos=1, id=".", ref="A", alt="G", line=1)
+
+
 def test_header_only_file_has_no_records(tmp_path: Path) -> None:
     """A file of header lines yields an empty list, not an error."""
     p = tmp_path / "x.vcf"

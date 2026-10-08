@@ -23,3 +23,6 @@ __pycache__/
 
 # Local agent scratch specs — never repository documentation.
 docs/superpowers/
+
+# ./campaign port per-case staging directories (removed on exit; left only by a hard kill).
+/tests/.campaign-*/

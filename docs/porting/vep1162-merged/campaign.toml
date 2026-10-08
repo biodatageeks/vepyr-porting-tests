@@ -1,0 +1,33 @@
+# Settings of the VEP 116.2 merged-cache port campaign, read by ./campaign (#235).
+# Values that used to be literals in tools/port_campaign.py and
+# tools/report_campaign.py live here, so the code holds no campaign data.
+
+# The case manifest and the data-test directories, relative to this file.
+manifest = "cases.json"
+data_dir = "../../../tests/data"
+# Default --limit of `./campaign port` (cases per batch).
+batch_size = 10
+# `[origin] issue` written into a generated test.toml when the case has no
+# "issue" field of its own.
+issue = 226
+
+[report]
+# Head of README.md (everything above the table rows), a string.Template:
+# $normalized = executed cases whose input normalization was verified,
+# $results = "STATUS: count" pairs sorted by status. Rows are appended by code.
+head = """
+# VEP 116.2 merged-cache ports
+
+One PR; one commit and report per ten ports. SNVs precede small indels.
+
+[Full 2,103-assertion audit](../vep1162-assertion-audit/README.md) · [Failure details and actual outputs](FAILURES.md) · [Input/reference audit](reference-audit.json)
+
+Input normalization reverified for $normalized executed tests: one input SHA-256 shared by VEP Docker and vepyr.
+
+Current results: $results.
+
+PASS means whole VCF body equality. Focus records the single primary property; the body comparison also checks incidental fields. QUEUED and BLOCKED are not ported tests.
+
+| Test | Description | Status | Focus | Old-cache problem | Potential vepyr bug | Unsupported feature | Porting note | Source test | Implementation |
+|---|---|---|---|---|---|---|---|---|---|
+"""

@@ -1,6 +1,6 @@
 # The single source of the VEP software pin (#239): the Ensembl VEP release that
 # produces every data-test oracle. Read by tools/vep_pin.py (./bless,
-# tools/check_campaign.py, tools/check_vep_version) and by tests/data_dirs.rs.
+# tools/campaign/check.py, tools/check_vep_version) and by tests/data_dirs.rs.
 # No other file under tools/, bless or tests/data_dirs.rs may spell the digest or
 # the commit.
 #
