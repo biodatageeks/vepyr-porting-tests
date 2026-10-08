@@ -140,6 +140,34 @@ def test_each_key_is_checked(
     assert needle in capsys.readouterr().err
 
 
+def _as_properties(text: str, second_commit: str = PIN.upstream_commit) -> str:
+    """Turn ``toml_text()``'s ``[origin]`` into two ``[[property]]`` tables (#238)."""
+    head, rest = text.split("[origin]\n", 1)
+    links, vep = rest.split("\n[vep]", 1)
+    second = links.replace(PIN.upstream_commit, second_commit)
+    return (
+        f'{head}[vep]{vep}\n[[property]]\nid = "x"\n{links}\n'
+        f'[[property]]\nid = "y"\n{second}'
+    )
+
+
+def test_property_links_pinned_pass(repo: Path) -> None:
+    """#238: a multi-property dir whose every property is pinned passes."""
+    write_test(repo, "good", _as_properties(toml_text()))
+    assert exit_code(repo) == 0
+
+
+def test_property_link_unpinned_fails(
+    repo: Path, capsys: pytest.CaptureFixture[str]
+) -> None:
+    """#238: one ``[[property]]`` at another commit fails, naming its id."""
+    write_test(repo, "good", _as_properties(toml_text(), "f" * 40))
+    assert exit_code(repo) == 1
+    err = capsys.readouterr().err
+    assert "[[property]] 'y' vep_test_pinned" in err
+    assert "'x'" not in err
+
+
 def test_legacy_literal_in_comment_fails(repo: Path) -> None:
     """A legacy literal anywhere in a non-listed ``test.toml`` fails (AC7c)."""
     write_test(repo, "good", toml_text() + "# from release/116.0\n")

@@ -1421,3 +1421,17 @@ fn property_focus_unknown_key_rejected() {
     let table = property_table("case", "focus = { kind = \"csq\", wehre = {} }\n");
     load_fixture_with_properties(&table);
 }
+
+/// Every committed `tests/data` directory passes the loader (schema, pins, mode,
+/// `[[property]]` rules) without any cache (#238).
+#[test]
+fn committed_dirs_load() {
+    let root = Path::new(env!("CARGO_MANIFEST_DIR")).join("tests/data");
+    let dirs = test_dirs(&root);
+    let properties: usize = dirs
+        .iter()
+        .map(|dir| TestDir::load(dir).properties.len())
+        .sum();
+    println!("{} directories, {properties} properties", dirs.len());
+    assert!(!dirs.is_empty());
+}
