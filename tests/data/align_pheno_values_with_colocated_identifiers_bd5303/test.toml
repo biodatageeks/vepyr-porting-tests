@@ -1,11 +1,5 @@
 name = "align_pheno_values_with_colocated_identifiers_bd5303"
-description = "Align PHENO values with colocated identifiers."
-
-[origin]
-vep_test = "https://github.com/Ensembl/ensembl-vep/blob/2cb0bbe216bb31c75de8f8000e2da7ff4fb7b451/t/OutputFactory.t#L105-L124"
-vep_test_pinned = "https://github.com/Ensembl/ensembl-vep/blob/2cb0bbe216bb31c75de8f8000e2da7ff4fb7b451/t/OutputFactory.t#L105-L124"
-vep_subject = "https://github.com/Ensembl/ensembl-vep/blob/2cb0bbe216bb31c75de8f8000e2da7ff4fb7b451/modules/Bio/EnsEMBL/VEP/OutputFactory.pm#L1041"
-issue = 226
+description = "One comparison covering 6 VEP assertion properties, one [[property]] each: vepyr's output body must equal native VEP's (expected_output.vcf)."
 
 [vepyr]
 flavour = "merged"
@@ -30,3 +24,51 @@ body_md5 = "4e6fb229c5dc5526e4100f6c92d036de"
 [input]
 command = "bcftools norm -m -both -o <out.vcf> <in.vcf.gz>"
 bcftools_version = "bcftools 1.23"
+
+[[property]]
+id = "align_pheno_values_with_colocated_identifiers_bd5303"
+description = "Align PHENO values with colocated identifiers."
+vep_test = "https://github.com/Ensembl/ensembl-vep/blob/2cb0bbe216bb31c75de8f8000e2da7ff4fb7b451/t/OutputFactory.t#L105-L124"
+vep_test_pinned = "https://github.com/Ensembl/ensembl-vep/blob/2cb0bbe216bb31c75de8f8000e2da7ff4fb7b451/t/OutputFactory.t#L105-L124"
+vep_subject = "https://github.com/Ensembl/ensembl-vep/blob/2cb0bbe216bb31c75de8f8000e2da7ff4fb7b451/modules/Bio/EnsEMBL/VEP/OutputFactory.pm#L1041"
+issue = 226
+
+[[property]]
+id = "merge_colocated_clin_sig_values_720760"
+description = "Merge colocated CLIN_SIG values."
+vep_test = "https://github.com/Ensembl/ensembl-vep/blob/2cb0bbe216bb31c75de8f8000e2da7ff4fb7b451/t/OutputFactory.t#L105-L124"
+vep_test_pinned = "https://github.com/Ensembl/ensembl-vep/blob/2cb0bbe216bb31c75de8f8000e2da7ff4fb7b451/t/OutputFactory.t#L105-L124"
+vep_subject = "https://github.com/Ensembl/ensembl-vep/blob/2cb0bbe216bb31c75de8f8000e2da7ff4fb7b451/modules/Bio/EnsEMBL/VEP/OutputFactory.pm#L1041"
+issue = 226
+
+[[property]]
+id = "merge_colocated_identifiers_in_vep_order_ab4101"
+description = "Merge colocated identifiers in VEP order."
+vep_test = "https://github.com/Ensembl/ensembl-vep/blob/2cb0bbe216bb31c75de8f8000e2da7ff4fb7b451/t/OutputFactory.t#L105-L124"
+vep_test_pinned = "https://github.com/Ensembl/ensembl-vep/blob/2cb0bbe216bb31c75de8f8000e2da7ff4fb7b451/t/OutputFactory.t#L105-L124"
+vep_subject = "https://github.com/Ensembl/ensembl-vep/blob/2cb0bbe216bb31c75de8f8000e2da7ff4fb7b451/modules/Bio/EnsEMBL/VEP/OutputFactory.pm#L1041"
+issue = 226
+
+[[property]]
+id = "report_clin_sig_on_the_baseline_matched_variant_dd2416"
+description = "Report CLIN_SIG on the matched variant using a release-116 witness."
+vep_test = "https://github.com/Ensembl/ensembl-vep/blob/2cb0bbe216bb31c75de8f8000e2da7ff4fb7b451/t/AnnotationSource_Cache_Variation.t#L281-L321"
+vep_test_pinned = "https://github.com/Ensembl/ensembl-vep/blob/2cb0bbe216bb31c75de8f8000e2da7ff4fb7b451/t/AnnotationSource_Cache_Variation.t#L281-L321"
+vep_subject = "https://github.com/Ensembl/ensembl-vep/blob/2cb0bbe216bb31c75de8f8000e2da7ff4fb7b451/modules/Bio/EnsEMBL/VEP/AnnotationType/Variation.pm#L146"
+issue = 226
+
+[[property]]
+id = "report_global_af_from_the_colocated_clinical_variant_s_matched_allele_f5c8dd"
+description = "Report global AF from the colocated clinical variant's matched allele."
+vep_test = "https://github.com/Ensembl/ensembl-vep/blob/2cb0bbe216bb31c75de8f8000e2da7ff4fb7b451/t/AnnotationSource_Cache_VariationTabix.t#L288-L296"
+vep_test_pinned = "https://github.com/Ensembl/ensembl-vep/blob/2cb0bbe216bb31c75de8f8000e2da7ff4fb7b451/t/AnnotationSource_Cache_VariationTabix.t#L288-L296"
+vep_subject = "https://github.com/Ensembl/ensembl-vep/blob/2cb0bbe216bb31c75de8f8000e2da7ff4fb7b451/modules/Bio/EnsEMBL/VEP/AnnotationType/Variation.pm#L146"
+issue = 226
+
+[[property]]
+id = "report_pheno_on_the_baseline_matched_variant_8942b6"
+description = "Report PHENO on the matched variant using a release-116 witness."
+vep_test = "https://github.com/Ensembl/ensembl-vep/blob/2cb0bbe216bb31c75de8f8000e2da7ff4fb7b451/t/AnnotationSource_Cache_Variation.t#L281-L321"
+vep_test_pinned = "https://github.com/Ensembl/ensembl-vep/blob/2cb0bbe216bb31c75de8f8000e2da7ff4fb7b451/t/AnnotationSource_Cache_Variation.t#L281-L321"
+vep_subject = "https://github.com/Ensembl/ensembl-vep/blob/2cb0bbe216bb31c75de8f8000e2da7ff4fb7b451/modules/Bio/EnsEMBL/VEP/AnnotationType/Variation.pm#L146"
+issue = 226
