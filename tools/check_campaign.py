@@ -8,6 +8,8 @@ import tomllib
 
 from port_campaign import MANIFEST, ROOT, body, focus_value
 
+from vep_pin import load_pin
+
 
 def check(require_complete=False, require_normalized=False):
     cases = json.loads(MANIFEST.read_text())
@@ -26,10 +28,7 @@ def check(require_complete=False, require_normalized=False):
         config = tomllib.loads((path / "test.toml").read_text())
         assert config["vepyr"]["flavour"] == "merged", case["id"]
         assert "--merged" in config["vep"]["command"].split(), case["id"]
-        assert (
-            config["vep"]["image"] == "ensemblorg/ensembl-vep@sha256:"
-            "5c57abdc40b637cac198370b4c114777fa24de3336141fdf09d2b0c43cd4b8da"
-        ), case["id"]
+        assert config["vep"]["image"] == load_pin().pinned_image, case["id"]
         result = case["result"]
         if require_normalized:
             assert result.get("normalization_verified"), case["id"]

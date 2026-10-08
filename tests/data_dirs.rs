@@ -1,10 +1,10 @@
-//! The generic data-test runner: one directory per test, VEP 116 output as oracle.
+//! The generic data-test runner: one directory per test, VEP 116.2 output as oracle.
 //!
 //! A data-test is a directory `tests/data/<name>/` holding
 //!
 //! - `input.vcf` — the normalised input, written by `tools/normalize_input` (#85);
 //!   VEP and vepyr both read exactly these bytes;
-//! - `expected_output.vcf` — the real output of native Ensembl VEP 116 on that input,
+//! - `expected_output.vcf` — the real output of native Ensembl VEP 116.2 on that input,
 //!   written by `./bless` (#32);
 //! - `test.toml` — provenance plus how vepyr is run and compared (schema below).
 //!
@@ -91,6 +91,10 @@ const TOML_NAME: &str = "test.toml";
 /// The VEP flag -> `[vepyr]` mapping of the one data-test mode (#143), shared with
 /// `tools/bless`.
 const MODE_MAPPING: &str = include_str!("../tools/vep_flags.toml");
+/// The VEP software pin (#239), shared with `tools/vep_pin.py`; the self-tests
+/// read the upstream tag and commit from it instead of spelling them.
+#[cfg(test)]
+const VEP_PIN: &str = include_str!("../tools/vep_pin.toml");
 
 // ---------------------------------------------------------------------------------
 // Schema
@@ -718,7 +722,7 @@ async fn run_all(root: &Path, cache_root: CacheRoot<'_>) {
 /// The one contig the synthetic cache carries.
 const SYNTHETIC_CONTIG: &str = "chr1";
 
-/// Columns of a VEP 116 variation shard, in the engine's projected order
+/// Columns of a VEP cache 116 variation shard, in the engine's projected order
 /// (`VARIATION_REQUIRED_COLUMNS` plus the derived `tier`).
 const VARIATION_COLUMNS: &[&str] = &[
     "chrom",
@@ -1083,9 +1087,25 @@ fn vep_extra_flags_wrong_type_is_rejected() {
     load_fixture_with_vep_line("extra_flags = [1]");
 }
 
+/// `[vep] <key>` of `tools/vep_pin.toml`.
+#[cfg(test)]
+fn vep_pin(key: &str) -> String {
+    let pin: Table = VEP_PIN
+        .parse()
+        .unwrap_or_else(|error| panic!("tools/vep_pin.toml does not parse: {error}"));
+    pin.get("vep")
+        .and_then(Value::as_table)
+        .and_then(|vep| vep.get(key))
+        .and_then(Value::as_str)
+        .unwrap_or_else(|| panic!("tools/vep_pin.toml: [vep] {key} must be a string"))
+        .to_owned()
+}
+
 #[test]
 fn commit_permalink_shape() {
-    let commit = "57ea5c52340acc1f156267f810ad162e26597082";
+    let commit = vep_pin("upstream_commit");
+    let tag = vep_pin("upstream_tag");
+    assert_eq!(commit.len(), 40, "tools/vep_pin.toml upstream_commit");
     for good in [
         format!("https://github.com/Ensembl/ensembl-vep/blob/{commit}/t/Runner.t#L244-L292"),
         format!("https://github.com/Ensembl/ensembl-vep/blob/{commit}/modules/X.pm"),
@@ -1094,8 +1114,11 @@ fn commit_permalink_shape() {
     }
     for bad in [
         "https://github.com/Ensembl/ensembl-vep/blob/master/t/Runner.t#L1".to_owned(),
-        "https://github.com/Ensembl/ensembl-vep/blob/release/116.0/t/Runner.t".to_owned(),
-        "https://github.com/Ensembl/ensembl-vep/blob/57ea5c52/t/Runner.t".to_owned(),
+        format!("https://github.com/Ensembl/ensembl-vep/blob/{tag}/t/Runner.t"),
+        format!(
+            "https://github.com/Ensembl/ensembl-vep/blob/{}/t/Runner.t",
+            &commit[..8]
+        ),
         format!(
             "https://github.com/Ensembl/ensembl-vep/blob/{}/t/R.t",
             commit.to_uppercase()
