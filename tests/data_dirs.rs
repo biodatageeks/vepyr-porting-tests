@@ -316,10 +316,10 @@ impl VepyrSettings {
         let flavour = Flavour::from_key(flavour_key).unwrap_or_else(|| {
             panic!("[{name}] [vepyr] flavour = {flavour_key:?} is not ensembl, refseq or merged")
         });
-        if !matches!(flavour, Flavour::Ensembl) {
+        if matches!(flavour, Flavour::RefSeq) {
             panic!(
                 "[{name}] [vepyr] flavour = {flavour_key:?}: the oracle is always VEP on the \
-                 Ensembl cache, so only \"ensembl\" is supported"
+                 Ensembl or merged cache; refseq-only oracles are not supported"
             );
         }
         let required_contigs = str_list(&table["required_contigs"]);
@@ -446,7 +446,7 @@ impl TestDir {
         let body_md5 = compare["body_md5"].as_str().expect("checked").to_owned();
 
         let base = sub_table(&doc, "vepyr");
-        let runs = if entries.is_empty() {
+        let runs: Vec<Run> = if entries.is_empty() {
             vec![Run {
                 overrides: None,
                 settings: VepyrSettings::from_table(&name, base),
@@ -477,6 +477,16 @@ impl TestDir {
                 })
                 .collect()
         };
+        let oracle_merged = vep_command
+            .split_whitespace()
+            .any(|flag| flag == "--merged");
+        for run in &runs {
+            assert_eq!(
+                matches!(run.settings.flavour, Flavour::Merged),
+                oracle_merged,
+                "[{name}] cache flavour mismatch between VEP command and vepyr"
+            );
+        }
         Self {
             name,
             dir: dir.to_path_buf(),
@@ -909,19 +919,43 @@ fn old_vep_command_is_rejected() {
 }
 
 #[test]
-#[should_panic(expected = "only \"ensembl\" is supported")]
+#[should_panic(expected = "refseq-only oracles are not supported")]
 fn refseq_flavour_is_rejected() {
     load_fixture_edited("flavour = \"ensembl\"", "flavour = \"refseq\"");
 }
 
 #[test]
-#[should_panic(expected = "only \"ensembl\" is supported")]
-fn merged_flavour_is_rejected() {
+#[should_panic(expected = "cache flavour mismatch")]
+fn merged_flavour_requires_matching_oracle() {
     load_fixture_edited("flavour = \"ensembl\"", "flavour = \"merged\"");
 }
 
 #[test]
-#[should_panic(expected = "only \"ensembl\" is supported")]
+fn merged_flavour_accepts_matching_oracle() {
+    let original = include_str!("fixtures/data_dirs_selftest/case/test.toml");
+    let edited = original
+        .replace("flavour = \"ensembl\"", "flavour = \"merged\"")
+        .replace(" --everything", " --everything --merged");
+    let test = load_fixture_edited(original, &edited);
+    assert_eq!(test.name, "case");
+}
+
+#[test]
+#[should_panic(expected = "cache flavour mismatch")]
+fn merged_oracle_rejects_ensembl_run_override() {
+    let original = include_str!("fixtures/data_dirs_selftest/case/test.toml");
+    let edited = original
+        .replace("flavour = \"ensembl\"", "flavour = \"merged\"")
+        .replace(" --everything", " --everything --merged")
+        .replace(
+            "\n[compare]\n",
+            "\n[[vepyr_run]]\nflavour = \"ensembl\"\n\n[compare]\n",
+        );
+    load_fixture_edited(original, &edited);
+}
+
+#[test]
+#[should_panic(expected = "refseq-only oracles are not supported")]
 fn vepyr_run_flavour_override_is_rejected() {
     load_fixture_edited("[vep]\n", "[[vepyr_run]]\nflavour = \"refseq\"\n\n[vep]\n");
 }

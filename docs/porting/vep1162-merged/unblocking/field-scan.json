@@ -1,0 +1,188 @@
+{
+  "stable_id_whitespace": {
+    "count": 0,
+    "primary_samples": []
+  },
+  "stable_id_semicolon": {
+    "count": 0,
+    "primary_samples": []
+  },
+  "stable_id_comma": {
+    "count": 0,
+    "primary_samples": []
+  },
+  "stable_id_pipe": {
+    "count": 0,
+    "primary_samples": []
+  },
+  "gene_symbol_whitespace": {
+    "count": 0,
+    "primary_samples": []
+  },
+  "gene_symbol_semicolon": {
+    "count": 0,
+    "primary_samples": []
+  },
+  "gene_symbol_comma": {
+    "count": 0,
+    "primary_samples": []
+  },
+  "gene_symbol_pipe": {
+    "count": 0,
+    "primary_samples": []
+  },
+  "gene_hgnc_id_native_whitespace": {
+    "count": 0,
+    "primary_samples": []
+  },
+  "gene_hgnc_id_native_semicolon": {
+    "count": 0,
+    "primary_samples": []
+  },
+  "gene_hgnc_id_native_comma": {
+    "count": 0,
+    "primary_samples": []
+  },
+  "gene_hgnc_id_native_pipe": {
+    "count": 0,
+    "primary_samples": []
+  },
+  "source_whitespace": {
+    "count": 2514,
+    "primary_samples": [
+      {
+        "chrom": "14",
+        "start": 21621904,
+        "end": 21622567,
+        "stable_id": "TRAV1-1",
+        "gene_symbol": "TRAV1-1",
+        "gene_hgnc_id_native": null,
+        "source": "Curated Genomic",
+        "refseq_id": null,
+        "display_xref_id": null,
+        "flags_str": null
+      },
+      {
+        "chrom": "14",
+        "start": 21642973,
+        "end": 21643586,
+        "stable_id": "TRAV1-2",
+        "gene_symbol": "TRAV1-2",
+        "gene_hgnc_id_native": null,
+        "source": "Curated Genomic",
+        "refseq_id": null,
+        "display_xref_id": null,
+        "flags_str": null
+      },
+      {
+        "chrom": "14",
+        "start": 21712331,
+        "end": 21712843,
+        "stable_id": "TRAV2",
+        "gene_symbol": "TRAV2",
+        "gene_hgnc_id_native": null,
+        "source": "Curated Genomic",
+        "refseq_id": null,
+        "display_xref_id": null,
+        "flags_str": null
+      }
+    ]
+  },
+  "source_semicolon": {
+    "count": 0,
+    "primary_samples": []
+  },
+  "source_comma": {
+    "count": 0,
+    "primary_samples": []
+  },
+  "source_pipe": {
+    "count": 0,
+    "primary_samples": []
+  },
+  "refseq_id_whitespace": {
+    "count": 0,
+    "primary_samples": []
+  },
+  "refseq_id_semicolon": {
+    "count": 0,
+    "primary_samples": []
+  },
+  "refseq_id_comma": {
+    "count": 10230,
+    "primary_samples": [
+      {
+        "chrom": "14",
+        "start": 20311370,
+        "end": 20333279,
+        "stable_id": "ENST00000358932",
+        "gene_symbol": "CCNB1IP1",
+        "gene_hgnc_id_native": "HGNC:19437",
+        "source": "ensembl_havana",
+        "refseq_id": "NM_021178.5,NM_182852.4",
+        "display_xref_id": null,
+        "flags_str": null
+      },
+      {
+        "chrom": "14",
+        "start": 20455226,
+        "end": 20457767,
+        "stable_id": "ENST00000216714",
+        "gene_symbol": "APEX1",
+        "gene_hgnc_id_native": "HGNC:587",
+        "source": "ensembl_havana",
+        "refseq_id": "NM_001641.4,NM_001244249.2,NM_080649.3",
+        "display_xref_id": null,
+        "flags_str": null
+      },
+      {
+        "chrom": "14",
+        "start": 20556093,
+        "end": 20561047,
+        "stable_id": "ENST00000554964",
+        "gene_symbol": "RNASE9",
+        "gene_hgnc_id_native": "HGNC:20673",
+        "source": "havana",
+        "refseq_id": "NM_001001673.4,NM_001110356.2,NM_001110357.2,NM_001289110.2",
+        "display_xref_id": null,
+        "flags_str": null
+      }
+    ]
+  },
+  "refseq_id_pipe": {
+    "count": 0,
+    "primary_samples": []
+  },
+  "display_xref_id_whitespace": {
+    "count": 0,
+    "primary_samples": []
+  },
+  "display_xref_id_semicolon": {
+    "count": 0,
+    "primary_samples": []
+  },
+  "display_xref_id_comma": {
+    "count": 0,
+    "primary_samples": []
+  },
+  "display_xref_id_pipe": {
+    "count": 0,
+    "primary_samples": []
+  },
+  "flags_str_whitespace": {
+    "count": 0,
+    "primary_samples": []
+  },
+  "flags_str_semicolon": {
+    "count": 0,
+    "primary_samples": []
+  },
+  "flags_str_comma": {
+    "count": 0,
+    "primary_samples": []
+  },
+  "flags_str_pipe": {
+    "count": 0,
+    "primary_samples": []
+  }
+}

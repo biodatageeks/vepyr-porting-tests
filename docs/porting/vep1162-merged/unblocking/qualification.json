@@ -1,0 +1,220 @@
+[
+  {
+    "name": "failed_named",
+    "rows": [
+      "21\t5230609\t.\tA\tG\t.\t.\t."
+    ],
+    "input_sha256": "e79275661c37b85855d5ef5756d8e58e621e7bd4a756005c04e802f446feae07",
+    "commands": [
+      {
+        "label": "normalize",
+        "argv": [
+          "/Users/mwiewior/research/git/vepyr-porting-tests-1162-merged/tools/normalize_input",
+          "/Users/mwiewior/workspace/data_vepyr/evidence/vep1162-unblock-ukcd9p5b/failed_named/raw.vcf",
+          "/Users/mwiewior/workspace/data_vepyr/evidence/vep1162-unblock-ukcd9p5b/failed_named"
+        ],
+        "exit": 0
+      },
+      {
+        "label": "vep",
+        "argv": [
+          "/Users/mwiewior/research/git/vepyr-porting-tests-1162-merged/bless",
+          "--vep-cache-dir",
+          "/Users/mwiewior/workspace/data_vepyr",
+          "--vep-fasta",
+          "/Users/mwiewior/workspace/data_vepyr/input/Homo_sapiens.GRCh38.dna.primary_assembly.fa",
+          "/Users/mwiewior/workspace/data_vepyr/evidence/vep1162-unblock-ukcd9p5b/failed_named"
+        ],
+        "exit": 0
+      },
+      {
+        "label": "vepyr",
+        "argv": [
+          "/Users/mwiewior/research/git/vepyr/.venv/bin/python",
+          "-m",
+          "vepyr",
+          "annotate",
+          "--input_file",
+          "/Users/mwiewior/workspace/data_vepyr/evidence/vep1162-unblock-ukcd9p5b/failed_named/input.vcf",
+          "--output_file",
+          "/Users/mwiewior/workspace/data_vepyr/evidence/vep1162-unblock-ukcd9p5b/failed_named/actual_output.vcf",
+          "--dir_cache",
+          "/Users/mwiewior/workspace/data_vepyr/cache/116_GRCh38_merged",
+          "--fasta",
+          "/Users/mwiewior/workspace/data_vepyr/input/Homo_sapiens.GRCh38.dna.primary_assembly.fa",
+          "--cache_version",
+          "116",
+          "--everything",
+          "--no_progress"
+        ],
+        "exit": 0
+      },
+      {
+        "label": "control",
+        "argv": [
+          "docker",
+          "run",
+          "--rm",
+          "--user",
+          "501:20",
+          "-v",
+          "/Users/mwiewior/workspace/data_vepyr:/opt/vep/.vep:ro",
+          "-v",
+          "/Users/mwiewior/workspace/data_vepyr/input/Homo_sapiens.GRCh38.dna.primary_assembly.fa:/opt/vep/fasta/Homo_sapiens.GRCh38.dna.primary_assembly.fa:ro",
+          "-v",
+          "/Users/mwiewior/workspace/data_vepyr/input/Homo_sapiens.GRCh38.dna.primary_assembly.fa.fai:/opt/vep/fasta/Homo_sapiens.GRCh38.dna.primary_assembly.fa.fai:ro",
+          "-v",
+          "/Users/mwiewior/workspace/data_vepyr/evidence/vep1162-unblock-ukcd9p5b/failed_named/control:/work",
+          "-w",
+          "/work",
+          "ensemblorg/ensembl-vep@sha256:5c57abdc40b637cac198370b4c114777fa24de3336141fdf09d2b0c43cd4b8da",
+          "vep",
+          "--offline",
+          "--cache",
+          "--dir_cache",
+          "/opt/vep/.vep",
+          "--species",
+          "homo_sapiens",
+          "--cache_version",
+          "116",
+          "--assembly",
+          "GRCh38",
+          "--fasta",
+          "/opt/vep/fasta/Homo_sapiens.GRCh38.dna.primary_assembly.fa",
+          "--everything",
+          "--vcf",
+          "--input_file",
+          "input.vcf",
+          "--output_file",
+          "expected_output.vcf",
+          "--force_overwrite",
+          "--merged",
+          "--failed",
+          "1"
+        ],
+        "exit": 0
+      }
+    ],
+    "vep_md5": "e183a908bc4fa5fba1d3ad3b3b8b884b",
+    "vepyr_md5": "e183a908bc4fa5fba1d3ad3b3b8b884b",
+    "body_equal": true,
+    "id": "DT-70fe973dcf",
+    "control_existing_variation": [
+      "rs1979841086"
+    ]
+  },
+  {
+    "name": "unknown_cosmic",
+    "rows": [
+      "21\t10521658\t.\tG\tA\t.\t.\t."
+    ],
+    "input_sha256": "5261c2cf3ce5983858966fd5f9ae517d8a10073c57164a980c29f8c572a621a5",
+    "commands": [
+      {
+        "label": "normalize",
+        "argv": [
+          "/Users/mwiewior/research/git/vepyr-porting-tests-1162-merged/tools/normalize_input",
+          "/Users/mwiewior/workspace/data_vepyr/evidence/vep1162-unblock-ukcd9p5b/unknown_cosmic/raw.vcf",
+          "/Users/mwiewior/workspace/data_vepyr/evidence/vep1162-unblock-ukcd9p5b/unknown_cosmic"
+        ],
+        "exit": 0
+      },
+      {
+        "label": "vep",
+        "argv": [
+          "/Users/mwiewior/research/git/vepyr-porting-tests-1162-merged/bless",
+          "--vep-cache-dir",
+          "/Users/mwiewior/workspace/data_vepyr",
+          "--vep-fasta",
+          "/Users/mwiewior/workspace/data_vepyr/input/Homo_sapiens.GRCh38.dna.primary_assembly.fa",
+          "/Users/mwiewior/workspace/data_vepyr/evidence/vep1162-unblock-ukcd9p5b/unknown_cosmic"
+        ],
+        "exit": 0
+      },
+      {
+        "label": "vepyr",
+        "argv": [
+          "/Users/mwiewior/research/git/vepyr/.venv/bin/python",
+          "-m",
+          "vepyr",
+          "annotate",
+          "--input_file",
+          "/Users/mwiewior/workspace/data_vepyr/evidence/vep1162-unblock-ukcd9p5b/unknown_cosmic/input.vcf",
+          "--output_file",
+          "/Users/mwiewior/workspace/data_vepyr/evidence/vep1162-unblock-ukcd9p5b/unknown_cosmic/actual_output.vcf",
+          "--dir_cache",
+          "/Users/mwiewior/workspace/data_vepyr/cache/116_GRCh38_merged",
+          "--fasta",
+          "/Users/mwiewior/workspace/data_vepyr/input/Homo_sapiens.GRCh38.dna.primary_assembly.fa",
+          "--cache_version",
+          "116",
+          "--everything",
+          "--no_progress"
+        ],
+        "exit": 0
+      }
+    ],
+    "vep_md5": "1c0932086f43d0851f16c318bfc36b10",
+    "vepyr_md5": "1c0932086f43d0851f16c318bfc36b10",
+    "body_equal": true,
+    "id": "DT-eee329ca1e",
+    "control_existing_variation": []
+  },
+  {
+    "name": "hgnc_sibling",
+    "rows": [
+      "21\t5499023\t.\tC\tT\t.\t.\t."
+    ],
+    "input_sha256": "8170001ad3cfec6f339ac7b8f2ee067ba35f8662eb83fadadb90b579fc65b55a",
+    "commands": [
+      {
+        "label": "normalize",
+        "argv": [
+          "/Users/mwiewior/research/git/vepyr-porting-tests-1162-merged/tools/normalize_input",
+          "/Users/mwiewior/workspace/data_vepyr/evidence/vep1162-unblock-ukcd9p5b/hgnc_sibling/raw.vcf",
+          "/Users/mwiewior/workspace/data_vepyr/evidence/vep1162-unblock-ukcd9p5b/hgnc_sibling"
+        ],
+        "exit": 0
+      },
+      {
+        "label": "vep",
+        "argv": [
+          "/Users/mwiewior/research/git/vepyr-porting-tests-1162-merged/bless",
+          "--vep-cache-dir",
+          "/Users/mwiewior/workspace/data_vepyr",
+          "--vep-fasta",
+          "/Users/mwiewior/workspace/data_vepyr/input/Homo_sapiens.GRCh38.dna.primary_assembly.fa",
+          "/Users/mwiewior/workspace/data_vepyr/evidence/vep1162-unblock-ukcd9p5b/hgnc_sibling"
+        ],
+        "exit": 0
+      },
+      {
+        "label": "vepyr",
+        "argv": [
+          "/Users/mwiewior/research/git/vepyr/.venv/bin/python",
+          "-m",
+          "vepyr",
+          "annotate",
+          "--input_file",
+          "/Users/mwiewior/workspace/data_vepyr/evidence/vep1162-unblock-ukcd9p5b/hgnc_sibling/input.vcf",
+          "--output_file",
+          "/Users/mwiewior/workspace/data_vepyr/evidence/vep1162-unblock-ukcd9p5b/hgnc_sibling/actual_output.vcf",
+          "--dir_cache",
+          "/Users/mwiewior/workspace/data_vepyr/cache/116_GRCh38_merged",
+          "--fasta",
+          "/Users/mwiewior/workspace/data_vepyr/input/Homo_sapiens.GRCh38.dna.primary_assembly.fa",
+          "--cache_version",
+          "116",
+          "--everything",
+          "--no_progress"
+        ],
+        "exit": 0
+      }
+    ],
+    "vep_md5": "37fab4a6056170d19f6710b4667477af",
+    "vepyr_md5": "37fab4a6056170d19f6710b4667477af",
+    "body_equal": true,
+    "id": "DT-4d3b3ca340",
+    "control_existing_variation": []
+  }
+]

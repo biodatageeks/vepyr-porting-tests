@@ -1,0 +1,3937 @@
+{
+  "root": "/Users/mwiewior/workspace/data_vepyr/cache/116_GRCh38_merged",
+  "entities": {
+    "transcript": {
+      "files": 1869,
+      "rows": 903421
+    },
+    "regulatory": {
+      "files": 24,
+      "rows": 380956
+    },
+    "motif": {
+      "files": 24,
+      "rows": 999828
+    },
+    "variation": {
+      "files_completed": 463,
+      "files_total": 463,
+      "rows": 1487415922
+    }
+  },
+  "findings": {
+    "transcript_one_base": {
+      "count": 0,
+      "samples": []
+    },
+    "transcript_whitespace": {
+      "count": 2514,
+      "samples": [
+        {
+          "chrom": "HG2290_PATCH",
+          "start": 6121,
+          "end": 6610,
+          "shard": "transcript/HG2290_PATCH.parquet",
+          "field": "source",
+          "value": "Curated Genomic"
+        },
+        {
+          "chrom": "HG2290_PATCH",
+          "start": 23906,
+          "end": 24504,
+          "shard": "transcript/HG2290_PATCH.parquet",
+          "field": "source",
+          "value": "Curated Genomic"
+        },
+        {
+          "chrom": "HG2290_PATCH",
+          "start": 40477,
+          "end": 41204,
+          "shard": "transcript/HG2290_PATCH.parquet",
+          "field": "source",
+          "value": "Curated Genomic"
+        },
+        {
+          "chrom": "HG2290_PATCH",
+          "start": 56127,
+          "end": 56602,
+          "shard": "transcript/HG2290_PATCH.parquet",
+          "field": "source",
+          "value": "Curated Genomic"
+        },
+        {
+          "chrom": "HG2290_PATCH",
+          "start": 75088,
+          "end": 75564,
+          "shard": "transcript/HG2290_PATCH.parquet",
+          "field": "source",
+          "value": "Curated Genomic"
+        },
+        {
+          "chrom": "HG2290_PATCH",
+          "start": 87294,
+          "end": 87810,
+          "shard": "transcript/HG2290_PATCH.parquet",
+          "field": "source",
+          "value": "Curated Genomic"
+        },
+        {
+          "chrom": "HG2290_PATCH",
+          "start": 101235,
+          "end": 101704,
+          "shard": "transcript/HG2290_PATCH.parquet",
+          "field": "source",
+          "value": "Curated Genomic"
+        },
+        {
+          "chrom": "HG2290_PATCH",
+          "start": 118808,
+          "end": 119283,
+          "shard": "transcript/HG2290_PATCH.parquet",
+          "field": "source",
+          "value": "Curated Genomic"
+        },
+        {
+          "chrom": "HG2290_PATCH",
+          "start": 128818,
+          "end": 129511,
+          "shard": "transcript/HG2290_PATCH.parquet",
+          "field": "source",
+          "value": "Curated Genomic"
+        },
+        {
+          "chrom": "HG2290_PATCH",
+          "start": 135997,
+          "end": 136510,
+          "shard": "transcript/HG2290_PATCH.parquet",
+          "field": "source",
+          "value": "Curated Genomic"
+        },
+        {
+          "chrom": "HG2290_PATCH",
+          "start": 149050,
+          "end": 149524,
+          "shard": "transcript/HG2290_PATCH.parquet",
+          "field": "source",
+          "value": "Curated Genomic"
+        },
+        {
+          "chrom": "HG2290_PATCH",
+          "start": 154816,
+          "end": 155292,
+          "shard": "transcript/HG2290_PATCH.parquet",
+          "field": "source",
+          "value": "Curated Genomic"
+        },
+        {
+          "chrom": "HG2290_PATCH",
+          "start": 186845,
+          "end": 187610,
+          "shard": "transcript/HG2290_PATCH.parquet",
+          "field": "source",
+          "value": "Curated Genomic"
+        },
+        {
+          "chrom": "HG2290_PATCH",
+          "start": 194003,
+          "end": 194516,
+          "shard": "transcript/HG2290_PATCH.parquet",
+          "field": "source",
+          "value": "Curated Genomic"
+        },
+        {
+          "chrom": "HG2290_PATCH",
+          "start": 208685,
+          "end": 209160,
+          "shard": "transcript/HG2290_PATCH.parquet",
+          "field": "source",
+          "value": "Curated Genomic"
+        },
+        {
+          "chrom": "HG2290_PATCH",
+          "start": 226168,
+          "end": 226643,
+          "shard": "transcript/HG2290_PATCH.parquet",
+          "field": "source",
+          "value": "Curated Genomic"
+        },
+        {
+          "chrom": "HG2290_PATCH",
+          "start": 237532,
+          "end": 238308,
+          "shard": "transcript/HG2290_PATCH.parquet",
+          "field": "source",
+          "value": "Curated Genomic"
+        },
+        {
+          "chrom": "HG2290_PATCH",
+          "start": 243807,
+          "end": 244073,
+          "shard": "transcript/HG2290_PATCH.parquet",
+          "field": "source",
+          "value": "Curated Genomic"
+        },
+        {
+          "chrom": "HG2290_PATCH",
+          "start": 251400,
+          "end": 251934,
+          "shard": "transcript/HG2290_PATCH.parquet",
+          "field": "source",
+          "value": "Curated Genomic"
+        },
+        {
+          "chrom": "HG2290_PATCH",
+          "start": 268577,
+          "end": 269128,
+          "shard": "transcript/HG2290_PATCH.parquet",
+          "field": "source",
+          "value": "Curated Genomic"
+        },
+        {
+          "chrom": "HG2290_PATCH",
+          "start": 279571,
+          "end": 280038,
+          "shard": "transcript/HG2290_PATCH.parquet",
+          "field": "source",
+          "value": "Curated Genomic"
+        },
+        {
+          "chrom": "HG2290_PATCH",
+          "start": 281154,
+          "end": 281869,
+          "shard": "transcript/HG2290_PATCH.parquet",
+          "field": "source",
+          "value": "Curated Genomic"
+        },
+        {
+          "chrom": "HG2290_PATCH",
+          "start": 285154,
+          "end": 285956,
+          "shard": "transcript/HG2290_PATCH.parquet",
+          "field": "source",
+          "value": "Curated Genomic"
+        },
+        {
+          "chrom": "HG2290_PATCH",
+          "start": 301317,
+          "end": 303094,
+          "shard": "transcript/HG2290_PATCH.parquet",
+          "field": "source",
+          "value": "Curated Genomic"
+        },
+        {
+          "chrom": "HG2290_PATCH",
+          "start": 304902,
+          "end": 305655,
+          "shard": "transcript/HG2290_PATCH.parquet",
+          "field": "source",
+          "value": "Curated Genomic"
+        },
+        {
+          "chrom": "HG2290_PATCH",
+          "start": 322249,
+          "end": 322723,
+          "shard": "transcript/HG2290_PATCH.parquet",
+          "field": "source",
+          "value": "Curated Genomic"
+        },
+        {
+          "chrom": "HG2290_PATCH",
+          "start": 330524,
+          "end": 331257,
+          "shard": "transcript/HG2290_PATCH.parquet",
+          "field": "source",
+          "value": "Curated Genomic"
+        },
+        {
+          "chrom": "HG2290_PATCH",
+          "start": 343011,
+          "end": 343737,
+          "shard": "transcript/HG2290_PATCH.parquet",
+          "field": "source",
+          "value": "Curated Genomic"
+        },
+        {
+          "chrom": "HG2290_PATCH",
+          "start": 353607,
+          "end": 354392,
+          "shard": "transcript/HG2290_PATCH.parquet",
+          "field": "source",
+          "value": "Curated Genomic"
+        },
+        {
+          "chrom": "HG2290_PATCH",
+          "start": 361024,
+          "end": 361561,
+          "shard": "transcript/HG2290_PATCH.parquet",
+          "field": "source",
+          "value": "Curated Genomic"
+        }
+      ]
+    },
+    "transcript_semicolon": {
+      "count": 0,
+      "samples": []
+    },
+    "transcript_comma": {
+      "count": 10426,
+      "samples": [
+        {
+          "chrom": "HG1012_PATCH",
+          "start": 44936,
+          "end": 128426,
+          "shard": "transcript/HG1012_PATCH.parquet",
+          "field": "refseq_id",
+          "value": "NM_001378573.1,NM_001378583.1,NM_001374301.1,NM_001378582.1,NM_001378577.1,NM_001378585.1,NM_001378586.1,NM_002161.6,NM_001378572.1,NM_001378571.1"
+        },
+        {
+          "chrom": "HG1012_PATCH",
+          "start": 44936,
+          "end": 128429,
+          "shard": "transcript/HG1012_PATCH.parquet",
+          "field": "refseq_id",
+          "value": "NM_013417.4,NM_001378569.1"
+        },
+        {
+          "chrom": "HG1012_PATCH",
+          "start": 44967,
+          "end": 128422,
+          "shard": "transcript/HG1012_PATCH.parquet",
+          "field": "refseq_id",
+          "value": "NM_001378574.1,NM_001378576.1,NM_001378575.1"
+        },
+        {
+          "chrom": "HG1012_PATCH",
+          "start": 44972,
+          "end": 128424,
+          "shard": "transcript/HG1012_PATCH.parquet",
+          "field": "refseq_id",
+          "value": "NM_001378584.1,NM_001374299.1,NM_001374300.1"
+        },
+        {
+          "chrom": "HG1012_PATCH",
+          "start": 45078,
+          "end": 128445,
+          "shard": "transcript/HG1012_PATCH.parquet",
+          "field": "refseq_id",
+          "value": "NM_001378579.1,NM_001378580.1"
+        },
+        {
+          "chrom": "HG1012_PATCH",
+          "start": 132087,
+          "end": 160079,
+          "shard": "transcript/HG1012_PATCH.parquet",
+          "field": "refseq_id",
+          "value": "NM_001438181.1,NM_017948.6,NM_001438180.1"
+        },
+        {
+          "chrom": "HG1012_PATCH",
+          "start": 160682,
+          "end": 455256,
+          "shard": "transcript/HG1012_PATCH.parquet",
+          "field": "refseq_id",
+          "value": "NM_001286969.1,NM_001012267.3"
+        },
+        {
+          "chrom": "HG1012_PATCH",
+          "start": 217997,
+          "end": 239307,
+          "shard": "transcript/HG1012_PATCH.parquet",
+          "field": "refseq_id",
+          "value": "NM_014057.5,NM_024416.4"
+        },
+        {
+          "chrom": "HG1012_PATCH",
+          "start": 290934,
+          "end": 317233,
+          "shard": "transcript/HG1012_PATCH.parquet",
+          "field": "refseq_id",
+          "value": "NM_001193335.3,NM_017680.6"
+        },
+        {
+          "chrom": "HG1012_PATCH",
+          "start": 330042,
+          "end": 370717,
+          "shard": "transcript/HG1012_PATCH.parquet",
+          "field": "refseq_id",
+          "value": "NM_001197295.2,NM_001393.4"
+        },
+        {
+          "chrom": "HG109_PATCH",
+          "start": 7301,
+          "end": 44071,
+          "shard": "transcript/HG109_PATCH.parquet",
+          "field": "refseq_id",
+          "value": "NM_001367834.3,NM_023072.3"
+        },
+        {
+          "chrom": "HG109_PATCH",
+          "start": 94196,
+          "end": 118006,
+          "shard": "transcript/HG109_PATCH.parquet",
+          "field": "refseq_id",
+          "value": "NM_024323.5,NM_001345847.2,NM_001345844.2"
+        },
+        {
+          "chrom": "HG109_PATCH",
+          "start": 94196,
+          "end": 116733,
+          "shard": "transcript/HG109_PATCH.parquet",
+          "field": "refseq_id",
+          "value": "NM_001393647.1,NM_001393645.1,NM_001393646.1,NM_001345846.2,NM_001345843.2"
+        },
+        {
+          "chrom": "HG109_PATCH",
+          "start": 94230,
+          "end": 117948,
+          "shard": "transcript/HG109_PATCH.parquet",
+          "field": "refseq_id",
+          "value": "NM_001393648.1,NM_001345848.2"
+        },
+        {
+          "chrom": "HG109_PATCH",
+          "start": 164333,
+          "end": 173290,
+          "shard": "transcript/HG109_PATCH.parquet",
+          "field": "refseq_id",
+          "value": "NM_138353.4,NM_001393638.1,NM_001393642.1,NM_001393639.1,NM_001393637.1,NM_001393643.1,NM_001393644.1,NM_001393641.1,NM_001393640.1"
+        },
+        {
+          "chrom": "HG109_PATCH",
+          "start": 284615,
+          "end": 286903,
+          "shard": "transcript/HG109_PATCH.parquet",
+          "field": "refseq_id",
+          "value": "NM_001291291.2,NM_001393577.1"
+        },
+        {
+          "chrom": "HG109_PATCH",
+          "start": 303847,
+          "end": 329921,
+          "shard": "transcript/HG109_PATCH.parquet",
+          "field": "refseq_id",
+          "value": "NM_002730.4,NM_001304349.2"
+        },
+        {
+          "chrom": "HG1277_PATCH",
+          "start": 11715,
+          "end": 24443,
+          "shard": "transcript/HG1277_PATCH.parquet",
+          "field": "refseq_id",
+          "value": "NM_001370186.1,NM_001370182.1"
+        },
+        {
+          "chrom": "HG1277_PATCH",
+          "start": 14986,
+          "end": 23558,
+          "shard": "transcript/HG1277_PATCH.parquet",
+          "field": "refseq_id",
+          "value": "NM_001370185.1,NM_001370184.1,NM_001370183.1"
+        },
+        {
+          "chrom": "HG1277_PATCH",
+          "start": 137021,
+          "end": 141806,
+          "shard": "transcript/HG1277_PATCH.parquet",
+          "field": "refseq_id",
+          "value": "NM_001278795.2,NM_001437352.1"
+        },
+        {
+          "chrom": "HG1343_HG173_HG459_PATCH",
+          "start": 585134,
+          "end": 647257,
+          "shard": "transcript/HG1343_HG173_HG459_PATCH.parquet",
+          "field": "refseq_id",
+          "value": "NM_001405530.2,NM_001405549.1,NM_001405539.1,NM_001405538.1,NM_001405534.1,NM_001405546.1,NM_001405542.1,NM_001405535.1,NM_001405547.1,NM_001405537.1,NM_001405541.1,NM_001405536.1,NM_001405550.1,NM_001405533.1,NM_001395905.2,NM_001405543.1,NM_001405545.1,NM_001405548.1,NM_001405544.1,NM_001405540.1,NM_001405532.1"
+        },
+        {
+          "chrom": "HG1343_HG173_HG459_PATCH",
+          "start": 1198562,
+          "end": 1260693,
+          "shard": "transcript/HG1343_HG173_HG459_PATCH.parquet",
+          "field": "refseq_id",
+          "value": "NM_001405693.2,NM_001405684.2,NM_001405683.2,NM_001405673.2,NM_001405695.2,NM_001405670.2,NM_001405675.2,NM_001405686.2,NM_001405671.2,NM_001405696.2,NM_001405687.2,NM_001405668.2,NM_001405678.2,NM_001405680.2,NM_001405692.2,NM_001405669.2,NM_001405674.2,NM_001405682.2,NM_001405699.2,NM_001405700.2,NM_001405679.2,NM_001405697.2,NM_001405698.2,NM_001405685.2,NM_001405676.2,NM_001405681.2,NM_001405667.2,NM_001405694.2,NM_001405672.2,NM_001405677.2,NM_017940.8,NM_001405666.3"
+        },
+        {
+          "chrom": "HG1362_PATCH",
+          "start": 18842,
+          "end": 68682,
+          "shard": "transcript/HG1362_PATCH.parquet",
+          "field": "refseq_id",
+          "value": "NM_001370269.1,NM_001370268.1"
+        },
+        {
+          "chrom": "HG1362_PATCH",
+          "start": 85023,
+          "end": 236042,
+          "shard": "transcript/HG1362_PATCH.parquet",
+          "field": "refseq_id",
+          "value": "NM_002336.3,NM_001414245.1,NM_001414253.1,NM_001414252.1,NM_001414254.1,NM_001414247.1,NM_001414255.1,NM_001414251.1,NM_001414248.1,NM_001414244.1,NM_001414249.1,NM_001414250.1"
+        },
+        {
+          "chrom": "HG1395_PATCH",
+          "start": 39089,
+          "end": 52538,
+          "shard": "transcript/HG1395_PATCH.parquet",
+          "field": "refseq_id",
+          "value": "NM_001293739.2,NM_001077693.4"
+        },
+        {
+          "chrom": "HG1398_PATCH",
+          "start": 22240,
+          "end": 36900,
+          "shard": "transcript/HG1398_PATCH.parquet",
+          "field": "refseq_id",
+          "value": "NM_001297640.2,NM_016546.4"
+        },
+        {
+          "chrom": "HG1398_PATCH",
+          "start": 51372,
+          "end": 56575,
+          "shard": "transcript/HG1398_PATCH.parquet",
+          "field": "refseq_id",
+          "value": "NM_001329454.2,NM_031491.4"
+        },
+        {
+          "chrom": "HG1398_PATCH",
+          "start": 116849,
+          "end": 146257,
+          "shard": "transcript/HG1398_PATCH.parquet",
+          "field": "refseq_id",
+          "value": "NM_001131026.2,NM_001351131.2"
+        },
+        {
+          "chrom": "HG1398_PATCH",
+          "start": 117270,
+          "end": 139169,
+          "shard": "transcript/HG1398_PATCH.parquet",
+          "field": "refseq_id",
+          "value": "NM_001351124.3,NM_001351126.2,NM_001374646.1,NM_001374648.2,NM_001374649.2,NM_001351130.3,NM_001351135.3,NM_001351137.3,NM_001351127.2,NM_001351140.2,NM_001351128.2,NM_001351138.2,NM_001131024.2,NM_001351139.2,NM_001374645.1"
+        },
+        {
+          "chrom": "HG1398_PATCH",
+          "start": 117401,
+          "end": 137948,
+          "shard": "transcript/HG1398_PATCH.parquet",
+          "field": "refseq_id",
+          "value": "NM_001374647.2,NM_001131025.2,NM_001300789.3,NM_001351133.2,NM_001351134.2,NM_001351132.2,NM_001351136.2"
+        }
+      ]
+    },
+    "transcript_pipe": {
+      "count": 0,
+      "samples": []
+    },
+    "hgnc_native_missing_promoted_present": {
+      "count": 0,
+      "samples": []
+    },
+    "hgnc_missing_with_same_chrom_symbol_donor": {
+      "count": 171181,
+      "samples": [
+        {
+          "chrom": "GL000194.1",
+          "start": 53589,
+          "end": 115073,
+          "stable_id": "NR_046439.2",
+          "gene_symbol": "MAFIP",
+          "gene_hgnc_id": null,
+          "gene_hgnc_id_native": null,
+          "shard": "transcript/GL000194.1.parquet",
+          "gene_hgnc_id_native_donor": "HGNC:31102"
+        },
+        {
+          "chrom": "GL000194.1",
+          "start": 53589,
+          "end": 115073,
+          "stable_id": "NR_046441.2",
+          "gene_symbol": "MAFIP",
+          "gene_hgnc_id": null,
+          "gene_hgnc_id_native": null,
+          "shard": "transcript/GL000194.1.parquet",
+          "gene_hgnc_id_native_donor": "HGNC:31102"
+        },
+        {
+          "chrom": "GL000194.1",
+          "start": 53589,
+          "end": 115073,
+          "stable_id": "NR_046440.2",
+          "gene_symbol": "MAFIP",
+          "gene_hgnc_id": null,
+          "gene_hgnc_id_native": null,
+          "shard": "transcript/GL000194.1.parquet",
+          "gene_hgnc_id_native_donor": "HGNC:31102"
+        },
+        {
+          "chrom": "GL000194.1",
+          "start": 61657,
+          "end": 115073,
+          "stable_id": "NR_046442.2",
+          "gene_symbol": "MAFIP",
+          "gene_hgnc_id": null,
+          "gene_hgnc_id_native": null,
+          "shard": "transcript/GL000194.1.parquet",
+          "gene_hgnc_id_native_donor": "HGNC:31102"
+        },
+        {
+          "chrom": "GL000220.1",
+          "start": 112024,
+          "end": 112180,
+          "stable_id": "NR_003285.3",
+          "gene_symbol": "RNA5-8SN5",
+          "gene_hgnc_id": null,
+          "gene_hgnc_id_native": null,
+          "shard": "transcript/GL000220.1.parquet",
+          "gene_hgnc_id_native_donor": "HGNC:53533"
+        },
+        {
+          "chrom": "HG1012_PATCH",
+          "start": 44936,
+          "end": 128426,
+          "stable_id": "NM_001378577.1",
+          "gene_symbol": "IARS1",
+          "gene_hgnc_id": null,
+          "gene_hgnc_id_native": null,
+          "shard": "transcript/HG1012_PATCH.parquet",
+          "gene_hgnc_id_native_donor": "HGNC:5330"
+        },
+        {
+          "chrom": "HG1012_PATCH",
+          "start": 44936,
+          "end": 128426,
+          "stable_id": "NM_001374301.1",
+          "gene_symbol": "IARS1",
+          "gene_hgnc_id": null,
+          "gene_hgnc_id_native": null,
+          "shard": "transcript/HG1012_PATCH.parquet",
+          "gene_hgnc_id_native_donor": "HGNC:5330"
+        },
+        {
+          "chrom": "HG1012_PATCH",
+          "start": 44936,
+          "end": 128426,
+          "stable_id": "NM_013417.4",
+          "gene_symbol": "IARS1",
+          "gene_hgnc_id": null,
+          "gene_hgnc_id_native": null,
+          "shard": "transcript/HG1012_PATCH.parquet",
+          "gene_hgnc_id_native_donor": "HGNC:5330"
+        },
+        {
+          "chrom": "HG1012_PATCH",
+          "start": 44936,
+          "end": 128426,
+          "stable_id": "NM_001378571.1",
+          "gene_symbol": "IARS1",
+          "gene_hgnc_id": null,
+          "gene_hgnc_id_native": null,
+          "shard": "transcript/HG1012_PATCH.parquet",
+          "gene_hgnc_id_native_donor": "HGNC:5330"
+        },
+        {
+          "chrom": "HG1012_PATCH",
+          "start": 44936,
+          "end": 128426,
+          "stable_id": "NM_001378585.1",
+          "gene_symbol": "IARS1",
+          "gene_hgnc_id": null,
+          "gene_hgnc_id_native": null,
+          "shard": "transcript/HG1012_PATCH.parquet",
+          "gene_hgnc_id_native_donor": "HGNC:5330"
+        },
+        {
+          "chrom": "HG1012_PATCH",
+          "start": 44936,
+          "end": 128426,
+          "stable_id": "NM_001378586.1",
+          "gene_symbol": "IARS1",
+          "gene_hgnc_id": null,
+          "gene_hgnc_id_native": null,
+          "shard": "transcript/HG1012_PATCH.parquet",
+          "gene_hgnc_id_native_donor": "HGNC:5330"
+        },
+        {
+          "chrom": "HG1012_PATCH",
+          "start": 44936,
+          "end": 128426,
+          "stable_id": "NM_001374299.1",
+          "gene_symbol": "IARS1",
+          "gene_hgnc_id": null,
+          "gene_hgnc_id_native": null,
+          "shard": "transcript/HG1012_PATCH.parquet",
+          "gene_hgnc_id_native_donor": "HGNC:5330"
+        },
+        {
+          "chrom": "HG1012_PATCH",
+          "start": 44936,
+          "end": 128426,
+          "stable_id": "NM_001378578.1",
+          "gene_symbol": "IARS1",
+          "gene_hgnc_id": null,
+          "gene_hgnc_id_native": null,
+          "shard": "transcript/HG1012_PATCH.parquet",
+          "gene_hgnc_id_native_donor": "HGNC:5330"
+        },
+        {
+          "chrom": "HG1012_PATCH",
+          "start": 44936,
+          "end": 128426,
+          "stable_id": "NM_001378569.1",
+          "gene_symbol": "IARS1",
+          "gene_hgnc_id": null,
+          "gene_hgnc_id_native": null,
+          "shard": "transcript/HG1012_PATCH.parquet",
+          "gene_hgnc_id_native_donor": "HGNC:5330"
+        },
+        {
+          "chrom": "HG1012_PATCH",
+          "start": 44936,
+          "end": 128426,
+          "stable_id": "NM_001378572.1",
+          "gene_symbol": "IARS1",
+          "gene_hgnc_id": null,
+          "gene_hgnc_id_native": null,
+          "shard": "transcript/HG1012_PATCH.parquet",
+          "gene_hgnc_id_native_donor": "HGNC:5330"
+        },
+        {
+          "chrom": "HG1012_PATCH",
+          "start": 44936,
+          "end": 128426,
+          "stable_id": "NM_001378575.1",
+          "gene_symbol": "IARS1",
+          "gene_hgnc_id": null,
+          "gene_hgnc_id_native": null,
+          "shard": "transcript/HG1012_PATCH.parquet",
+          "gene_hgnc_id_native_donor": "HGNC:5330"
+        },
+        {
+          "chrom": "HG1012_PATCH",
+          "start": 44936,
+          "end": 128426,
+          "stable_id": "NM_001378580.1",
+          "gene_symbol": "IARS1",
+          "gene_hgnc_id": null,
+          "gene_hgnc_id_native": null,
+          "shard": "transcript/HG1012_PATCH.parquet",
+          "gene_hgnc_id_native_donor": "HGNC:5330"
+        },
+        {
+          "chrom": "HG1012_PATCH",
+          "start": 44936,
+          "end": 128426,
+          "stable_id": "NM_001378579.1",
+          "gene_symbol": "IARS1",
+          "gene_hgnc_id": null,
+          "gene_hgnc_id_native": null,
+          "shard": "transcript/HG1012_PATCH.parquet",
+          "gene_hgnc_id_native_donor": "HGNC:5330"
+        },
+        {
+          "chrom": "HG1012_PATCH",
+          "start": 44936,
+          "end": 128426,
+          "stable_id": "NM_001378576.1",
+          "gene_symbol": "IARS1",
+          "gene_hgnc_id": null,
+          "gene_hgnc_id_native": null,
+          "shard": "transcript/HG1012_PATCH.parquet",
+          "gene_hgnc_id_native_donor": "HGNC:5330"
+        },
+        {
+          "chrom": "HG1012_PATCH",
+          "start": 44936,
+          "end": 128426,
+          "stable_id": "NM_001378582.1",
+          "gene_symbol": "IARS1",
+          "gene_hgnc_id": null,
+          "gene_hgnc_id_native": null,
+          "shard": "transcript/HG1012_PATCH.parquet",
+          "gene_hgnc_id_native_donor": "HGNC:5330"
+        },
+        {
+          "chrom": "HG1012_PATCH",
+          "start": 44936,
+          "end": 128426,
+          "stable_id": "NM_001378583.1",
+          "gene_symbol": "IARS1",
+          "gene_hgnc_id": null,
+          "gene_hgnc_id_native": null,
+          "shard": "transcript/HG1012_PATCH.parquet",
+          "gene_hgnc_id_native_donor": "HGNC:5330"
+        },
+        {
+          "chrom": "HG1012_PATCH",
+          "start": 44936,
+          "end": 128426,
+          "stable_id": "NM_001378584.1",
+          "gene_symbol": "IARS1",
+          "gene_hgnc_id": null,
+          "gene_hgnc_id_native": null,
+          "shard": "transcript/HG1012_PATCH.parquet",
+          "gene_hgnc_id_native_donor": "HGNC:5330"
+        },
+        {
+          "chrom": "HG1012_PATCH",
+          "start": 44936,
+          "end": 128426,
+          "stable_id": "NM_001374300.1",
+          "gene_symbol": "IARS1",
+          "gene_hgnc_id": null,
+          "gene_hgnc_id_native": null,
+          "shard": "transcript/HG1012_PATCH.parquet",
+          "gene_hgnc_id_native_donor": "HGNC:5330"
+        },
+        {
+          "chrom": "HG1012_PATCH",
+          "start": 44936,
+          "end": 128426,
+          "stable_id": "NM_001378573.1",
+          "gene_symbol": "IARS1",
+          "gene_hgnc_id": null,
+          "gene_hgnc_id_native": null,
+          "shard": "transcript/HG1012_PATCH.parquet",
+          "gene_hgnc_id_native_donor": "HGNC:5330"
+        },
+        {
+          "chrom": "HG1012_PATCH",
+          "start": 44936,
+          "end": 128426,
+          "stable_id": "NM_001378574.1",
+          "gene_symbol": "IARS1",
+          "gene_hgnc_id": null,
+          "gene_hgnc_id_native": null,
+          "shard": "transcript/HG1012_PATCH.parquet",
+          "gene_hgnc_id_native_donor": "HGNC:5330"
+        },
+        {
+          "chrom": "HG1012_PATCH",
+          "start": 44936,
+          "end": 128426,
+          "stable_id": "NR_073446.2",
+          "gene_symbol": "IARS1",
+          "gene_hgnc_id": null,
+          "gene_hgnc_id_native": null,
+          "shard": "transcript/HG1012_PATCH.parquet",
+          "gene_hgnc_id_native_donor": "HGNC:5330"
+        },
+        {
+          "chrom": "HG1012_PATCH",
+          "start": 44936,
+          "end": 128426,
+          "stable_id": "NM_002161.6",
+          "gene_symbol": "IARS1",
+          "gene_hgnc_id": null,
+          "gene_hgnc_id_native": null,
+          "shard": "transcript/HG1012_PATCH.parquet",
+          "gene_hgnc_id_native_donor": "HGNC:5330"
+        },
+        {
+          "chrom": "HG1012_PATCH",
+          "start": 127187,
+          "end": 127276,
+          "stable_id": "NR_037424.1",
+          "gene_symbol": "MIR3651",
+          "gene_hgnc_id": null,
+          "gene_hgnc_id_native": null,
+          "shard": "transcript/HG1012_PATCH.parquet",
+          "gene_hgnc_id_native_donor": "HGNC:38897"
+        },
+        {
+          "chrom": "HG1012_PATCH",
+          "start": 127190,
+          "end": 127322,
+          "stable_id": "NR_003704.2",
+          "gene_symbol": "SNORA84",
+          "gene_hgnc_id": null,
+          "gene_hgnc_id_native": null,
+          "shard": "transcript/HG1012_PATCH.parquet",
+          "gene_hgnc_id_native_donor": "HGNC:33615"
+        },
+        {
+          "chrom": "HG1012_PATCH",
+          "start": 132087,
+          "end": 160079,
+          "stable_id": "NM_001438181.1",
+          "gene_symbol": "NOL8",
+          "gene_hgnc_id": null,
+          "gene_hgnc_id_native": null,
+          "shard": "transcript/HG1012_PATCH.parquet",
+          "gene_hgnc_id_native_donor": "HGNC:23387"
+        },
+        {
+          "chrom": "HG1012_PATCH",
+          "start": 132087,
+          "end": 160079,
+          "stable_id": "XM_054333097.1",
+          "gene_symbol": "NOL8",
+          "gene_hgnc_id": null,
+          "gene_hgnc_id_native": null,
+          "shard": "transcript/HG1012_PATCH.parquet",
+          "gene_hgnc_id_native_donor": "HGNC:23387"
+        },
+        {
+          "chrom": "HG1012_PATCH",
+          "start": 132087,
+          "end": 160079,
+          "stable_id": "NM_001256394.2",
+          "gene_symbol": "NOL8",
+          "gene_hgnc_id": null,
+          "gene_hgnc_id_native": null,
+          "shard": "transcript/HG1012_PATCH.parquet",
+          "gene_hgnc_id_native_donor": "HGNC:23387"
+        },
+        {
+          "chrom": "HG1012_PATCH",
+          "start": 132087,
+          "end": 160079,
+          "stable_id": "NM_017948.6",
+          "gene_symbol": "NOL8",
+          "gene_hgnc_id": null,
+          "gene_hgnc_id_native": null,
+          "shard": "transcript/HG1012_PATCH.parquet",
+          "gene_hgnc_id_native_donor": "HGNC:23387"
+        },
+        {
+          "chrom": "HG1012_PATCH",
+          "start": 132087,
+          "end": 160079,
+          "stable_id": "NR_046106.2",
+          "gene_symbol": "NOL8",
+          "gene_hgnc_id": null,
+          "gene_hgnc_id_native": null,
+          "shard": "transcript/HG1012_PATCH.parquet",
+          "gene_hgnc_id_native_donor": "HGNC:23387"
+        },
+        {
+          "chrom": "HG1012_PATCH",
+          "start": 132087,
+          "end": 156419,
+          "stable_id": "XM_054333099.1",
+          "gene_symbol": "NOL8",
+          "gene_hgnc_id": null,
+          "gene_hgnc_id_native": null,
+          "shard": "transcript/HG1012_PATCH.parquet",
+          "gene_hgnc_id_native_donor": "HGNC:23387"
+        },
+        {
+          "chrom": "HG1012_PATCH",
+          "start": 132087,
+          "end": 160079,
+          "stable_id": "NM_001438004.1",
+          "gene_symbol": "NOL8",
+          "gene_hgnc_id": null,
+          "gene_hgnc_id_native": null,
+          "shard": "transcript/HG1012_PATCH.parquet",
+          "gene_hgnc_id_native_donor": "HGNC:23387"
+        },
+        {
+          "chrom": "HG1012_PATCH",
+          "start": 132087,
+          "end": 160079,
+          "stable_id": "NM_001438180.1",
+          "gene_symbol": "NOL8",
+          "gene_hgnc_id": null,
+          "gene_hgnc_id_native": null,
+          "shard": "transcript/HG1012_PATCH.parquet",
+          "gene_hgnc_id_native_donor": "HGNC:23387"
+        },
+        {
+          "chrom": "HG1012_PATCH",
+          "start": 132087,
+          "end": 160079,
+          "stable_id": "NM_001330722.2",
+          "gene_symbol": "NOL8",
+          "gene_hgnc_id": null,
+          "gene_hgnc_id_native": null,
+          "shard": "transcript/HG1012_PATCH.parquet",
+          "gene_hgnc_id_native_donor": "HGNC:23387"
+        },
+        {
+          "chrom": "HG1012_PATCH",
+          "start": 134653,
+          "end": 160079,
+          "stable_id": "XM_054333098.1",
+          "gene_symbol": "NOL8",
+          "gene_hgnc_id": null,
+          "gene_hgnc_id_native": null,
+          "shard": "transcript/HG1012_PATCH.parquet",
+          "gene_hgnc_id_native_donor": "HGNC:23387"
+        },
+        {
+          "chrom": "HG1012_PATCH",
+          "start": 140477,
+          "end": 160079,
+          "stable_id": "XM_054333100.1",
+          "gene_symbol": "NOL8",
+          "gene_hgnc_id": null,
+          "gene_hgnc_id_native": null,
+          "shard": "transcript/HG1012_PATCH.parquet",
+          "gene_hgnc_id_native_donor": "HGNC:23387"
+        },
+        {
+          "chrom": "HG1012_PATCH",
+          "start": 141679,
+          "end": 160079,
+          "stable_id": "XM_054333101.1",
+          "gene_symbol": "NOL8",
+          "gene_hgnc_id": null,
+          "gene_hgnc_id_native": null,
+          "shard": "transcript/HG1012_PATCH.parquet",
+          "gene_hgnc_id_native_donor": "HGNC:23387"
+        },
+        {
+          "chrom": "HG1012_PATCH",
+          "start": 160197,
+          "end": 449891,
+          "stable_id": "NM_001286969.1",
+          "gene_symbol": "CENPP",
+          "gene_hgnc_id": null,
+          "gene_hgnc_id_native": null,
+          "shard": "transcript/HG1012_PATCH.parquet",
+          "gene_hgnc_id_native_donor": "HGNC:32933"
+        },
+        {
+          "chrom": "HG1012_PATCH",
+          "start": 160682,
+          "end": 185916,
+          "stable_id": "XM_054333089.1",
+          "gene_symbol": "CENPP",
+          "gene_hgnc_id": null,
+          "gene_hgnc_id_native": null,
+          "shard": "transcript/HG1012_PATCH.parquet",
+          "gene_hgnc_id_native_donor": "HGNC:32933"
+        },
+        {
+          "chrom": "HG1012_PATCH",
+          "start": 160682,
+          "end": 455256,
+          "stable_id": "NM_001012267.3",
+          "gene_symbol": "CENPP",
+          "gene_hgnc_id": null,
+          "gene_hgnc_id_native": null,
+          "shard": "transcript/HG1012_PATCH.parquet",
+          "gene_hgnc_id_native_donor": "HGNC:32933"
+        },
+        {
+          "chrom": "HG1012_PATCH",
+          "start": 160682,
+          "end": 455260,
+          "stable_id": "XR_008485820.1",
+          "gene_symbol": "CENPP",
+          "gene_hgnc_id": null,
+          "gene_hgnc_id_native": null,
+          "shard": "transcript/HG1012_PATCH.parquet",
+          "gene_hgnc_id_native_donor": "HGNC:32933"
+        },
+        {
+          "chrom": "HG1012_PATCH",
+          "start": 160682,
+          "end": 215857,
+          "stable_id": "XM_054333093.1",
+          "gene_symbol": "CENPP",
+          "gene_hgnc_id": null,
+          "gene_hgnc_id_native": null,
+          "shard": "transcript/HG1012_PATCH.parquet",
+          "gene_hgnc_id_native_donor": "HGNC:32933"
+        },
+        {
+          "chrom": "HG1012_PATCH",
+          "start": 160682,
+          "end": 455260,
+          "stable_id": "XR_008485821.1",
+          "gene_symbol": "CENPP",
+          "gene_hgnc_id": null,
+          "gene_hgnc_id_native": null,
+          "shard": "transcript/HG1012_PATCH.parquet",
+          "gene_hgnc_id_native_donor": "HGNC:32933"
+        },
+        {
+          "chrom": "HG1012_PATCH",
+          "start": 160682,
+          "end": 455260,
+          "stable_id": "XR_008485823.1",
+          "gene_symbol": "CENPP",
+          "gene_hgnc_id": null,
+          "gene_hgnc_id_native": null,
+          "shard": "transcript/HG1012_PATCH.parquet",
+          "gene_hgnc_id_native_donor": "HGNC:32933"
+        },
+        {
+          "chrom": "HG1012_PATCH",
+          "start": 160682,
+          "end": 328896,
+          "stable_id": "XM_054333091.1",
+          "gene_symbol": "CENPP",
+          "gene_hgnc_id": null,
+          "gene_hgnc_id_native": null,
+          "shard": "transcript/HG1012_PATCH.parquet",
+          "gene_hgnc_id_native_donor": "HGNC:32933"
+        },
+        {
+          "chrom": "HG1012_PATCH",
+          "start": 160682,
+          "end": 455260,
+          "stable_id": "XR_008485822.1",
+          "gene_symbol": "CENPP",
+          "gene_hgnc_id": null,
+          "gene_hgnc_id_native": null,
+          "shard": "transcript/HG1012_PATCH.parquet",
+          "gene_hgnc_id_native_donor": "HGNC:32933"
+        },
+        {
+          "chrom": "HG1012_PATCH",
+          "start": 160682,
+          "end": 455260,
+          "stable_id": "XR_008485824.1",
+          "gene_symbol": "CENPP",
+          "gene_hgnc_id": null,
+          "gene_hgnc_id_native": null,
+          "shard": "transcript/HG1012_PATCH.parquet",
+          "gene_hgnc_id_native_donor": "HGNC:32933"
+        },
+        {
+          "chrom": "HG1012_PATCH",
+          "start": 160682,
+          "end": 216140,
+          "stable_id": "XM_054333092.1",
+          "gene_symbol": "CENPP",
+          "gene_hgnc_id": null,
+          "gene_hgnc_id_native": null,
+          "shard": "transcript/HG1012_PATCH.parquet",
+          "gene_hgnc_id_native_donor": "HGNC:32933"
+        },
+        {
+          "chrom": "HG1012_PATCH",
+          "start": 161054,
+          "end": 455256,
+          "stable_id": "XM_054333090.1",
+          "gene_symbol": "CENPP",
+          "gene_hgnc_id": null,
+          "gene_hgnc_id_native": null,
+          "shard": "transcript/HG1012_PATCH.parquet",
+          "gene_hgnc_id_native_donor": "HGNC:32933"
+        },
+        {
+          "chrom": "HG1012_PATCH",
+          "start": 217997,
+          "end": 239307,
+          "stable_id": "NM_014057.5",
+          "gene_symbol": "OGN",
+          "gene_hgnc_id": null,
+          "gene_hgnc_id_native": null,
+          "shard": "transcript/HG1012_PATCH.parquet",
+          "gene_hgnc_id_native_donor": "HGNC:8126"
+        },
+        {
+          "chrom": "HG1012_PATCH",
+          "start": 217997,
+          "end": 239307,
+          "stable_id": "NM_033014.4",
+          "gene_symbol": "OGN",
+          "gene_hgnc_id": null,
+          "gene_hgnc_id_native": null,
+          "shard": "transcript/HG1012_PATCH.parquet",
+          "gene_hgnc_id_native_donor": "HGNC:8126"
+        },
+        {
+          "chrom": "HG1012_PATCH",
+          "start": 218000,
+          "end": 239428,
+          "stable_id": "NM_024416.4",
+          "gene_symbol": "OGN",
+          "gene_hgnc_id": null,
+          "gene_hgnc_id_native": null,
+          "shard": "transcript/HG1012_PATCH.parquet",
+          "gene_hgnc_id_native_donor": "HGNC:8126"
+        },
+        {
+          "chrom": "HG1012_PATCH",
+          "start": 247109,
+          "end": 259200,
+          "stable_id": "NM_005014.3",
+          "gene_symbol": "OMD",
+          "gene_hgnc_id": null,
+          "gene_hgnc_id_native": null,
+          "shard": "transcript/HG1012_PATCH.parquet",
+          "gene_hgnc_id_native_donor": "HGNC:8134"
+        },
+        {
+          "chrom": "HG1012_PATCH",
+          "start": 290934,
+          "end": 317233,
+          "stable_id": "NM_001193335.3",
+          "gene_symbol": "ASPN",
+          "gene_hgnc_id": null,
+          "gene_hgnc_id_native": null,
+          "shard": "transcript/HG1012_PATCH.parquet",
+          "gene_hgnc_id_native_donor": "HGNC:14872"
+        },
+        {
+          "chrom": "HG1012_PATCH",
+          "start": 290934,
+          "end": 317233,
+          "stable_id": "NM_017680.6",
+          "gene_symbol": "ASPN",
+          "gene_hgnc_id": null,
+          "gene_hgnc_id_native": null,
+          "shard": "transcript/HG1012_PATCH.parquet",
+          "gene_hgnc_id_native_donor": "HGNC:14872"
+        },
+        {
+          "chrom": "HG1012_PATCH",
+          "start": 328274,
+          "end": 370717,
+          "stable_id": "NM_001197296.2",
+          "gene_symbol": "ECM2",
+          "gene_hgnc_id": null,
+          "gene_hgnc_id_native": null,
+          "shard": "transcript/HG1012_PATCH.parquet",
+          "gene_hgnc_id_native_donor": "HGNC:3154"
+        },
+        {
+          "chrom": "HG1012_PATCH",
+          "start": 330042,
+          "end": 371451,
+          "stable_id": "XM_054333086.1",
+          "gene_symbol": "ECM2",
+          "gene_hgnc_id": null,
+          "gene_hgnc_id_native": null,
+          "shard": "transcript/HG1012_PATCH.parquet",
+          "gene_hgnc_id_native_donor": "HGNC:3154"
+        },
+        {
+          "chrom": "HG1012_PATCH",
+          "start": 330042,
+          "end": 370717,
+          "stable_id": "NM_001197295.2",
+          "gene_symbol": "ECM2",
+          "gene_hgnc_id": null,
+          "gene_hgnc_id_native": null,
+          "shard": "transcript/HG1012_PATCH.parquet",
+          "gene_hgnc_id_native_donor": "HGNC:3154"
+        },
+        {
+          "chrom": "HG1012_PATCH",
+          "start": 330042,
+          "end": 371451,
+          "stable_id": "XM_054333085.1",
+          "gene_symbol": "ECM2",
+          "gene_hgnc_id": null,
+          "gene_hgnc_id_native": null,
+          "shard": "transcript/HG1012_PATCH.parquet",
+          "gene_hgnc_id_native_donor": "HGNC:3154"
+        },
+        {
+          "chrom": "HG1012_PATCH",
+          "start": 330042,
+          "end": 370717,
+          "stable_id": "NM_001393.4",
+          "gene_symbol": "ECM2",
+          "gene_hgnc_id": null,
+          "gene_hgnc_id_native": null,
+          "shard": "transcript/HG1012_PATCH.parquet",
+          "gene_hgnc_id_native_donor": "HGNC:3154"
+        },
+        {
+          "chrom": "HG1012_PATCH",
+          "start": 340321,
+          "end": 370717,
+          "stable_id": "XR_008485819.1",
+          "gene_symbol": "ECM2",
+          "gene_hgnc_id": null,
+          "gene_hgnc_id_native": null,
+          "shard": "transcript/HG1012_PATCH.parquet",
+          "gene_hgnc_id_native_donor": "HGNC:3154"
+        },
+        {
+          "chrom": "HG1012_PATCH",
+          "start": 343551,
+          "end": 370717,
+          "stable_id": "XM_054333087.1",
+          "gene_symbol": "ECM2",
+          "gene_hgnc_id": null,
+          "gene_hgnc_id_native": null,
+          "shard": "transcript/HG1012_PATCH.parquet",
+          "gene_hgnc_id_native_donor": "HGNC:3154"
+        },
+        {
+          "chrom": "HG1012_PATCH",
+          "start": 362711,
+          "end": 362785,
+          "stable_id": "NR_039817.1",
+          "gene_symbol": "MIR4670",
+          "gene_hgnc_id": null,
+          "gene_hgnc_id_native": null,
+          "shard": "transcript/HG1012_PATCH.parquet",
+          "gene_hgnc_id_native_donor": "HGNC:41862"
+        },
+        {
+          "chrom": "HG1012_PATCH",
+          "start": 434984,
+          "end": 449891,
+          "stable_id": "NM_001286971.1",
+          "gene_symbol": "CENPP",
+          "gene_hgnc_id": null,
+          "gene_hgnc_id_native": null,
+          "shard": "transcript/HG1012_PATCH.parquet",
+          "gene_hgnc_id_native_donor": "HGNC:32933"
+        },
+        {
+          "chrom": "HG1012_PATCH",
+          "start": 450784,
+          "end": 455260,
+          "stable_id": "XM_054333088.1",
+          "gene_symbol": "CENPP",
+          "gene_hgnc_id": null,
+          "gene_hgnc_id_native": null,
+          "shard": "transcript/HG1012_PATCH.parquet",
+          "gene_hgnc_id_native_donor": "HGNC:32933"
+        },
+        {
+          "chrom": "HG1047_PATCH",
+          "start": 9908,
+          "end": 13471,
+          "stable_id": "NM_023080.3",
+          "gene_symbol": "C8orf33",
+          "gene_hgnc_id": null,
+          "gene_hgnc_id_native": null,
+          "shard": "transcript/HG1047_PATCH.parquet",
+          "gene_hgnc_id_native_donor": "HGNC:26104"
+        },
+        {
+          "chrom": "HG107_HG2565_PATCH",
+          "start": 46620,
+          "end": 52504,
+          "stable_id": "NR_160890.1",
+          "gene_symbol": "LINC02688",
+          "gene_hgnc_id": null,
+          "gene_hgnc_id_native": null,
+          "shard": "transcript/HG107_HG2565_PATCH.parquet",
+          "gene_hgnc_id_native_donor": "HGNC:54184"
+        },
+        {
+          "chrom": "HG107_HG2565_PATCH",
+          "start": 71614,
+          "end": 108092,
+          "stable_id": "NM_002457.5",
+          "gene_symbol": "MUC2",
+          "gene_hgnc_id": null,
+          "gene_hgnc_id_native": null,
+          "shard": "transcript/HG107_HG2565_PATCH.parquet",
+          "gene_hgnc_id_native_donor": "HGNC:7512"
+        },
+        {
+          "chrom": "HG107_HG2565_PATCH",
+          "start": 155427,
+          "end": 198622,
+          "stable_id": "NM_001304359.2",
+          "gene_symbol": "MUC5AC",
+          "gene_hgnc_id": null,
+          "gene_hgnc_id_native": null,
+          "shard": "transcript/HG107_HG2565_PATCH.parquet",
+          "gene_hgnc_id_native_donor": "HGNC:7515"
+        },
+        {
+          "chrom": "HG109_PATCH",
+          "start": 7284,
+          "end": 44095,
+          "stable_id": "NM_001367834.3",
+          "gene_symbol": "ZSWIM4",
+          "gene_hgnc_id": null,
+          "gene_hgnc_id_native": null,
+          "shard": "transcript/HG109_PATCH.parquet",
+          "gene_hgnc_id_native_donor": "HGNC:25704"
+        },
+        {
+          "chrom": "HG109_PATCH",
+          "start": 7284,
+          "end": 44095,
+          "stable_id": "XM_054332713.1",
+          "gene_symbol": "ZSWIM4",
+          "gene_hgnc_id": null,
+          "gene_hgnc_id_native": null,
+          "shard": "transcript/HG109_PATCH.parquet",
+          "gene_hgnc_id_native_donor": "HGNC:25704"
+        },
+        {
+          "chrom": "HG109_PATCH",
+          "start": 7284,
+          "end": 44056,
+          "stable_id": "NM_023072.3",
+          "gene_symbol": "ZSWIM4",
+          "gene_hgnc_id": null,
+          "gene_hgnc_id_native": null,
+          "shard": "transcript/HG109_PATCH.parquet",
+          "gene_hgnc_id_native_donor": "HGNC:25704"
+        },
+        {
+          "chrom": "HG109_PATCH",
+          "start": 7284,
+          "end": 44095,
+          "stable_id": "XM_054332714.1",
+          "gene_symbol": "ZSWIM4",
+          "gene_hgnc_id": null,
+          "gene_hgnc_id_native": null,
+          "shard": "transcript/HG109_PATCH.parquet",
+          "gene_hgnc_id_native_donor": "HGNC:25704"
+        },
+        {
+          "chrom": "HG109_PATCH",
+          "start": 7284,
+          "end": 37548,
+          "stable_id": "XM_054332716.1",
+          "gene_symbol": "ZSWIM4",
+          "gene_hgnc_id": null,
+          "gene_hgnc_id_native": null,
+          "shard": "transcript/HG109_PATCH.parquet",
+          "gene_hgnc_id_native_donor": "HGNC:25704"
+        },
+        {
+          "chrom": "HG109_PATCH",
+          "start": 7284,
+          "end": 44095,
+          "stable_id": "XM_054332710.1",
+          "gene_symbol": "ZSWIM4",
+          "gene_hgnc_id": null,
+          "gene_hgnc_id_native": null,
+          "shard": "transcript/HG109_PATCH.parquet",
+          "gene_hgnc_id_native_donor": "HGNC:25704"
+        },
+        {
+          "chrom": "HG109_PATCH",
+          "start": 7284,
+          "end": 44095,
+          "stable_id": "XM_054332715.1",
+          "gene_symbol": "ZSWIM4",
+          "gene_hgnc_id": null,
+          "gene_hgnc_id_native": null,
+          "shard": "transcript/HG109_PATCH.parquet",
+          "gene_hgnc_id_native_donor": "HGNC:25704"
+        },
+        {
+          "chrom": "HG109_PATCH",
+          "start": 7284,
+          "end": 44095,
+          "stable_id": "XM_054332709.1",
+          "gene_symbol": "ZSWIM4",
+          "gene_hgnc_id": null,
+          "gene_hgnc_id_native": null,
+          "shard": "transcript/HG109_PATCH.parquet",
+          "gene_hgnc_id_native_donor": "HGNC:25704"
+        },
+        {
+          "chrom": "HG109_PATCH",
+          "start": 7284,
+          "end": 44095,
+          "stable_id": "XM_054332708.1",
+          "gene_symbol": "ZSWIM4",
+          "gene_hgnc_id": null,
+          "gene_hgnc_id_native": null,
+          "shard": "transcript/HG109_PATCH.parquet",
+          "gene_hgnc_id_native_donor": "HGNC:25704"
+        },
+        {
+          "chrom": "HG109_PATCH",
+          "start": 7284,
+          "end": 44095,
+          "stable_id": "XM_054332711.1",
+          "gene_symbol": "ZSWIM4",
+          "gene_hgnc_id": null,
+          "gene_hgnc_id_native": null,
+          "shard": "transcript/HG109_PATCH.parquet",
+          "gene_hgnc_id_native_donor": "HGNC:25704"
+        },
+        {
+          "chrom": "HG109_PATCH",
+          "start": 7284,
+          "end": 37479,
+          "stable_id": "XR_008485786.1",
+          "gene_symbol": "ZSWIM4",
+          "gene_hgnc_id": null,
+          "gene_hgnc_id_native": null,
+          "shard": "transcript/HG109_PATCH.parquet",
+          "gene_hgnc_id_native_donor": "HGNC:25704"
+        },
+        {
+          "chrom": "HG109_PATCH",
+          "start": 7649,
+          "end": 44095,
+          "stable_id": "XM_054332712.1",
+          "gene_symbol": "ZSWIM4",
+          "gene_hgnc_id": null,
+          "gene_hgnc_id_native": null,
+          "shard": "transcript/HG109_PATCH.parquet",
+          "gene_hgnc_id_native_donor": "HGNC:25704"
+        },
+        {
+          "chrom": "HG109_PATCH",
+          "start": 46357,
+          "end": 54759,
+          "stable_id": "NR_036515.2",
+          "gene_symbol": "MIR23AHG",
+          "gene_hgnc_id": null,
+          "gene_hgnc_id_native": null,
+          "shard": "transcript/HG109_PATCH.parquet",
+          "gene_hgnc_id_native_donor": "HGNC:27620"
+        },
+        {
+          "chrom": "HG109_PATCH",
+          "start": 48128,
+          "end": 48200,
+          "stable_id": "NR_029497.1",
+          "gene_symbol": "MIR24-2",
+          "gene_hgnc_id": null,
+          "gene_hgnc_id_native": null,
+          "shard": "transcript/HG109_PATCH.parquet",
+          "gene_hgnc_id_native_donor": "HGNC:31608"
+        },
+        {
+          "chrom": "HG109_PATCH",
+          "start": 48281,
+          "end": 48358,
+          "stable_id": "NR_029501.1",
+          "gene_symbol": "MIR27A",
+          "gene_hgnc_id": null,
+          "gene_hgnc_id_native": null,
+          "shard": "transcript/HG109_PATCH.parquet",
+          "gene_hgnc_id_native_donor": "HGNC:31613"
+        },
+        {
+          "chrom": "HG109_PATCH",
+          "start": 48428,
+          "end": 48500,
+          "stable_id": "NR_029495.1",
+          "gene_symbol": "MIR23A",
+          "gene_hgnc_id": null,
+          "gene_hgnc_id_native": null,
+          "shard": "transcript/HG109_PATCH.parquet",
+          "gene_hgnc_id_native_donor": "HGNC:31605"
+        },
+        {
+          "chrom": "HG109_PATCH",
+          "start": 73877,
+          "end": 92598,
+          "stable_id": "NR_146095.2",
+          "gene_symbol": "NANOS3",
+          "gene_hgnc_id": null,
+          "gene_hgnc_id_native": null,
+          "shard": "transcript/HG109_PATCH.parquet",
+          "gene_hgnc_id_native_donor": "HGNC:22048"
+        },
+        {
+          "chrom": "HG109_PATCH",
+          "start": 77044,
+          "end": 92598,
+          "stable_id": "NR_146097.2",
+          "gene_symbol": "NANOS3",
+          "gene_hgnc_id": null,
+          "gene_hgnc_id_native": null,
+          "shard": "transcript/HG109_PATCH.parquet",
+          "gene_hgnc_id_native_donor": "HGNC:22048"
+        },
+        {
+          "chrom": "HG109_PATCH",
+          "start": 77044,
+          "end": 92598,
+          "stable_id": "NR_146096.2",
+          "gene_symbol": "NANOS3",
+          "gene_hgnc_id": null,
+          "gene_hgnc_id_native": null,
+          "shard": "transcript/HG109_PATCH.parquet",
+          "gene_hgnc_id_native_donor": "HGNC:22048"
+        },
+        {
+          "chrom": "HG109_PATCH",
+          "start": 86540,
+          "end": 86649,
+          "stable_id": "NR_029613.1",
+          "gene_symbol": "MIR181C",
+          "gene_hgnc_id": null,
+          "gene_hgnc_id_native": null,
+          "shard": "transcript/HG109_PATCH.parquet",
+          "gene_hgnc_id_native_donor": "HGNC:31552"
+        },
+        {
+          "chrom": "HG109_PATCH",
+          "start": 86716,
+          "end": 86852,
+          "stable_id": "NR_030179.1",
+          "gene_symbol": "MIR181D",
+          "gene_hgnc_id": null,
+          "gene_hgnc_id_native": null,
+          "shard": "transcript/HG109_PATCH.parquet",
+          "gene_hgnc_id_native_donor": "HGNC:32089"
+        },
+        {
+          "chrom": "HG109_PATCH",
+          "start": 88975,
+          "end": 92598,
+          "stable_id": "NM_001098622.3",
+          "gene_symbol": "NANOS3",
+          "gene_hgnc_id": null,
+          "gene_hgnc_id_native": null,
+          "shard": "transcript/HG109_PATCH.parquet",
+          "gene_hgnc_id_native_donor": "HGNC:22048"
+        },
+        {
+          "chrom": "HG109_PATCH",
+          "start": 94189,
+          "end": 117958,
+          "stable_id": "NM_001345843.2",
+          "gene_symbol": "BRME1",
+          "gene_hgnc_id": null,
+          "gene_hgnc_id_native": null,
+          "shard": "transcript/HG109_PATCH.parquet",
+          "gene_hgnc_id_native_donor": "HGNC:28153"
+        },
+        {
+          "chrom": "HG109_PATCH",
+          "start": 94189,
+          "end": 117958,
+          "stable_id": "NM_001393645.1",
+          "gene_symbol": "BRME1",
+          "gene_hgnc_id": null,
+          "gene_hgnc_id_native": null,
+          "shard": "transcript/HG109_PATCH.parquet",
+          "gene_hgnc_id_native_donor": "HGNC:28153"
+        },
+        {
+          "chrom": "HG109_PATCH",
+          "start": 94189,
+          "end": 117958,
+          "stable_id": "NM_001393647.1",
+          "gene_symbol": "BRME1",
+          "gene_hgnc_id": null,
+          "gene_hgnc_id_native": null,
+          "shard": "transcript/HG109_PATCH.parquet",
+          "gene_hgnc_id_native_donor": "HGNC:28153"
+        },
+        {
+          "chrom": "HG109_PATCH",
+          "start": 94189,
+          "end": 117958,
+          "stable_id": "NM_001345844.2",
+          "gene_symbol": "BRME1",
+          "gene_hgnc_id": null,
+          "gene_hgnc_id_native": null,
+          "shard": "transcript/HG109_PATCH.parquet",
+          "gene_hgnc_id_native_donor": "HGNC:28153"
+        },
+        {
+          "chrom": "HG109_PATCH",
+          "start": 94189,
+          "end": 117958,
+          "stable_id": "NM_001393648.1",
+          "gene_symbol": "BRME1",
+          "gene_hgnc_id": null,
+          "gene_hgnc_id_native": null,
+          "shard": "transcript/HG109_PATCH.parquet",
+          "gene_hgnc_id_native_donor": "HGNC:28153"
+        }
+      ]
+    },
+    "regulatory_one_base": {
+      "count": 0,
+      "samples": []
+    },
+    "regulatory_whitespace": {
+      "count": 0,
+      "samples": []
+    },
+    "regulatory_semicolon": {
+      "count": 0,
+      "samples": []
+    },
+    "regulatory_comma": {
+      "count": 0,
+      "samples": []
+    },
+    "regulatory_pipe": {
+      "count": 0,
+      "samples": []
+    },
+    "motif_one_base": {
+      "count": 0,
+      "samples": []
+    },
+    "motif_whitespace": {
+      "count": 0,
+      "samples": []
+    },
+    "motif_semicolon": {
+      "count": 0,
+      "samples": []
+    },
+    "motif_comma": {
+      "count": 149497,
+      "samples": [
+        {
+          "chrom": "1",
+          "start": 10144,
+          "end": 10157,
+          "shard": "motif/chr1.parquet",
+          "field": "transcription_factors",
+          "value": "HNF4A,NR2F1,RXRA"
+        },
+        {
+          "chrom": "1",
+          "start": 10228,
+          "end": 10241,
+          "shard": "motif/chr1.parquet",
+          "field": "transcription_factors",
+          "value": "HNF4A,NR2F1,RXRA"
+        },
+        {
+          "chrom": "1",
+          "start": 10247,
+          "end": 10260,
+          "shard": "motif/chr1.parquet",
+          "field": "transcription_factors",
+          "value": "HNF4A,NR2F1,RXRA"
+        },
+        {
+          "chrom": "1",
+          "start": 10254,
+          "end": 10267,
+          "shard": "motif/chr1.parquet",
+          "field": "transcription_factors",
+          "value": "HNF4A,NR2F1,RXRA"
+        },
+        {
+          "chrom": "1",
+          "start": 10327,
+          "end": 10340,
+          "shard": "motif/chr1.parquet",
+          "field": "transcription_factors",
+          "value": "HNF4A,NR2F1,RXRA"
+        },
+        {
+          "chrom": "1",
+          "start": 10387,
+          "end": 10400,
+          "shard": "motif/chr1.parquet",
+          "field": "transcription_factors",
+          "value": "HNF4A,NR2F1,RXRA"
+        },
+        {
+          "chrom": "1",
+          "start": 10394,
+          "end": 10407,
+          "shard": "motif/chr1.parquet",
+          "field": "transcription_factors",
+          "value": "HNF4A,NR2F1,RXRA"
+        },
+        {
+          "chrom": "1",
+          "start": 10437,
+          "end": 10450,
+          "shard": "motif/chr1.parquet",
+          "field": "transcription_factors",
+          "value": "HNF4A,NR2F1,RXRA"
+        },
+        {
+          "chrom": "1",
+          "start": 29333,
+          "end": 29344,
+          "shard": "motif/chr1.parquet",
+          "field": "transcription_factors",
+          "value": "ELF1,ELF4"
+        },
+        {
+          "chrom": "1",
+          "start": 29335,
+          "end": 29344,
+          "shard": "motif/chr1.parquet",
+          "field": "transcription_factors",
+          "value": "ELF1,ETV6,GABPA"
+        },
+        {
+          "chrom": "1",
+          "start": 29353,
+          "end": 29364,
+          "shard": "motif/chr1.parquet",
+          "field": "transcription_factors",
+          "value": "ELF1,ELF4"
+        },
+        {
+          "chrom": "1",
+          "start": 30798,
+          "end": 30811,
+          "shard": "motif/chr1.parquet",
+          "field": "transcription_factors",
+          "value": "FOS,ATF7,JUN"
+        },
+        {
+          "chrom": "1",
+          "start": 30798,
+          "end": 30811,
+          "shard": "motif/chr1.parquet",
+          "field": "transcription_factors",
+          "value": "FOS,ATF7,JUN"
+        },
+        {
+          "chrom": "1",
+          "start": 57028,
+          "end": 57041,
+          "shard": "motif/chr1.parquet",
+          "field": "transcription_factors",
+          "value": "HNF4A,NR2F1,RXRA"
+        },
+        {
+          "chrom": "1",
+          "start": 100307,
+          "end": 100320,
+          "shard": "motif/chr1.parquet",
+          "field": "transcription_factors",
+          "value": "HNF4A,NR2F1,RXRA"
+        },
+        {
+          "chrom": "1",
+          "start": 136218,
+          "end": 136231,
+          "shard": "motif/chr1.parquet",
+          "field": "transcription_factors",
+          "value": "HNF4A,NR2F1,RXRA"
+        },
+        {
+          "chrom": "1",
+          "start": 136315,
+          "end": 136328,
+          "shard": "motif/chr1.parquet",
+          "field": "transcription_factors",
+          "value": "HNF4A,NR2F1,RXRA"
+        },
+        {
+          "chrom": "1",
+          "start": 136412,
+          "end": 136425,
+          "shard": "motif/chr1.parquet",
+          "field": "transcription_factors",
+          "value": "HNF4A,NR2F1,RXRA"
+        },
+        {
+          "chrom": "1",
+          "start": 136509,
+          "end": 136522,
+          "shard": "motif/chr1.parquet",
+          "field": "transcription_factors",
+          "value": "HNF4A,NR2F1,RXRA"
+        },
+        {
+          "chrom": "1",
+          "start": 136607,
+          "end": 136620,
+          "shard": "motif/chr1.parquet",
+          "field": "transcription_factors",
+          "value": "HNF4A,NR2F1,RXRA"
+        },
+        {
+          "chrom": "1",
+          "start": 136656,
+          "end": 136669,
+          "shard": "motif/chr1.parquet",
+          "field": "transcription_factors",
+          "value": "HNF4A,NR2F1,RXRA"
+        },
+        {
+          "chrom": "1",
+          "start": 136705,
+          "end": 136718,
+          "shard": "motif/chr1.parquet",
+          "field": "transcription_factors",
+          "value": "HNF4A,NR2F1,RXRA"
+        },
+        {
+          "chrom": "1",
+          "start": 136900,
+          "end": 136913,
+          "shard": "motif/chr1.parquet",
+          "field": "transcription_factors",
+          "value": "HNF4A,NR2F1,RXRA"
+        },
+        {
+          "chrom": "1",
+          "start": 136998,
+          "end": 137011,
+          "shard": "motif/chr1.parquet",
+          "field": "transcription_factors",
+          "value": "HNF4A,NR2F1,RXRA"
+        },
+        {
+          "chrom": "1",
+          "start": 137193,
+          "end": 137206,
+          "shard": "motif/chr1.parquet",
+          "field": "transcription_factors",
+          "value": "HNF4A,NR2F1,RXRA"
+        },
+        {
+          "chrom": "1",
+          "start": 180148,
+          "end": 180161,
+          "shard": "motif/chr1.parquet",
+          "field": "transcription_factors",
+          "value": "HNF4A,NR2F1,RXRA"
+        },
+        {
+          "chrom": "1",
+          "start": 180155,
+          "end": 180168,
+          "shard": "motif/chr1.parquet",
+          "field": "transcription_factors",
+          "value": "HNF4A,NR2F1,RXRA"
+        },
+        {
+          "chrom": "1",
+          "start": 180188,
+          "end": 180201,
+          "shard": "motif/chr1.parquet",
+          "field": "transcription_factors",
+          "value": "HNF4A,NR2F1,RXRA"
+        },
+        {
+          "chrom": "1",
+          "start": 180278,
+          "end": 180291,
+          "shard": "motif/chr1.parquet",
+          "field": "transcription_factors",
+          "value": "HNF4A,NR2F1,RXRA"
+        },
+        {
+          "chrom": "1",
+          "start": 180285,
+          "end": 180298,
+          "shard": "motif/chr1.parquet",
+          "field": "transcription_factors",
+          "value": "HNF4A,NR2F1,RXRA"
+        }
+      ]
+    },
+    "motif_pipe": {
+      "count": 0,
+      "samples": []
+    },
+    "failed_named": {
+      "count": 171796,
+      "samples": [
+        {
+          "chrom": "21",
+          "start": 5227651,
+          "end": 5227652,
+          "allele_string": "dbSNP_novariation",
+          "failed": true,
+          "variation_name": null,
+          "dbsnp_ids": "rs1568769193",
+          "effective_name": "rs1568769193",
+          "shard": "variation/chr21.parquet"
+        },
+        {
+          "chrom": "21",
+          "start": 5230609,
+          "end": 5230609,
+          "allele_string": "dbSNP_novariation",
+          "failed": true,
+          "variation_name": null,
+          "dbsnp_ids": "rs1979841086",
+          "effective_name": "rs1979841086",
+          "shard": "variation/chr21.parquet"
+        },
+        {
+          "chrom": "21",
+          "start": 14176681,
+          "end": 14176680,
+          "allele_string": "-/C/NNT",
+          "failed": true,
+          "variation_name": null,
+          "dbsnp_ids": "rs1555856493",
+          "effective_name": "rs1555856493",
+          "shard": "variation/chr21.parquet"
+        },
+        {
+          "chrom": "21",
+          "start": 14295956,
+          "end": 14295956,
+          "allele_string": "A/ANA",
+          "failed": true,
+          "variation_name": null,
+          "dbsnp_ids": "rs1555875307",
+          "effective_name": "rs1555875307",
+          "shard": "variation/chr21.parquet"
+        },
+        {
+          "chrom": "21",
+          "start": 14303573,
+          "end": 14303572,
+          "allele_string": "-/TAN",
+          "failed": true,
+          "variation_name": null,
+          "dbsnp_ids": "rs1555875689",
+          "effective_name": "rs1555875689",
+          "shard": "variation/chr21.parquet"
+        },
+        {
+          "chrom": "21",
+          "start": 14403413,
+          "end": 14403412,
+          "allele_string": "-/NNNNN/TG",
+          "failed": true,
+          "variation_name": null,
+          "dbsnp_ids": "rs1555817013",
+          "effective_name": "rs1555817013",
+          "shard": "variation/chr21.parquet"
+        },
+        {
+          "chrom": "21",
+          "start": 15255821,
+          "end": 15255820,
+          "allele_string": "-/GNNNNNNNNNNNNNNNNNN/TAAAAAAAA",
+          "failed": true,
+          "variation_name": null,
+          "dbsnp_ids": "rs1555834113",
+          "effective_name": "rs1555834113",
+          "shard": "variation/chr21.parquet"
+        },
+        {
+          "chrom": "21",
+          "start": 16066290,
+          "end": 16066293,
+          "allele_string": "TTTT/TTTTNTTTT",
+          "failed": true,
+          "variation_name": null,
+          "dbsnp_ids": "rs1555881320",
+          "effective_name": "rs1555881320",
+          "shard": "variation/chr21.parquet"
+        },
+        {
+          "chrom": "21",
+          "start": 16823274,
+          "end": 16823273,
+          "allele_string": "-/NNNNNNNN/TGCTT/TT/TTCTT/TTCTTCCT/TTCTTCTT/TTCTTCTTCCTTCTTCTTCTTCTT/TTCTTCTTCCTTCTTCTTCTTCTTCTT/TTCTTCTTCTT/TTCTTCTTCTTCTGCTT/TTCTTCTTCTTCTT/TTCTTCTTCTTCTTCTT/TTCTTCTTCTTCTTCTTCTT/TTCTTCTTCTTCTTCTTCTTCTT/TTCTTCTTCTTCTTCTTCTTCTTCTT/TTCTTCTTCTTCTTCTTCTTCTTCTTCTT/TTCTTCTTCTTCTTCTTCTTCTTCTTCTTCTT/TTCTTCTTCTTCTTCTTCTTCTTCTTCTTCTTCTT/TTCTTCTTCTTCTTCTTCTTCTTCTTCTTCTTCTTCTT/TTCTTCTTCTTCTTCTTCTTCTTCTTCTTCTTCTTCTTCTT/TTCTTCTTCTTTTT/TTTTT",
+          "failed": true,
+          "variation_name": null,
+          "dbsnp_ids": "rs373525984",
+          "effective_name": "rs373525984",
+          "shard": "variation/chr21.parquet"
+        },
+        {
+          "chrom": "21",
+          "start": 17337721,
+          "end": 17337720,
+          "allele_string": "-/G/NACA",
+          "failed": true,
+          "variation_name": null,
+          "dbsnp_ids": "rs1555842702",
+          "effective_name": "rs1555842702",
+          "shard": "variation/chr21.parquet"
+        },
+        {
+          "chrom": "21",
+          "start": 19459589,
+          "end": 19459588,
+          "allele_string": "-/G/GNNNNNNNNNNNNNNNNNNN",
+          "failed": true,
+          "variation_name": null,
+          "dbsnp_ids": "rs140420340",
+          "effective_name": "rs140420340",
+          "shard": "variation/chr21.parquet"
+        },
+        {
+          "chrom": "21",
+          "start": 20119248,
+          "end": 20119247,
+          "allele_string": "-/T/TGNNNNNNNNNNNNNNNNNNN",
+          "failed": true,
+          "variation_name": null,
+          "dbsnp_ids": "rs35490659",
+          "effective_name": "rs35490659",
+          "shard": "variation/chr21.parquet"
+        },
+        {
+          "chrom": "21",
+          "start": 20160097,
+          "end": 20160096,
+          "allele_string": "-/N",
+          "failed": true,
+          "variation_name": null,
+          "dbsnp_ids": "rs1555845207",
+          "effective_name": "rs1555845207",
+          "shard": "variation/chr21.parquet"
+        },
+        {
+          "chrom": "21",
+          "start": 20286035,
+          "end": 20286034,
+          "allele_string": "-/N",
+          "failed": true,
+          "variation_name": null,
+          "dbsnp_ids": "rs10677477",
+          "effective_name": "rs10677477",
+          "shard": "variation/chr21.parquet"
+        },
+        {
+          "chrom": "21",
+          "start": 20484818,
+          "end": 20484817,
+          "allele_string": "-/TNTT/TT",
+          "failed": true,
+          "variation_name": null,
+          "dbsnp_ids": "rs752345324",
+          "effective_name": "rs752345324",
+          "shard": "variation/chr21.parquet"
+        },
+        {
+          "chrom": "21",
+          "start": 20536084,
+          "end": 20536083,
+          "allele_string": "-/N",
+          "failed": true,
+          "variation_name": null,
+          "dbsnp_ids": "rs1555822653",
+          "effective_name": "rs1555822653",
+          "shard": "variation/chr21.parquet"
+        },
+        {
+          "chrom": "21",
+          "start": 20709579,
+          "end": 20709580,
+          "allele_string": "dbSNP_novariation",
+          "failed": true,
+          "variation_name": null,
+          "dbsnp_ids": "rs60388628",
+          "effective_name": "rs60388628",
+          "shard": "variation/chr21.parquet"
+        },
+        {
+          "chrom": "21",
+          "start": 21135258,
+          "end": 21135257,
+          "allele_string": "-/GNNCN",
+          "failed": true,
+          "variation_name": null,
+          "dbsnp_ids": "rs1555889223",
+          "effective_name": "rs1555889223",
+          "shard": "variation/chr21.parquet"
+        },
+        {
+          "chrom": "21",
+          "start": 21522634,
+          "end": 21522634,
+          "allele_string": "T/TCT/TNT",
+          "failed": true,
+          "variation_name": null,
+          "dbsnp_ids": "rs1555911601",
+          "effective_name": "rs1555911601",
+          "shard": "variation/chr21.parquet"
+        },
+        {
+          "chrom": "21",
+          "start": 21904743,
+          "end": 21904743,
+          "allele_string": "T/TAT/TATCANT/TATCAT/TATCT",
+          "failed": true,
+          "variation_name": null,
+          "dbsnp_ids": "rs3990084",
+          "effective_name": "rs3990084",
+          "shard": "variation/chr21.parquet"
+        },
+        {
+          "chrom": "21",
+          "start": 22110954,
+          "end": 22110953,
+          "allele_string": "-/CACC/CACCC/CACCCNNN/CCCCC/CCCCCC/CTCC/CTCCC",
+          "failed": true,
+          "variation_name": null,
+          "dbsnp_ids": "rs555612991",
+          "effective_name": "rs555612991",
+          "shard": "variation/chr21.parquet"
+        },
+        {
+          "chrom": "21",
+          "start": 22232685,
+          "end": 22232684,
+          "allele_string": "-/G/GG/GGAAGG/GGAAGGAAGGAAGGAAGGAAGGAAGGAAGGAAGGAAGGAAGGAAGGAT/GGAAGGAAGGAAGGAAGGAAGGAAGGAAGGAG/GGAAGGG/GGANGG/GGG",
+          "failed": true,
+          "variation_name": null,
+          "dbsnp_ids": "rs755280659",
+          "effective_name": "rs755280659",
+          "shard": "variation/chr21.parquet"
+        },
+        {
+          "chrom": "21",
+          "start": 22320089,
+          "end": 22320089,
+          "allele_string": "A/ACACAAA/ACACACAAA/ACACACACACACATA/ACACACACACANA/ACACACACACATA/ACACACACATATA/ACACACATATA/ACACATATA/ACACATATATA/ACATA",
+          "failed": true,
+          "variation_name": null,
+          "dbsnp_ids": "rs756239555",
+          "effective_name": "rs756239555",
+          "shard": "variation/chr21.parquet"
+        },
+        {
+          "chrom": "21",
+          "start": 22389137,
+          "end": 22389136,
+          "allele_string": "-/CNTTG/CTT/CTTT/CTTTATTT",
+          "failed": true,
+          "variation_name": null,
+          "dbsnp_ids": "rs1555873258",
+          "effective_name": "rs1555873258",
+          "shard": "variation/chr21.parquet"
+        },
+        {
+          "chrom": "21",
+          "start": 22864212,
+          "end": 22864211,
+          "allele_string": "-/NN",
+          "failed": true,
+          "variation_name": null,
+          "dbsnp_ids": "rs1555842784",
+          "effective_name": "rs1555842784",
+          "shard": "variation/chr21.parquet"
+        },
+        {
+          "chrom": "21",
+          "start": 23199202,
+          "end": 23199202,
+          "allele_string": "A/ACTA/ACTNA/ATTA",
+          "failed": true,
+          "variation_name": null,
+          "dbsnp_ids": "rs56271236",
+          "effective_name": "rs56271236",
+          "shard": "variation/chr21.parquet"
+        },
+        {
+          "chrom": "21",
+          "start": 24291905,
+          "end": 24291904,
+          "allele_string": "-/NTATT",
+          "failed": true,
+          "variation_name": null,
+          "dbsnp_ids": "rs1555855124",
+          "effective_name": "rs1555855124",
+          "shard": "variation/chr21.parquet"
+        },
+        {
+          "chrom": "21",
+          "start": 25491565,
+          "end": 25491564,
+          "allele_string": "-/C/NC/TCACAATTCTTGACCTCCTGGAAACTGTAGC/TCC",
+          "failed": true,
+          "variation_name": null,
+          "dbsnp_ids": "rs11399548",
+          "effective_name": "rs11399548",
+          "shard": "variation/chr21.parquet"
+        },
+        {
+          "chrom": "21",
+          "start": 25534855,
+          "end": 25534854,
+          "allele_string": "-/NN",
+          "failed": true,
+          "variation_name": null,
+          "dbsnp_ids": "rs1555847751",
+          "effective_name": "rs1555847751",
+          "shard": "variation/chr21.parquet"
+        },
+        {
+          "chrom": "21",
+          "start": 25581350,
+          "end": 25581349,
+          "allele_string": "-/TN",
+          "failed": true,
+          "variation_name": null,
+          "dbsnp_ids": "rs1555850993",
+          "effective_name": "rs1555850993",
+          "shard": "variation/chr21.parquet"
+        }
+      ]
+    },
+    "failed_named_simple_snv": {
+      "count": 94087,
+      "samples": [
+        {
+          "chrom": "HG1485_PATCH",
+          "start": 118656,
+          "end": 118656,
+          "allele_string": "G/A",
+          "failed": true,
+          "variation_name": null,
+          "dbsnp_ids": "rs1979400326",
+          "effective_name": "rs1979400326",
+          "shard": "variation/HG1485_PATCH.parquet"
+        },
+        {
+          "chrom": "HG1485_PATCH",
+          "start": 118657,
+          "end": 118657,
+          "allele_string": "A/T",
+          "failed": true,
+          "variation_name": null,
+          "dbsnp_ids": "rs1601647246",
+          "effective_name": "rs1601647246",
+          "shard": "variation/HG1485_PATCH.parquet"
+        },
+        {
+          "chrom": "HG1485_PATCH",
+          "start": 118659,
+          "end": 118659,
+          "allele_string": "A/G",
+          "failed": true,
+          "variation_name": null,
+          "dbsnp_ids": "rs1374763059",
+          "effective_name": "rs1374763059",
+          "shard": "variation/HG1485_PATCH.parquet"
+        },
+        {
+          "chrom": "HG1485_PATCH",
+          "start": 118660,
+          "end": 118660,
+          "allele_string": "T/C",
+          "failed": true,
+          "variation_name": null,
+          "dbsnp_ids": "rs1796718162",
+          "effective_name": "rs1796718162",
+          "shard": "variation/HG1485_PATCH.parquet"
+        },
+        {
+          "chrom": "HG1485_PATCH",
+          "start": 118661,
+          "end": 118661,
+          "allele_string": "T/G",
+          "failed": true,
+          "variation_name": null,
+          "dbsnp_ids": "rs2123650630",
+          "effective_name": "rs2123650630",
+          "shard": "variation/HG1485_PATCH.parquet"
+        },
+        {
+          "chrom": "HG1485_PATCH",
+          "start": 118663,
+          "end": 118663,
+          "allele_string": "G/A",
+          "failed": true,
+          "variation_name": null,
+          "dbsnp_ids": "rs1979407440",
+          "effective_name": "rs1979407440",
+          "shard": "variation/HG1485_PATCH.parquet"
+        },
+        {
+          "chrom": "HG1485_PATCH",
+          "start": 118664,
+          "end": 118664,
+          "allele_string": "G/T",
+          "failed": true,
+          "variation_name": null,
+          "dbsnp_ids": "rs2123650634",
+          "effective_name": "rs2123650634",
+          "shard": "variation/HG1485_PATCH.parquet"
+        },
+        {
+          "chrom": "HG1485_PATCH",
+          "start": 118667,
+          "end": 118667,
+          "allele_string": "G/A",
+          "failed": true,
+          "variation_name": null,
+          "dbsnp_ids": "rs1429503163",
+          "effective_name": "rs1429503163",
+          "shard": "variation/HG1485_PATCH.parquet"
+        },
+        {
+          "chrom": "HG1485_PATCH",
+          "start": 118667,
+          "end": 118667,
+          "allele_string": "G/A",
+          "failed": true,
+          "variation_name": null,
+          "dbsnp_ids": "rs1554357377",
+          "effective_name": "rs1554357377",
+          "shard": "variation/HG1485_PATCH.parquet"
+        },
+        {
+          "chrom": "HG1485_PATCH",
+          "start": 118668,
+          "end": 118668,
+          "allele_string": "G/A",
+          "failed": true,
+          "variation_name": null,
+          "dbsnp_ids": "rs1979407600",
+          "effective_name": "rs1979407600",
+          "shard": "variation/HG1485_PATCH.parquet"
+        },
+        {
+          "chrom": "HG1485_PATCH",
+          "start": 118669,
+          "end": 118669,
+          "allele_string": "G/A",
+          "failed": true,
+          "variation_name": null,
+          "dbsnp_ids": "rs1443304581",
+          "effective_name": "rs1443304581",
+          "shard": "variation/HG1485_PATCH.parquet"
+        },
+        {
+          "chrom": "HG1485_PATCH",
+          "start": 118670,
+          "end": 118670,
+          "allele_string": "G/A",
+          "failed": true,
+          "variation_name": null,
+          "dbsnp_ids": "rs1181012656",
+          "effective_name": "rs1181012656",
+          "shard": "variation/HG1485_PATCH.parquet"
+        },
+        {
+          "chrom": "HG1485_PATCH",
+          "start": 118670,
+          "end": 118670,
+          "allele_string": "G/A",
+          "failed": true,
+          "variation_name": null,
+          "dbsnp_ids": "rs1304518547",
+          "effective_name": "rs1304518547",
+          "shard": "variation/HG1485_PATCH.parquet"
+        },
+        {
+          "chrom": "HG1485_PATCH",
+          "start": 118672,
+          "end": 118672,
+          "allele_string": "A/G",
+          "failed": true,
+          "variation_name": null,
+          "dbsnp_ids": "rs1471440112",
+          "effective_name": "rs1471440112",
+          "shard": "variation/HG1485_PATCH.parquet"
+        },
+        {
+          "chrom": "HG1485_PATCH",
+          "start": 118672,
+          "end": 118672,
+          "allele_string": "A/C",
+          "failed": true,
+          "variation_name": null,
+          "dbsnp_ids": "rs552198478",
+          "effective_name": "rs552198478",
+          "shard": "variation/HG1485_PATCH.parquet"
+        },
+        {
+          "chrom": "HG1485_PATCH",
+          "start": 118673,
+          "end": 118673,
+          "allele_string": "A/G",
+          "failed": true,
+          "variation_name": null,
+          "dbsnp_ids": "rs1253340863",
+          "effective_name": "rs1253340863",
+          "shard": "variation/HG1485_PATCH.parquet"
+        },
+        {
+          "chrom": "HG1485_PATCH",
+          "start": 118674,
+          "end": 118674,
+          "allele_string": "G/A",
+          "failed": true,
+          "variation_name": null,
+          "dbsnp_ids": "rs1345446243",
+          "effective_name": "rs1345446243",
+          "shard": "variation/HG1485_PATCH.parquet"
+        },
+        {
+          "chrom": "HG1485_PATCH",
+          "start": 118675,
+          "end": 118675,
+          "allele_string": "C/A",
+          "failed": true,
+          "variation_name": null,
+          "dbsnp_ids": "rs1483198768",
+          "effective_name": "rs1483198768",
+          "shard": "variation/HG1485_PATCH.parquet"
+        },
+        {
+          "chrom": "HG1485_PATCH",
+          "start": 118675,
+          "end": 118675,
+          "allele_string": "C/A",
+          "failed": true,
+          "variation_name": null,
+          "dbsnp_ids": "rs1554357374",
+          "effective_name": "rs1554357374",
+          "shard": "variation/HG1485_PATCH.parquet"
+        },
+        {
+          "chrom": "HG1485_PATCH",
+          "start": 118682,
+          "end": 118682,
+          "allele_string": "A/T",
+          "failed": true,
+          "variation_name": null,
+          "dbsnp_ids": "rs1218467481",
+          "effective_name": "rs1218467481",
+          "shard": "variation/HG1485_PATCH.parquet"
+        },
+        {
+          "chrom": "HG1485_PATCH",
+          "start": 118682,
+          "end": 118682,
+          "allele_string": "A/T",
+          "failed": true,
+          "variation_name": null,
+          "dbsnp_ids": "rs1254791844",
+          "effective_name": "rs1254791844",
+          "shard": "variation/HG1485_PATCH.parquet"
+        },
+        {
+          "chrom": "HG1485_PATCH",
+          "start": 118686,
+          "end": 118686,
+          "allele_string": "T/C",
+          "failed": true,
+          "variation_name": null,
+          "dbsnp_ids": "rs1276273748",
+          "effective_name": "rs1276273748",
+          "shard": "variation/HG1485_PATCH.parquet"
+        },
+        {
+          "chrom": "HG1485_PATCH",
+          "start": 118686,
+          "end": 118686,
+          "allele_string": "T/C",
+          "failed": true,
+          "variation_name": null,
+          "dbsnp_ids": "rs1324725707",
+          "effective_name": "rs1324725707",
+          "shard": "variation/HG1485_PATCH.parquet"
+        },
+        {
+          "chrom": "HG1485_PATCH",
+          "start": 118688,
+          "end": 118688,
+          "allele_string": "G/A",
+          "failed": true,
+          "variation_name": null,
+          "dbsnp_ids": "rs1309145107",
+          "effective_name": "rs1309145107",
+          "shard": "variation/HG1485_PATCH.parquet"
+        },
+        {
+          "chrom": "HG1485_PATCH",
+          "start": 118688,
+          "end": 118688,
+          "allele_string": "G/A",
+          "failed": true,
+          "variation_name": null,
+          "dbsnp_ids": "rs1979408439",
+          "effective_name": "rs1979408439",
+          "shard": "variation/HG1485_PATCH.parquet"
+        },
+        {
+          "chrom": "HG1485_PATCH",
+          "start": 118690,
+          "end": 118690,
+          "allele_string": "A/T",
+          "failed": true,
+          "variation_name": null,
+          "dbsnp_ids": "rs1979408632",
+          "effective_name": "rs1979408632",
+          "shard": "variation/HG1485_PATCH.parquet"
+        },
+        {
+          "chrom": "HG1485_PATCH",
+          "start": 118692,
+          "end": 118692,
+          "allele_string": "G/A",
+          "failed": true,
+          "variation_name": null,
+          "dbsnp_ids": "rs1352628622",
+          "effective_name": "rs1352628622",
+          "shard": "variation/HG1485_PATCH.parquet"
+        },
+        {
+          "chrom": "HG1485_PATCH",
+          "start": 118695,
+          "end": 118695,
+          "allele_string": "T/A",
+          "failed": true,
+          "variation_name": null,
+          "dbsnp_ids": "rs1395573387",
+          "effective_name": "rs1395573387",
+          "shard": "variation/HG1485_PATCH.parquet"
+        },
+        {
+          "chrom": "HG1485_PATCH",
+          "start": 118697,
+          "end": 118697,
+          "allele_string": "A/T",
+          "failed": true,
+          "variation_name": null,
+          "dbsnp_ids": "rs1796717518",
+          "effective_name": "rs1796717518",
+          "shard": "variation/HG1485_PATCH.parquet"
+        },
+        {
+          "chrom": "HG1485_PATCH",
+          "start": 118703,
+          "end": 118703,
+          "allele_string": "C/T",
+          "failed": true,
+          "variation_name": null,
+          "dbsnp_ids": "rs1979408975",
+          "effective_name": "rs1979408975",
+          "shard": "variation/HG1485_PATCH.parquet"
+        },
+        {
+          "chrom": "HG1485_PATCH",
+          "start": 118705,
+          "end": 118705,
+          "allele_string": "T/A",
+          "failed": true,
+          "variation_name": null,
+          "dbsnp_ids": "rs1199200378",
+          "effective_name": "rs1199200378",
+          "shard": "variation/HG1485_PATCH.parquet"
+        },
+        {
+          "chrom": "HG1485_PATCH",
+          "start": 118706,
+          "end": 118706,
+          "allele_string": "T/G",
+          "failed": true,
+          "variation_name": null,
+          "dbsnp_ids": "rs1796717375",
+          "effective_name": "rs1796717375",
+          "shard": "variation/HG1485_PATCH.parquet"
+        },
+        {
+          "chrom": "HG1485_PATCH",
+          "start": 118708,
+          "end": 118708,
+          "allele_string": "T/C",
+          "failed": true,
+          "variation_name": null,
+          "dbsnp_ids": "rs1301045182",
+          "effective_name": "rs1301045182",
+          "shard": "variation/HG1485_PATCH.parquet"
+        },
+        {
+          "chrom": "HG1485_PATCH",
+          "start": 118709,
+          "end": 118709,
+          "allele_string": "A/T",
+          "failed": true,
+          "variation_name": null,
+          "dbsnp_ids": "rs76989992",
+          "effective_name": "rs76989992",
+          "shard": "variation/HG1485_PATCH.parquet"
+        },
+        {
+          "chrom": "HG1485_PATCH",
+          "start": 118712,
+          "end": 118712,
+          "allele_string": "G/A",
+          "failed": true,
+          "variation_name": null,
+          "dbsnp_ids": "rs1979409258",
+          "effective_name": "rs1979409258",
+          "shard": "variation/HG1485_PATCH.parquet"
+        },
+        {
+          "chrom": "HG1485_PATCH",
+          "start": 118713,
+          "end": 118713,
+          "allele_string": "A/G",
+          "failed": true,
+          "variation_name": null,
+          "dbsnp_ids": "rs532656388",
+          "effective_name": "rs532656388",
+          "shard": "variation/HG1485_PATCH.parquet"
+        },
+        {
+          "chrom": "HG1485_PATCH",
+          "start": 118716,
+          "end": 118716,
+          "allele_string": "A/G",
+          "failed": true,
+          "variation_name": null,
+          "dbsnp_ids": "rs200206697",
+          "effective_name": "rs200206697",
+          "shard": "variation/HG1485_PATCH.parquet"
+        },
+        {
+          "chrom": "HG1485_PATCH",
+          "start": 118717,
+          "end": 118717,
+          "allele_string": "T/A",
+          "failed": true,
+          "variation_name": null,
+          "dbsnp_ids": "rs1449872491",
+          "effective_name": "rs1449872491",
+          "shard": "variation/HG1485_PATCH.parquet"
+        },
+        {
+          "chrom": "HG1485_PATCH",
+          "start": 118720,
+          "end": 118720,
+          "allele_string": "C/T",
+          "failed": true,
+          "variation_name": null,
+          "dbsnp_ids": "rs1406526908",
+          "effective_name": "rs1406526908",
+          "shard": "variation/HG1485_PATCH.parquet"
+        },
+        {
+          "chrom": "HG1485_PATCH",
+          "start": 118720,
+          "end": 118720,
+          "allele_string": "C/T",
+          "failed": true,
+          "variation_name": null,
+          "dbsnp_ids": "rs1554357373",
+          "effective_name": "rs1554357373",
+          "shard": "variation/HG1485_PATCH.parquet"
+        },
+        {
+          "chrom": "HG1485_PATCH",
+          "start": 118722,
+          "end": 118722,
+          "allele_string": "G/C",
+          "failed": true,
+          "variation_name": null,
+          "dbsnp_ids": "rs1979409611",
+          "effective_name": "rs1979409611",
+          "shard": "variation/HG1485_PATCH.parquet"
+        },
+        {
+          "chrom": "HG1485_PATCH",
+          "start": 118723,
+          "end": 118723,
+          "allele_string": "A/T",
+          "failed": true,
+          "variation_name": null,
+          "dbsnp_ids": "rs1796717008",
+          "effective_name": "rs1796717008",
+          "shard": "variation/HG1485_PATCH.parquet"
+        },
+        {
+          "chrom": "HG1485_PATCH",
+          "start": 118725,
+          "end": 118725,
+          "allele_string": "A/G",
+          "failed": true,
+          "variation_name": null,
+          "dbsnp_ids": "rs1158237260",
+          "effective_name": "rs1158237260",
+          "shard": "variation/HG1485_PATCH.parquet"
+        },
+        {
+          "chrom": "HG1485_PATCH",
+          "start": 118727,
+          "end": 118727,
+          "allele_string": "G/T",
+          "failed": true,
+          "variation_name": null,
+          "dbsnp_ids": "rs1979409802",
+          "effective_name": "rs1979409802",
+          "shard": "variation/HG1485_PATCH.parquet"
+        },
+        {
+          "chrom": "HG1485_PATCH",
+          "start": 118728,
+          "end": 118728,
+          "allele_string": "A/C",
+          "failed": true,
+          "variation_name": null,
+          "dbsnp_ids": "rs1455289250",
+          "effective_name": "rs1455289250",
+          "shard": "variation/HG1485_PATCH.parquet"
+        },
+        {
+          "chrom": "HG1485_PATCH",
+          "start": 118728,
+          "end": 118728,
+          "allele_string": "A/G",
+          "failed": true,
+          "variation_name": null,
+          "dbsnp_ids": "rs1796716892",
+          "effective_name": "rs1796716892",
+          "shard": "variation/HG1485_PATCH.parquet"
+        },
+        {
+          "chrom": "HG1485_PATCH",
+          "start": 118729,
+          "end": 118729,
+          "allele_string": "T/G",
+          "failed": true,
+          "variation_name": null,
+          "dbsnp_ids": "rs1796716869",
+          "effective_name": "rs1796716869",
+          "shard": "variation/HG1485_PATCH.parquet"
+        },
+        {
+          "chrom": "HG1485_PATCH",
+          "start": 118730,
+          "end": 118730,
+          "allele_string": "T/C",
+          "failed": true,
+          "variation_name": null,
+          "dbsnp_ids": "rs1796716836",
+          "effective_name": "rs1796716836",
+          "shard": "variation/HG1485_PATCH.parquet"
+        },
+        {
+          "chrom": "HG1485_PATCH",
+          "start": 118732,
+          "end": 118732,
+          "allele_string": "C/T",
+          "failed": true,
+          "variation_name": null,
+          "dbsnp_ids": "rs1796716809",
+          "effective_name": "rs1796716809",
+          "shard": "variation/HG1485_PATCH.parquet"
+        },
+        {
+          "chrom": "HG1485_PATCH",
+          "start": 118733,
+          "end": 118733,
+          "allele_string": "A/C",
+          "failed": true,
+          "variation_name": null,
+          "dbsnp_ids": "rs1979409977",
+          "effective_name": "rs1979409977",
+          "shard": "variation/HG1485_PATCH.parquet"
+        },
+        {
+          "chrom": "HG1485_PATCH",
+          "start": 118734,
+          "end": 118734,
+          "allele_string": "T/C",
+          "failed": true,
+          "variation_name": null,
+          "dbsnp_ids": "rs1413783847",
+          "effective_name": "rs1413783847",
+          "shard": "variation/HG1485_PATCH.parquet"
+        },
+        {
+          "chrom": "HG1485_PATCH",
+          "start": 118734,
+          "end": 118734,
+          "allele_string": "T/C",
+          "failed": true,
+          "variation_name": null,
+          "dbsnp_ids": "rs1422129546",
+          "effective_name": "rs1422129546",
+          "shard": "variation/HG1485_PATCH.parquet"
+        },
+        {
+          "chrom": "HG1485_PATCH",
+          "start": 118737,
+          "end": 118737,
+          "allele_string": "C/T",
+          "failed": true,
+          "variation_name": null,
+          "dbsnp_ids": "rs1159138242",
+          "effective_name": "rs1159138242",
+          "shard": "variation/HG1485_PATCH.parquet"
+        },
+        {
+          "chrom": "HG1485_PATCH",
+          "start": 118738,
+          "end": 118738,
+          "allele_string": "G/A",
+          "failed": true,
+          "variation_name": null,
+          "dbsnp_ids": "rs1601647415",
+          "effective_name": "rs1601647415",
+          "shard": "variation/HG1485_PATCH.parquet"
+        },
+        {
+          "chrom": "HG1485_PATCH",
+          "start": 118739,
+          "end": 118739,
+          "allele_string": "C/T",
+          "failed": true,
+          "variation_name": null,
+          "dbsnp_ids": "rs1796716707",
+          "effective_name": "rs1796716707",
+          "shard": "variation/HG1485_PATCH.parquet"
+        },
+        {
+          "chrom": "HG1485_PATCH",
+          "start": 118740,
+          "end": 118740,
+          "allele_string": "C/A",
+          "failed": true,
+          "variation_name": null,
+          "dbsnp_ids": "rs1422765713",
+          "effective_name": "rs1422765713",
+          "shard": "variation/HG1485_PATCH.parquet"
+        },
+        {
+          "chrom": "HG1485_PATCH",
+          "start": 118740,
+          "end": 118740,
+          "allele_string": "C/T",
+          "failed": true,
+          "variation_name": null,
+          "dbsnp_ids": "rs1796716680",
+          "effective_name": "rs1796716680",
+          "shard": "variation/HG1485_PATCH.parquet"
+        },
+        {
+          "chrom": "HG1485_PATCH",
+          "start": 118741,
+          "end": 118741,
+          "allele_string": "A/G",
+          "failed": true,
+          "variation_name": null,
+          "dbsnp_ids": "rs1254611472",
+          "effective_name": "rs1254611472",
+          "shard": "variation/HG1485_PATCH.parquet"
+        },
+        {
+          "chrom": "HG1485_PATCH",
+          "start": 118742,
+          "end": 118742,
+          "allele_string": "T/C",
+          "failed": true,
+          "variation_name": null,
+          "dbsnp_ids": "rs1463140346",
+          "effective_name": "rs1463140346",
+          "shard": "variation/HG1485_PATCH.parquet"
+        },
+        {
+          "chrom": "HG1485_PATCH",
+          "start": 118746,
+          "end": 118746,
+          "allele_string": "T/C",
+          "failed": true,
+          "variation_name": null,
+          "dbsnp_ids": "rs1796716585",
+          "effective_name": "rs1796716585",
+          "shard": "variation/HG1485_PATCH.parquet"
+        }
+      ]
+    },
+    "unknown_named": {
+      "count": 17859005,
+      "samples": [
+        {
+          "chrom": "21",
+          "start": 10521658,
+          "end": 10521658,
+          "allele_string": "COSMIC_MUTATION",
+          "failed": false,
+          "variation_name": "COSV53365562",
+          "dbsnp_ids": null,
+          "effective_name": "COSV53365562",
+          "shard": "variation/chr21.parquet"
+        },
+        {
+          "chrom": "21",
+          "start": 10521659,
+          "end": 10521659,
+          "allele_string": "COSMIC_MUTATION",
+          "failed": false,
+          "variation_name": "COSV107316495",
+          "dbsnp_ids": null,
+          "effective_name": "COSV107316495",
+          "shard": "variation/chr21.parquet"
+        },
+        {
+          "chrom": "21",
+          "start": 10521702,
+          "end": 10521702,
+          "allele_string": "COSMIC_MUTATION",
+          "failed": false,
+          "variation_name": "COSV53398116",
+          "dbsnp_ids": null,
+          "effective_name": "COSV53398116",
+          "shard": "variation/chr21.parquet"
+        },
+        {
+          "chrom": "21",
+          "start": 10521760,
+          "end": 10521760,
+          "allele_string": "COSMIC_MUTATION",
+          "failed": false,
+          "variation_name": "COSV99998101",
+          "dbsnp_ids": null,
+          "effective_name": "COSV99998101",
+          "shard": "variation/chr21.parquet"
+        },
+        {
+          "chrom": "21",
+          "start": 10521807,
+          "end": 10521807,
+          "allele_string": "COSMIC_MUTATION",
+          "failed": false,
+          "variation_name": "COSV53372111",
+          "dbsnp_ids": null,
+          "effective_name": "COSV53372111",
+          "shard": "variation/chr21.parquet"
+        },
+        {
+          "chrom": "21",
+          "start": 10522029,
+          "end": 10522029,
+          "allele_string": "COSMIC_MUTATION",
+          "failed": false,
+          "variation_name": "COSV53369318",
+          "dbsnp_ids": null,
+          "effective_name": "COSV53369318",
+          "shard": "variation/chr21.parquet"
+        },
+        {
+          "chrom": "21",
+          "start": 10522151,
+          "end": 10522151,
+          "allele_string": "COSMIC_MUTATION",
+          "failed": false,
+          "variation_name": "COSV53369848",
+          "dbsnp_ids": null,
+          "effective_name": "COSV53369848",
+          "shard": "variation/chr21.parquet"
+        },
+        {
+          "chrom": "21",
+          "start": 10522748,
+          "end": 10522748,
+          "allele_string": "COSMIC_MUTATION",
+          "failed": false,
+          "variation_name": "COSV53400009",
+          "dbsnp_ids": null,
+          "effective_name": "COSV53400009",
+          "shard": "variation/chr21.parquet"
+        },
+        {
+          "chrom": "21",
+          "start": 10523258,
+          "end": 10523258,
+          "allele_string": "COSMIC_MUTATION",
+          "failed": false,
+          "variation_name": "COSV53379094",
+          "dbsnp_ids": null,
+          "effective_name": "COSV53379094",
+          "shard": "variation/chr21.parquet"
+        },
+        {
+          "chrom": "21",
+          "start": 10523326,
+          "end": 10523326,
+          "allele_string": "COSMIC_MUTATION",
+          "failed": false,
+          "variation_name": "COSV53379080",
+          "dbsnp_ids": null,
+          "effective_name": "COSV53379080",
+          "shard": "variation/chr21.parquet"
+        },
+        {
+          "chrom": "21",
+          "start": 10524286,
+          "end": 10524286,
+          "allele_string": "COSMIC_MUTATION",
+          "failed": false,
+          "variation_name": "COSV53368162",
+          "dbsnp_ids": null,
+          "effective_name": "COSV53368162",
+          "shard": "variation/chr21.parquet"
+        },
+        {
+          "chrom": "21",
+          "start": 10524286,
+          "end": 10524286,
+          "allele_string": "COSMIC_MUTATION",
+          "failed": false,
+          "variation_name": "COSV53397828",
+          "dbsnp_ids": null,
+          "effective_name": "COSV53397828",
+          "shard": "variation/chr21.parquet"
+        },
+        {
+          "chrom": "21",
+          "start": 10524404,
+          "end": 10524404,
+          "allele_string": "COSMIC_MUTATION",
+          "failed": false,
+          "variation_name": "COSV53387184",
+          "dbsnp_ids": null,
+          "effective_name": "COSV53387184",
+          "shard": "variation/chr21.parquet"
+        },
+        {
+          "chrom": "21",
+          "start": 10524592,
+          "end": 10524592,
+          "allele_string": "COSMIC_MUTATION",
+          "failed": false,
+          "variation_name": "COSV53399138",
+          "dbsnp_ids": null,
+          "effective_name": "COSV53399138",
+          "shard": "variation/chr21.parquet"
+        },
+        {
+          "chrom": "21",
+          "start": 10525038,
+          "end": 10525038,
+          "allele_string": "COSMIC_MUTATION",
+          "failed": false,
+          "variation_name": "COSV53399516",
+          "dbsnp_ids": null,
+          "effective_name": "COSV53399516",
+          "shard": "variation/chr21.parquet"
+        },
+        {
+          "chrom": "21",
+          "start": 10525255,
+          "end": 10525255,
+          "allele_string": "COSMIC_MUTATION",
+          "failed": false,
+          "variation_name": "COSV53371202",
+          "dbsnp_ids": null,
+          "effective_name": "COSV53371202",
+          "shard": "variation/chr21.parquet"
+        },
+        {
+          "chrom": "21",
+          "start": 13611466,
+          "end": 13611466,
+          "allele_string": "COSMIC_MUTATION",
+          "failed": false,
+          "variation_name": "COSV55050781",
+          "dbsnp_ids": null,
+          "effective_name": "COSV55050781",
+          "shard": "variation/chr21.parquet"
+        },
+        {
+          "chrom": "21",
+          "start": 13615490,
+          "end": 13615490,
+          "allele_string": "COSMIC_MUTATION",
+          "failed": false,
+          "variation_name": "COSV55049882",
+          "dbsnp_ids": null,
+          "effective_name": "COSV55049882",
+          "shard": "variation/chr21.parquet"
+        },
+        {
+          "chrom": "21",
+          "start": 13615550,
+          "end": 13615550,
+          "allele_string": "COSMIC_MUTATION",
+          "failed": false,
+          "variation_name": "COSV55047550",
+          "dbsnp_ids": null,
+          "effective_name": "COSV55047550",
+          "shard": "variation/chr21.parquet"
+        },
+        {
+          "chrom": "21",
+          "start": 13636673,
+          "end": 13636673,
+          "allele_string": "COSMIC_MUTATION",
+          "failed": false,
+          "variation_name": "COSV55049472",
+          "dbsnp_ids": null,
+          "effective_name": "COSV55049472",
+          "shard": "variation/chr21.parquet"
+        },
+        {
+          "chrom": "21",
+          "start": 13637008,
+          "end": 13637008,
+          "allele_string": "COSMIC_MUTATION",
+          "failed": false,
+          "variation_name": "COSV55049867",
+          "dbsnp_ids": null,
+          "effective_name": "COSV55049867",
+          "shard": "variation/chr21.parquet"
+        },
+        {
+          "chrom": "21",
+          "start": 13639456,
+          "end": 13639456,
+          "allele_string": "COSMIC_MUTATION",
+          "failed": false,
+          "variation_name": "COSV104408724",
+          "dbsnp_ids": null,
+          "effective_name": "COSV104408724",
+          "shard": "variation/chr21.parquet"
+        },
+        {
+          "chrom": "21",
+          "start": 13639503,
+          "end": 13639503,
+          "allele_string": "COSMIC_MUTATION",
+          "failed": false,
+          "variation_name": "COSV55049525",
+          "dbsnp_ids": null,
+          "effective_name": "COSV55049525",
+          "shard": "variation/chr21.parquet"
+        },
+        {
+          "chrom": "21",
+          "start": 13639518,
+          "end": 13639518,
+          "allele_string": "COSMIC_MUTATION",
+          "failed": false,
+          "variation_name": "COSV55046604",
+          "dbsnp_ids": null,
+          "effective_name": "COSV55046604",
+          "shard": "variation/chr21.parquet"
+        },
+        {
+          "chrom": "21",
+          "start": 13639535,
+          "end": 13639535,
+          "allele_string": "COSMIC_MUTATION",
+          "failed": false,
+          "variation_name": "COSV55046330",
+          "dbsnp_ids": null,
+          "effective_name": "COSV55046330",
+          "shard": "variation/chr21.parquet"
+        },
+        {
+          "chrom": "21",
+          "start": 13639565,
+          "end": 13639565,
+          "allele_string": "COSMIC_MUTATION",
+          "failed": false,
+          "variation_name": "COSV55047375",
+          "dbsnp_ids": null,
+          "effective_name": "COSV55047375",
+          "shard": "variation/chr21.parquet"
+        },
+        {
+          "chrom": "21",
+          "start": 13639621,
+          "end": 13639621,
+          "allele_string": "COSMIC_MUTATION",
+          "failed": false,
+          "variation_name": "COSV55046362",
+          "dbsnp_ids": null,
+          "effective_name": "COSV55046362",
+          "shard": "variation/chr21.parquet"
+        },
+        {
+          "chrom": "21",
+          "start": 13639624,
+          "end": 13639624,
+          "allele_string": "COSMIC_MUTATION",
+          "failed": false,
+          "variation_name": "COSV55046371",
+          "dbsnp_ids": null,
+          "effective_name": "COSV55046371",
+          "shard": "variation/chr21.parquet"
+        },
+        {
+          "chrom": "21",
+          "start": 13639781,
+          "end": 13639781,
+          "allele_string": "COSMIC_MUTATION",
+          "failed": false,
+          "variation_name": "COSV55046630",
+          "dbsnp_ids": null,
+          "effective_name": "COSV55046630",
+          "shard": "variation/chr21.parquet"
+        },
+        {
+          "chrom": "21",
+          "start": 13641392,
+          "end": 13641392,
+          "allele_string": "COSMIC_MUTATION",
+          "failed": false,
+          "variation_name": "COSV55050075",
+          "dbsnp_ids": null,
+          "effective_name": "COSV55050075",
+          "shard": "variation/chr21.parquet"
+        }
+      ]
+    },
+    "unknown_named_point": {
+      "count": 17019852,
+      "samples": [
+        {
+          "chrom": "21",
+          "start": 10521658,
+          "end": 10521658,
+          "allele_string": "COSMIC_MUTATION",
+          "failed": false,
+          "variation_name": "COSV53365562",
+          "dbsnp_ids": null,
+          "effective_name": "COSV53365562",
+          "shard": "variation/chr21.parquet"
+        },
+        {
+          "chrom": "21",
+          "start": 10521659,
+          "end": 10521659,
+          "allele_string": "COSMIC_MUTATION",
+          "failed": false,
+          "variation_name": "COSV107316495",
+          "dbsnp_ids": null,
+          "effective_name": "COSV107316495",
+          "shard": "variation/chr21.parquet"
+        },
+        {
+          "chrom": "21",
+          "start": 10521702,
+          "end": 10521702,
+          "allele_string": "COSMIC_MUTATION",
+          "failed": false,
+          "variation_name": "COSV53398116",
+          "dbsnp_ids": null,
+          "effective_name": "COSV53398116",
+          "shard": "variation/chr21.parquet"
+        },
+        {
+          "chrom": "21",
+          "start": 10521760,
+          "end": 10521760,
+          "allele_string": "COSMIC_MUTATION",
+          "failed": false,
+          "variation_name": "COSV99998101",
+          "dbsnp_ids": null,
+          "effective_name": "COSV99998101",
+          "shard": "variation/chr21.parquet"
+        },
+        {
+          "chrom": "21",
+          "start": 10521807,
+          "end": 10521807,
+          "allele_string": "COSMIC_MUTATION",
+          "failed": false,
+          "variation_name": "COSV53372111",
+          "dbsnp_ids": null,
+          "effective_name": "COSV53372111",
+          "shard": "variation/chr21.parquet"
+        },
+        {
+          "chrom": "21",
+          "start": 10522029,
+          "end": 10522029,
+          "allele_string": "COSMIC_MUTATION",
+          "failed": false,
+          "variation_name": "COSV53369318",
+          "dbsnp_ids": null,
+          "effective_name": "COSV53369318",
+          "shard": "variation/chr21.parquet"
+        },
+        {
+          "chrom": "21",
+          "start": 10522151,
+          "end": 10522151,
+          "allele_string": "COSMIC_MUTATION",
+          "failed": false,
+          "variation_name": "COSV53369848",
+          "dbsnp_ids": null,
+          "effective_name": "COSV53369848",
+          "shard": "variation/chr21.parquet"
+        },
+        {
+          "chrom": "21",
+          "start": 10522748,
+          "end": 10522748,
+          "allele_string": "COSMIC_MUTATION",
+          "failed": false,
+          "variation_name": "COSV53400009",
+          "dbsnp_ids": null,
+          "effective_name": "COSV53400009",
+          "shard": "variation/chr21.parquet"
+        },
+        {
+          "chrom": "21",
+          "start": 10523258,
+          "end": 10523258,
+          "allele_string": "COSMIC_MUTATION",
+          "failed": false,
+          "variation_name": "COSV53379094",
+          "dbsnp_ids": null,
+          "effective_name": "COSV53379094",
+          "shard": "variation/chr21.parquet"
+        },
+        {
+          "chrom": "21",
+          "start": 10523326,
+          "end": 10523326,
+          "allele_string": "COSMIC_MUTATION",
+          "failed": false,
+          "variation_name": "COSV53379080",
+          "dbsnp_ids": null,
+          "effective_name": "COSV53379080",
+          "shard": "variation/chr21.parquet"
+        },
+        {
+          "chrom": "21",
+          "start": 10524286,
+          "end": 10524286,
+          "allele_string": "COSMIC_MUTATION",
+          "failed": false,
+          "variation_name": "COSV53368162",
+          "dbsnp_ids": null,
+          "effective_name": "COSV53368162",
+          "shard": "variation/chr21.parquet"
+        },
+        {
+          "chrom": "21",
+          "start": 10524286,
+          "end": 10524286,
+          "allele_string": "COSMIC_MUTATION",
+          "failed": false,
+          "variation_name": "COSV53397828",
+          "dbsnp_ids": null,
+          "effective_name": "COSV53397828",
+          "shard": "variation/chr21.parquet"
+        },
+        {
+          "chrom": "21",
+          "start": 10524404,
+          "end": 10524404,
+          "allele_string": "COSMIC_MUTATION",
+          "failed": false,
+          "variation_name": "COSV53387184",
+          "dbsnp_ids": null,
+          "effective_name": "COSV53387184",
+          "shard": "variation/chr21.parquet"
+        },
+        {
+          "chrom": "21",
+          "start": 10524592,
+          "end": 10524592,
+          "allele_string": "COSMIC_MUTATION",
+          "failed": false,
+          "variation_name": "COSV53399138",
+          "dbsnp_ids": null,
+          "effective_name": "COSV53399138",
+          "shard": "variation/chr21.parquet"
+        },
+        {
+          "chrom": "21",
+          "start": 10525038,
+          "end": 10525038,
+          "allele_string": "COSMIC_MUTATION",
+          "failed": false,
+          "variation_name": "COSV53399516",
+          "dbsnp_ids": null,
+          "effective_name": "COSV53399516",
+          "shard": "variation/chr21.parquet"
+        },
+        {
+          "chrom": "21",
+          "start": 10525255,
+          "end": 10525255,
+          "allele_string": "COSMIC_MUTATION",
+          "failed": false,
+          "variation_name": "COSV53371202",
+          "dbsnp_ids": null,
+          "effective_name": "COSV53371202",
+          "shard": "variation/chr21.parquet"
+        },
+        {
+          "chrom": "21",
+          "start": 13611466,
+          "end": 13611466,
+          "allele_string": "COSMIC_MUTATION",
+          "failed": false,
+          "variation_name": "COSV55050781",
+          "dbsnp_ids": null,
+          "effective_name": "COSV55050781",
+          "shard": "variation/chr21.parquet"
+        },
+        {
+          "chrom": "21",
+          "start": 13615490,
+          "end": 13615490,
+          "allele_string": "COSMIC_MUTATION",
+          "failed": false,
+          "variation_name": "COSV55049882",
+          "dbsnp_ids": null,
+          "effective_name": "COSV55049882",
+          "shard": "variation/chr21.parquet"
+        },
+        {
+          "chrom": "21",
+          "start": 13615550,
+          "end": 13615550,
+          "allele_string": "COSMIC_MUTATION",
+          "failed": false,
+          "variation_name": "COSV55047550",
+          "dbsnp_ids": null,
+          "effective_name": "COSV55047550",
+          "shard": "variation/chr21.parquet"
+        },
+        {
+          "chrom": "21",
+          "start": 13636673,
+          "end": 13636673,
+          "allele_string": "COSMIC_MUTATION",
+          "failed": false,
+          "variation_name": "COSV55049472",
+          "dbsnp_ids": null,
+          "effective_name": "COSV55049472",
+          "shard": "variation/chr21.parquet"
+        },
+        {
+          "chrom": "21",
+          "start": 13637008,
+          "end": 13637008,
+          "allele_string": "COSMIC_MUTATION",
+          "failed": false,
+          "variation_name": "COSV55049867",
+          "dbsnp_ids": null,
+          "effective_name": "COSV55049867",
+          "shard": "variation/chr21.parquet"
+        },
+        {
+          "chrom": "21",
+          "start": 13639456,
+          "end": 13639456,
+          "allele_string": "COSMIC_MUTATION",
+          "failed": false,
+          "variation_name": "COSV104408724",
+          "dbsnp_ids": null,
+          "effective_name": "COSV104408724",
+          "shard": "variation/chr21.parquet"
+        },
+        {
+          "chrom": "21",
+          "start": 13639503,
+          "end": 13639503,
+          "allele_string": "COSMIC_MUTATION",
+          "failed": false,
+          "variation_name": "COSV55049525",
+          "dbsnp_ids": null,
+          "effective_name": "COSV55049525",
+          "shard": "variation/chr21.parquet"
+        },
+        {
+          "chrom": "21",
+          "start": 13639518,
+          "end": 13639518,
+          "allele_string": "COSMIC_MUTATION",
+          "failed": false,
+          "variation_name": "COSV55046604",
+          "dbsnp_ids": null,
+          "effective_name": "COSV55046604",
+          "shard": "variation/chr21.parquet"
+        },
+        {
+          "chrom": "21",
+          "start": 13639535,
+          "end": 13639535,
+          "allele_string": "COSMIC_MUTATION",
+          "failed": false,
+          "variation_name": "COSV55046330",
+          "dbsnp_ids": null,
+          "effective_name": "COSV55046330",
+          "shard": "variation/chr21.parquet"
+        },
+        {
+          "chrom": "21",
+          "start": 13639565,
+          "end": 13639565,
+          "allele_string": "COSMIC_MUTATION",
+          "failed": false,
+          "variation_name": "COSV55047375",
+          "dbsnp_ids": null,
+          "effective_name": "COSV55047375",
+          "shard": "variation/chr21.parquet"
+        },
+        {
+          "chrom": "21",
+          "start": 13639621,
+          "end": 13639621,
+          "allele_string": "COSMIC_MUTATION",
+          "failed": false,
+          "variation_name": "COSV55046362",
+          "dbsnp_ids": null,
+          "effective_name": "COSV55046362",
+          "shard": "variation/chr21.parquet"
+        },
+        {
+          "chrom": "21",
+          "start": 13639624,
+          "end": 13639624,
+          "allele_string": "COSMIC_MUTATION",
+          "failed": false,
+          "variation_name": "COSV55046371",
+          "dbsnp_ids": null,
+          "effective_name": "COSV55046371",
+          "shard": "variation/chr21.parquet"
+        },
+        {
+          "chrom": "21",
+          "start": 13639781,
+          "end": 13639781,
+          "allele_string": "COSMIC_MUTATION",
+          "failed": false,
+          "variation_name": "COSV55046630",
+          "dbsnp_ids": null,
+          "effective_name": "COSV55046630",
+          "shard": "variation/chr21.parquet"
+        },
+        {
+          "chrom": "21",
+          "start": 13641392,
+          "end": 13641392,
+          "allele_string": "COSMIC_MUTATION",
+          "failed": false,
+          "variation_name": "COSV55050075",
+          "dbsnp_ids": null,
+          "effective_name": "COSV55050075",
+          "shard": "variation/chr21.parquet"
+        },
+        {
+          "chrom": "21",
+          "start": 13641393,
+          "end": 13641393,
+          "allele_string": "COSMIC_MUTATION",
+          "failed": false,
+          "variation_name": "COSV55046505",
+          "dbsnp_ids": null,
+          "effective_name": "COSV55046505",
+          "shard": "variation/chr21.parquet"
+        },
+        {
+          "chrom": "21",
+          "start": 13641393,
+          "end": 13641393,
+          "allele_string": "COSMIC_MUTATION",
+          "failed": false,
+          "variation_name": "COSV55047883",
+          "dbsnp_ids": null,
+          "effective_name": "COSV55047883",
+          "shard": "variation/chr21.parquet"
+        },
+        {
+          "chrom": "21",
+          "start": 14108913,
+          "end": 14108913,
+          "allele_string": "COSMIC_MUTATION",
+          "failed": false,
+          "variation_name": "COSV107431297",
+          "dbsnp_ids": null,
+          "effective_name": "COSV107431297",
+          "shard": "variation/chr21.parquet"
+        },
+        {
+          "chrom": "21",
+          "start": 14109044,
+          "end": 14109044,
+          "allele_string": "HGMD_MUTATION",
+          "failed": false,
+          "variation_name": "CM035699",
+          "dbsnp_ids": null,
+          "effective_name": "CM035699",
+          "shard": "variation/chr21.parquet"
+        },
+        {
+          "chrom": "21",
+          "start": 14109044,
+          "end": 14109044,
+          "allele_string": "COSMIC_MUTATION",
+          "failed": false,
+          "variation_name": "COSV60707898",
+          "dbsnp_ids": null,
+          "effective_name": "COSV60707898",
+          "shard": "variation/chr21.parquet"
+        },
+        {
+          "chrom": "21",
+          "start": 14121229,
+          "end": 14121229,
+          "allele_string": "COSMIC_MUTATION",
+          "failed": false,
+          "variation_name": "COSV60711537",
+          "dbsnp_ids": null,
+          "effective_name": "COSV60711537",
+          "shard": "variation/chr21.parquet"
+        },
+        {
+          "chrom": "21",
+          "start": 14128189,
+          "end": 14128189,
+          "allele_string": "COSMIC_MUTATION",
+          "failed": false,
+          "variation_name": "COSV60714532",
+          "dbsnp_ids": null,
+          "effective_name": "COSV60714532",
+          "shard": "variation/chr21.parquet"
+        },
+        {
+          "chrom": "21",
+          "start": 14129810,
+          "end": 14129810,
+          "allele_string": "COSMIC_MUTATION",
+          "failed": false,
+          "variation_name": "COSV60713146",
+          "dbsnp_ids": null,
+          "effective_name": "COSV60713146",
+          "shard": "variation/chr21.parquet"
+        },
+        {
+          "chrom": "21",
+          "start": 14129811,
+          "end": 14129811,
+          "allele_string": "COSMIC_MUTATION",
+          "failed": false,
+          "variation_name": "COSV60711448",
+          "dbsnp_ids": null,
+          "effective_name": "COSV60711448",
+          "shard": "variation/chr21.parquet"
+        },
+        {
+          "chrom": "21",
+          "start": 14129813,
+          "end": 14129813,
+          "allele_string": "COSMIC_MUTATION",
+          "failed": false,
+          "variation_name": "COSV60714275",
+          "dbsnp_ids": null,
+          "effective_name": "COSV60714275",
+          "shard": "variation/chr21.parquet"
+        },
+        {
+          "chrom": "21",
+          "start": 14131684,
+          "end": 14131684,
+          "allele_string": "COSMIC_MUTATION",
+          "failed": false,
+          "variation_name": "COSV60710090",
+          "dbsnp_ids": null,
+          "effective_name": "COSV60710090",
+          "shard": "variation/chr21.parquet"
+        },
+        {
+          "chrom": "21",
+          "start": 14131993,
+          "end": 14131993,
+          "allele_string": "COSMIC_MUTATION",
+          "failed": false,
+          "variation_name": "COSV60714693",
+          "dbsnp_ids": null,
+          "effective_name": "COSV60714693",
+          "shard": "variation/chr21.parquet"
+        },
+        {
+          "chrom": "21",
+          "start": 14132434,
+          "end": 14132434,
+          "allele_string": "COSMIC_MUTATION",
+          "failed": false,
+          "variation_name": "COSV60707421",
+          "dbsnp_ids": null,
+          "effective_name": "COSV60707421",
+          "shard": "variation/chr21.parquet"
+        },
+        {
+          "chrom": "21",
+          "start": 14134832,
+          "end": 14134832,
+          "allele_string": "COSMIC_MUTATION",
+          "failed": false,
+          "variation_name": "COSV60713351",
+          "dbsnp_ids": null,
+          "effective_name": "COSV60713351",
+          "shard": "variation/chr21.parquet"
+        },
+        {
+          "chrom": "21",
+          "start": 14137926,
+          "end": 14137926,
+          "allele_string": "COSMIC_MUTATION",
+          "failed": false,
+          "variation_name": "COSV60715660",
+          "dbsnp_ids": null,
+          "effective_name": "COSV60715660",
+          "shard": "variation/chr21.parquet"
+        },
+        {
+          "chrom": "21",
+          "start": 14138677,
+          "end": 14138677,
+          "allele_string": "COSMIC_MUTATION",
+          "failed": false,
+          "variation_name": "COSV60715476",
+          "dbsnp_ids": null,
+          "effective_name": "COSV60715476",
+          "shard": "variation/chr21.parquet"
+        },
+        {
+          "chrom": "21",
+          "start": 14144037,
+          "end": 14144037,
+          "allele_string": "COSMIC_MUTATION",
+          "failed": false,
+          "variation_name": "COSV100754065",
+          "dbsnp_ids": null,
+          "effective_name": "COSV100754065",
+          "shard": "variation/chr21.parquet"
+        },
+        {
+          "chrom": "21",
+          "start": 14144577,
+          "end": 14144577,
+          "allele_string": "COSMIC_MUTATION",
+          "failed": false,
+          "variation_name": "COSV107431299",
+          "dbsnp_ids": null,
+          "effective_name": "COSV107431299",
+          "shard": "variation/chr21.parquet"
+        },
+        {
+          "chrom": "21",
+          "start": 14144627,
+          "end": 14144627,
+          "allele_string": "HGMD_MUTATION",
+          "failed": false,
+          "variation_name": "CM166416",
+          "dbsnp_ids": null,
+          "effective_name": "CM166416",
+          "shard": "variation/chr21.parquet"
+        },
+        {
+          "chrom": "21",
+          "start": 14144627,
+          "end": 14144627,
+          "allele_string": "COSMIC_MUTATION",
+          "failed": false,
+          "variation_name": "COSV60709459",
+          "dbsnp_ids": null,
+          "effective_name": "COSV60709459",
+          "shard": "variation/chr21.parquet"
+        },
+        {
+          "chrom": "21",
+          "start": 14144627,
+          "end": 14144627,
+          "allele_string": "COSMIC_MUTATION",
+          "failed": false,
+          "variation_name": "COSV60711811",
+          "dbsnp_ids": null,
+          "effective_name": "COSV60711811",
+          "shard": "variation/chr21.parquet"
+        },
+        {
+          "chrom": "21",
+          "start": 14144628,
+          "end": 14144628,
+          "allele_string": "COSMIC_MUTATION",
+          "failed": false,
+          "variation_name": "COSV60716038",
+          "dbsnp_ids": null,
+          "effective_name": "COSV60716038",
+          "shard": "variation/chr21.parquet"
+        },
+        {
+          "chrom": "21",
+          "start": 14145129,
+          "end": 14145129,
+          "allele_string": "COSMIC_MUTATION",
+          "failed": false,
+          "variation_name": "COSV60714241",
+          "dbsnp_ids": null,
+          "effective_name": "COSV60714241",
+          "shard": "variation/chr21.parquet"
+        },
+        {
+          "chrom": "21",
+          "start": 14152522,
+          "end": 14152522,
+          "allele_string": "COSMIC_MUTATION",
+          "failed": false,
+          "variation_name": "COSV60711608",
+          "dbsnp_ids": null,
+          "effective_name": "COSV60711608",
+          "shard": "variation/chr21.parquet"
+        },
+        {
+          "chrom": "21",
+          "start": 14152600,
+          "end": 14152600,
+          "allele_string": "COSMIC_MUTATION",
+          "failed": false,
+          "variation_name": "COSV60707680",
+          "dbsnp_ids": null,
+          "effective_name": "COSV60707680",
+          "shard": "variation/chr21.parquet"
+        },
+        {
+          "chrom": "21",
+          "start": 14155494,
+          "end": 14155494,
+          "allele_string": "COSMIC_MUTATION",
+          "failed": false,
+          "variation_name": "COSV60712634",
+          "dbsnp_ids": null,
+          "effective_name": "COSV60712634",
+          "shard": "variation/chr21.parquet"
+        },
+        {
+          "chrom": "21",
+          "start": 14158638,
+          "end": 14158638,
+          "allele_string": "COSMIC_MUTATION",
+          "failed": false,
+          "variation_name": "COSV60710693",
+          "dbsnp_ids": null,
+          "effective_name": "COSV60710693",
+          "shard": "variation/chr21.parquet"
+        },
+        {
+          "chrom": "21",
+          "start": 14161834,
+          "end": 14161834,
+          "allele_string": "COSMIC_MUTATION",
+          "failed": false,
+          "variation_name": "COSV60709585",
+          "dbsnp_ids": null,
+          "effective_name": "COSV60709585",
+          "shard": "variation/chr21.parquet"
+        },
+        {
+          "chrom": "21",
+          "start": 14161894,
+          "end": 14161894,
+          "allele_string": "COSMIC_MUTATION",
+          "failed": false,
+          "variation_name": "COSV60709628",
+          "dbsnp_ids": null,
+          "effective_name": "COSV60709628",
+          "shard": "variation/chr21.parquet"
+        },
+        {
+          "chrom": "21",
+          "start": 14163568,
+          "end": 14163568,
+          "allele_string": "COSMIC_MUTATION",
+          "failed": false,
+          "variation_name": "COSV60716000",
+          "dbsnp_ids": null,
+          "effective_name": "COSV60716000",
+          "shard": "variation/chr21.parquet"
+        }
+      ]
+    },
+    "reference_only_af": {
+      "count": 0,
+      "samples": []
+    },
+    "variation_name_whitespace": {
+      "count": 0,
+      "samples": []
+    },
+    "variation_name_semicolon": {
+      "count": 0,
+      "samples": []
+    },
+    "variation_name_comma": {
+      "count": 0,
+      "samples": []
+    },
+    "variation_name_pipe": {
+      "count": 0,
+      "samples": []
+    }
+  },
+  "seconds": 119.44
+}

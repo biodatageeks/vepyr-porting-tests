@@ -22,6 +22,7 @@ from __future__ import annotations
 
 import argparse
 import datetime as dt
+import hashlib
 import shlex
 import shutil
 import sys
@@ -250,6 +251,10 @@ def _run_vep(
     Raises:
         BlessError: On any failure.
     """
+    vep.require_cache_mode(test.config, extra, where=str(test.toml_path))
+    merged = "--merged" in extra
+    if merged and cache.download:
+        raise BlessError("merged cache download is not supported; use --vep-cache-dir")
     if dry_run:
         for src, art in ((cache, ensembl.CACHE), (fasta, ensembl.FASTA)):
             if src.download:
@@ -263,7 +268,7 @@ def _run_vep(
         print(shlex.join(vep.docker_argv(image or vep.IMAGE_TAG, mounts, extra)))
         return None
     if not cache.download:
-        ensembl.require_complete_cache(cache.path, flag=cache.flag)
+        ensembl.require_complete_cache(cache.path, flag=cache.flag, merged=merged)
     if not fasta.download:
         ensembl.require_fasta(fasta.path, flag=fasta.flag)
     docker = vep.require_docker()
@@ -292,6 +297,13 @@ def _run_vep(
             ensembl.download_fasta(fasta.path)
         ensembl.ensure_fai(fasta.path)
         shutil.copyfile(test.input_vcf, work / testdir.INPUT_NAME)
+        input_sha = hashlib.sha256(test.input_vcf.read_bytes()).hexdigest()
+        if (
+            hashlib.sha256((work / testdir.INPUT_NAME).read_bytes()).hexdigest()
+            != input_sha
+        ):
+            raise BlessError("Docker input copy differs from the normalized input.vcf")
+        print(f"bless: Docker input SHA256 {input_sha}", file=sys.stderr, flush=True)
         print(
             f"bless: running {pinned} on {test.input_vcf}", file=sys.stderr, flush=True
         )
@@ -301,6 +313,11 @@ def _run_vep(
             vep.Mounts(cache_dir=cache.path, fasta=fasta.path, work_dir=work),
             extra,
         )
+        if any(
+            hashlib.sha256(path.read_bytes()).hexdigest() != input_sha
+            for path in (test.input_vcf, work / testdir.INPUT_NAME)
+        ):
+            raise BlessError("normalized input.vcf changed during the VEP run")
     except BaseException:
         shutil.rmtree(work, ignore_errors=True)
         raise
@@ -351,7 +368,7 @@ def _bless(
         fresh = work / testdir.ORACLE_NAME
         md5 = testdir.body_md5(fresh)
         cprov, fprov = (
-            ensembl.cache_provenance(cache.path),
+            ensembl.cache_provenance(cache.path, merged="--merged" in extra),
             ensembl.fasta_provenance(fasta.path),
         )
         flags: dict[str, str | list[str]] = (
