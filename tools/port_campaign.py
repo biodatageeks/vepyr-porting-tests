@@ -2,8 +2,10 @@
 
 Only cases with explicit input rows and a qualified focus assertion are run.
 The default batch size is ten. A failing vepyr result never changes the oracle.
-Local caches are accepted as requested for this campaign; no Hub provenance is
-invented for them. Engine revision is run evidence, not a repository pin.
+The local VEP cache is used only for the oracle (``./bless``). vepyr is run and
+compared by ``./run_tests --cache-dir <cache> --via-cli --only <dir>`` (#231) on
+a Hub-layout cache; its exit code and ``MISMATCH`` lines decide the verdict.
+The process exits non-zero when any processed case is not ``PASS``.
 """
 
 from __future__ import annotations
@@ -11,11 +13,87 @@ from __future__ import annotations
 import argparse
 import hashlib
 import json
+import re
 import subprocess
+from collections.abc import Callable, Sequence
+from dataclasses import dataclass
+from enum import StrEnum
 from pathlib import Path
+from typing import Any
 
 ROOT = Path(__file__).resolve().parent.parent
 MANIFEST = ROOT / "docs/porting/vep1162-merged/cases.json"
+
+type Runner = Callable[..., subprocess.CompletedProcess[Any]]
+"""``subprocess.run``-compatible callable; injectable so tests stub subprocesses."""
+
+MISMATCH_EXIT = 8
+"""``Exit.MISMATCH`` of ``./run_tests --via-cli`` (the #231 mismatch contract)."""
+
+_MISMATCH = re.compile(
+    r"^MISMATCH (\S+) expected=([0-9a-f]{32}) actual=([0-9a-f]{32})$"
+)
+
+
+class Verdict(StrEnum):
+    """Campaign status of the step delegated to ``./run_tests``."""
+
+    PASS = "PASS"
+    FAIL = "FAIL"
+    ERROR = "ERROR"
+
+
+@dataclass(frozen=True, slots=True)
+class RunTestsOutcome:
+    """Classified result of one ``./run_tests --via-cli`` subprocess."""
+
+    verdict: Verdict
+    actual_md5: str | None
+    record: dict[str, Any]
+
+
+def classify(exit_code: int, stdout: str) -> tuple[Verdict, str | None]:
+    """Map a ``./run_tests --via-cli`` exit code and stdout to a verdict.
+
+    Exit 0 is ``PASS``; exit 8 with at least one ``MISMATCH`` line on stdout is
+    ``FAIL`` (the first line's ``actual`` md5 is returned); exit 8 without such
+    a line (malformed report) and any other non-zero exit are ``ERROR``.
+    """
+    mismatches = [m for line in stdout.splitlines() if (m := _MISMATCH.match(line))]
+    match exit_code:
+        case 0:
+            return Verdict.PASS, None
+        case code if code == MISMATCH_EXIT and mismatches:
+            return Verdict.FAIL, mismatches[0][3]
+        case _:
+            return Verdict.ERROR, None
+
+
+def run_tests_for(
+    argv: Sequence[str], log: Path | None = None, runner: Runner = subprocess.run
+) -> RunTestsOutcome:
+    """Run ``./run_tests`` (``argv``) from the repo root and classify the result.
+
+    stdout and stderr are captured separately (``MISMATCH`` lines are read from
+    stdout only); both are written to ``log`` when given.
+    """
+    proc = runner(list(argv), cwd=ROOT, capture_output=True, text=True)
+    stdout, stderr = proc.stdout or "", proc.stderr or ""
+    if log is not None:
+        log.write_text(f"## stdout\n{stdout}## stderr\n{stderr}")
+    verdict, actual = classify(proc.returncode, stdout)
+    record = {
+        "argv": [str(a) for a in argv],
+        "exit": proc.returncode,
+        "log": str(log),
+        "verdict": str(verdict),
+    }
+    return RunTestsOutcome(verdict, actual, record)
+
+
+def classify_run_tests(argv: Sequence[str], runner: Runner = subprocess.run) -> Verdict:
+    """Run ``./run_tests --via-cli`` (``argv``) and return its campaign verdict."""
+    return run_tests_for(argv, runner=runner).verdict
 
 
 def body(path):
@@ -78,19 +156,23 @@ def focus_value(path, focus):
     return entries[0][focus["field"]]
 
 
-def run(argv, log, cwd=ROOT):
+def run(argv, log, runner: Runner = subprocess.run):
     with log.open("w") as stream:
-        result = subprocess.run(argv, cwd=cwd, stdout=stream, stderr=subprocess.STDOUT)
+        result = runner(argv, cwd=ROOT, stdout=stream, stderr=subprocess.STDOUT)
     return {"argv": [str(a) for a in argv], "exit": result.returncode, "log": str(log)}
 
 
-def main():
+def main(argv: Sequence[str] | None = None, runner: Runner = subprocess.run) -> int:
+    """Run the campaign; return 0 iff every processed case is ``PASS``."""
     p = argparse.ArgumentParser(description=__doc__)
     p.add_argument("--vep-cache", type=Path, required=True)
-    p.add_argument("--vepyr-cache", type=Path, required=True)
+    p.add_argument(
+        "--cache-dir",
+        type=Path,
+        required=True,
+        help="Hub-layout cache root with PROVENANCE.json, passed to ./run_tests",
+    )
     p.add_argument("--fasta", type=Path, required=True)
-    p.add_argument("--vepyr-python", type=Path, required=True)
-    p.add_argument("--vepyr-source", type=Path, required=True)
     p.add_argument("--evidence", type=Path, required=True)
     p.add_argument("--limit", type=int, default=10)
     p.add_argument(
@@ -98,17 +180,9 @@ def main():
         action="store_true",
         help="Normalize and rerun existing ports, once per input-identity audit",
     )
-    args = p.parse_args()
+    args = p.parse_args(argv)
     if args.limit <= 0:
         p.error("--limit must be positive")
-    sha = subprocess.check_output(
-        ["git", "rev-parse", "HEAD"], cwd=args.vepyr_source, text=True
-    ).strip()
-    if subprocess.check_output(
-        ["git", "diff", "HEAD", "--", "src", "Cargo.toml", "Cargo.lock"],
-        cwd=args.vepyr_source,
-    ):
-        p.error("vepyr source has tracked modifications")
     cases = json.loads(MANIFEST.read_text())
 
     def eligible(c):
@@ -162,6 +236,7 @@ def main():
             run(
                 [str(ROOT / "tools/normalize_input"), str(raw), str(dest)],
                 evidence / "normalize.log",
+                runner,
             )
         )
         if runs[-1]["exit"]:
@@ -180,6 +255,7 @@ def main():
                     str(dest),
                 ],
                 evidence / "vep.log",
+                runner,
             )
         )
         if runs[-1]["exit"]:
@@ -198,38 +274,26 @@ def main():
         expected = focus_value(oracle, case["focus"])
         if expected != case["focus"]["expected"]:
             raise ValueError(f"{name}: witness changed: {expected!r}")
-        output = evidence / "vepyr.vcf"
-        runs.append(
-            run(
-                [
-                    str(args.vepyr_python),
-                    "-m",
-                    "vepyr",
-                    "annotate",
-                    "--input_file",
-                    str(dest / "input.vcf"),
-                    "--output_file",
-                    str(output),
-                    "--dir_cache",
-                    str(args.vepyr_cache),
-                    "--fasta",
-                    str(args.fasta),
-                    "--cache_version",
-                    "116",
-                    "--everything",
-                    "--no_progress",
-                ],
-                evidence / "vepyr.log",
-                args.vepyr_source,
-            )
+        outcome = run_tests_for(
+            [
+                "./run_tests",
+                "--cache-dir",
+                str(args.cache_dir),
+                "--via-cli",
+                "--only",
+                str(dest),
+            ],
+            evidence / "run_tests.log",
+            runner,
         )
+        runs.append(outcome.record)
+        oracle_md5 = hashlib.md5(body(oracle)).hexdigest()
         result = {
-            "vepyr_sha": sha,
             "commands": runs,
             "input_sha256": hashlib.sha256(
                 (dest / "input.vcf").read_bytes()
             ).hexdigest(),
-            "oracle_body_md5": hashlib.md5(body(oracle)).hexdigest(),
+            "oracle_body_md5": oracle_md5,
             "oracle_focus": expected,
         }
         assert result["input_sha256"] == input_sha_before_vep, (
@@ -241,17 +305,13 @@ def main():
             input_sha256_before_vepyr=input_sha_before_vepyr,
             docker_input_sha256=input_sha_before_vep,
         )
-        result["runnable"] = runs[-1]["exit"] == 0 and output.is_file()
-        case["status"] = "ERROR"
-        if result["runnable"]:
-            result["vepyr_body_md5"] = hashlib.md5(body(output)).hexdigest()
-            case["status"] = "PASS" if body(oracle) == body(output) else "FAIL"
-            try:
-                result["vepyr_focus"] = focus_value(output, case["focus"])
-                result["focus_pass"] = result["vepyr_focus"] == expected
-            except (ValueError, KeyError) as exc:
-                result["focus_error"] = str(exc)
-                result["focus_pass"] = False
+        case["status"] = str(outcome.verdict)
+        result["runnable"] = outcome.verdict is not Verdict.ERROR
+        match outcome.verdict:
+            case Verdict.PASS:
+                result["vepyr_body_md5"] = oracle_md5
+            case Verdict.FAIL:
+                result["vepyr_body_md5"] = outcome.actual_md5
         result["status"] = case["status"]
         case["result"] = result
         case["oracle_status"] = "Generated by VEP 116.2 with merged cache 116"
@@ -265,10 +325,7 @@ def main():
         )
         (evidence / "result.json").write_text(json.dumps(result, indent=2) + "\n")
         MANIFEST.write_text(json.dumps(cases, indent=2) + "\n")
-        print(
-            f"{case['id']} {case['status']} focus={result.get('focus_pass')} {name}",
-            flush=True,
-        )
+        print(f"{case['id']} {case['status']} {name}", flush=True)
     print(
         json.dumps(
             {
@@ -278,7 +335,8 @@ def main():
         ),
         flush=True,
     )
+    return 0 if all(c["status"] == Verdict.PASS for c in todo) else 1
 
 
 if __name__ == "__main__":
-    main()
+    raise SystemExit(main())
