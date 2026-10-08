@@ -605,7 +605,12 @@ manifests-only Hub call, and the shard stays unusable. An older root whose
 manifests are stale (shards of a later contig, manifests trimmed to the first
 set) is repaired only by rerunning `--add-contigs` with the declared list (the
 list the `requires_shards` panic prints); a narrower rerun, e.g. only an
-already-listed contig, leaves the stale manifests as they are. For a
+already-listed contig, leaves the stale manifests as they are. A whole-genome
+run (no `--add-contigs`) on a root whose `PROVENANCE.json` records
+`manifests_trimmed: true` for a flavour (left by a per-contig run) re-fetches
+that flavour's full manifests from the Hub once and does not trim them, so they
+match the `contigs: "ALL"` it records; later whole-genome runs on that root make
+no such call. For a
 wholly different set, use a fresh `--cache-dir` or clean the directory yourself.
 
 **Illegal / incomplete contig sets.** Every cache entity must get at least one
