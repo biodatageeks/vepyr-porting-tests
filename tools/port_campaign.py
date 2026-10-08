@@ -52,14 +52,21 @@ class RunTestsOutcome:
     record: dict[str, Any]
 
 
-def classify(exit_code: int, stdout: str) -> tuple[Verdict, str | None]:
+def classify(
+    exit_code: int, stdout: str, dir_name: str | None = None
+) -> tuple[Verdict, str | None]:
     """Map a ``./run_tests --via-cli`` exit code and stdout to a verdict.
 
-    Exit 0 is ``PASS``; exit 8 with at least one ``MISMATCH`` line on stdout is
-    ``FAIL`` (the first line's ``actual`` md5 is returned); exit 8 without such
-    a line (malformed report) and any other non-zero exit are ``ERROR``.
+    Exit 0 is ``PASS``; exit 8 with at least one well-formed ``MISMATCH`` line
+    on stdout naming ``dir_name`` (any name when ``None``) is ``FAIL`` (that
+    line's ``actual`` md5 is returned); exit 8 without such a line (malformed
+    report) and any other non-zero exit are ``ERROR``.
     """
-    mismatches = [m for line in stdout.splitlines() if (m := _MISMATCH.match(line))]
+    mismatches = [
+        m
+        for line in stdout.splitlines()
+        if (m := _MISMATCH.match(line)) and dir_name in (None, m[1])
+    ]
     match exit_code:
         case 0:
             return Verdict.PASS, None
@@ -67,6 +74,14 @@ def classify(exit_code: int, stdout: str) -> tuple[Verdict, str | None]:
             return Verdict.FAIL, mismatches[0][3]
         case _:
             return Verdict.ERROR, None
+
+
+def only_dir_name(argv: Sequence[str]) -> str | None:
+    """Return the directory name of the ``--only`` value in ``argv``, if any."""
+    args = list(argv)
+    if "--only" in args and (i := args.index("--only") + 1) < len(args):
+        return Path(args[i]).name
+    return None
 
 
 def run_tests_for(
@@ -81,7 +96,7 @@ def run_tests_for(
     stdout, stderr = proc.stdout or "", proc.stderr or ""
     if log is not None:
         log.write_text(f"## stdout\n{stdout}## stderr\n{stderr}")
-    verdict, actual = classify(proc.returncode, stdout)
+    verdict, actual = classify(proc.returncode, stdout, only_dir_name(argv))
     record = {
         "argv": [str(a) for a in argv],
         "exit": proc.returncode,

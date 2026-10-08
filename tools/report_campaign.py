@@ -55,7 +55,13 @@ def main():
         focus = (
             "PASS"
             if result.get("focus_pass")
-            else ("FAIL" if "focus_pass" in result else "—")
+            else (
+                "FAIL"
+                if "focus_pass" in result
+                else "not checked"
+                if "verdict" in result.get("commands", [{}])[-1]
+                else "—"
+            )
         )
         fields = [
             name,

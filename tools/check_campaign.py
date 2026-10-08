@@ -5,8 +5,35 @@ import collections
 import hashlib
 import json
 import tomllib
+from typing import Any
 
 from port_campaign import MANIFEST, ROOT, body, focus_value
+
+
+def check_via_cli_result(case: dict[str, Any]) -> None:
+    """Validate a result recorded through ``./run_tests --via-cli`` (#232).
+
+    The last command carries the classified ``verdict``; no vepyr sha or
+    vepyr-side focus is recorded for such runs (see README).
+    """
+    result = case["result"]
+    commands = result["commands"]
+    assert len(commands) == 3, case["id"]
+    assert all(c["exit"] == 0 for c in commands[:2]), case["id"]
+    last = commands[2]
+    assert last["argv"][0] == "./run_tests" and "--via-cli" in last["argv"], case["id"]
+    assert last["verdict"] == result["status"] == case["status"], case["id"]
+    match case["status"]:
+        case "PASS":
+            assert last["exit"] == 0 and result["runnable"], case["id"]
+            assert result["vepyr_body_md5"] == result["oracle_body_md5"], case["id"]
+        case "FAIL":
+            assert last["exit"] == 8 and result["runnable"], case["id"]
+            assert result["vepyr_body_md5"] != result["oracle_body_md5"], case["id"]
+        case "ERROR":
+            assert last["exit"] != 0 and not result["runnable"], case["id"]
+        case other:
+            raise AssertionError(f"{case['id']}: unexpected status {other}")
 
 
 def check(require_complete=False, require_normalized=False):
@@ -42,7 +69,10 @@ def check(require_complete=False, require_normalized=False):
                     "docker_input_sha256",
                 )
             ), f"{case['id']}: the engines did not receive identical normalized bytes"
-        assert len(result["vepyr_sha"]) == 40, case["id"]
+        last = result["commands"][-1]
+        via_cli = "verdict" in last or "--via-cli" in last["argv"]
+        if not via_cli:
+            assert len(result["vepyr_sha"]) == 40, case["id"]
         assert (
             hashlib.sha256((path / "input.vcf").read_bytes()).hexdigest()
             == result["input_sha256"]
@@ -58,6 +88,9 @@ def check(require_complete=False, require_normalized=False):
             == case["focus"]["expected"]
             == result["oracle_focus"]
         ), case["id"]
+        if via_cli:
+            check_via_cli_result(case)
+            continue
         assert len(result["commands"]) == 3, case["id"]
         assert all(c["exit"] == 0 for c in result["commands"][:2]), case["id"]
         assert "--everything" in result["commands"][2]["argv"], case["id"]

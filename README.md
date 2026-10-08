@@ -864,7 +864,11 @@ python tools/check_campaign.py --require-complete --require-normalized
 
 Primary-property checks select the case's specific field or record property;
 the existing body comparison also checks all incidental fields. A focus pass
-with a body failure remains a failing data test.
+with a body failure remains a failing data test. For runs made through
+`./run_tests --via-cli` the primary property of vepyr's output is not checked:
+the campaign does not keep vepyr's output file, so only the whole-body md5
+verdict and the oracle's own focus witness are recorded, and the status table
+shows the focus as `not checked`.
 
 This campaign contains 189 executed ports (171 SNVs, 15 small indels, two
 nonvariant cases and one MNV): 177 whole-body passes, 10 differences and two

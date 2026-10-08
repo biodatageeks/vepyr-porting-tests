@@ -11,6 +11,8 @@ from typing import Any
 
 import port_campaign
 import pytest
+import report_campaign
+from check_campaign import check_via_cli_result
 from port_campaign import Verdict, body, classify_run_tests, focus_value
 
 
@@ -169,3 +171,60 @@ def test_classify_run_tests_uses_injected_runner():
 
     # md5 values must be 32 hex digits; anything else is a malformed report.
     assert classify_run_tests(["./run_tests"], runner) is Verdict.ERROR
+
+
+GOOD_LINE = f"MISMATCH {DIR_NAME} expected={MD5_A} actual={MD5_B}"
+
+
+@pytest.mark.parametrize(
+    "line",
+    [
+        pytest.param(GOOD_LINE[:-1], id="short-md5"),
+        pytest.param(GOOD_LINE + " ", id="trailing-space"),
+        pytest.param(GOOD_LINE.replace(MD5_B, "F" * 32), id="uppercase-hex"),
+        pytest.param(" " + GOOD_LINE, id="indented"),
+        pytest.param(GOOD_LINE.replace(DIR_NAME, "other_dir"), id="other-dir"),
+    ],
+)
+def test_malformed_or_foreign_mismatch_line_is_error(line):
+    def runner(argv: list[str], **_: Any) -> subprocess.CompletedProcess[str]:
+        return subprocess.CompletedProcess(argv, 8, line + "\n")
+
+    argv = ["./run_tests", "--cache-dir", "c", "--via-cli", "--only", f"x/{DIR_NAME}/"]
+    assert classify_run_tests(argv, runner) is Verdict.ERROR
+
+
+def test_mismatch_line_must_name_the_only_directory():
+    def runner(argv: list[str], **_: Any) -> subprocess.CompletedProcess[str]:
+        return subprocess.CompletedProcess(argv, 8, GOOD_LINE + "\n")
+
+    argv = ["./run_tests", "--cache-dir", "c", "--via-cli", "--only", f"x/{DIR_NAME}/"]
+    assert classify_run_tests(argv, runner) is Verdict.FAIL
+    assert port_campaign.classify(8, GOOD_LINE, DIR_NAME) == (Verdict.FAIL, MD5_B)
+    assert port_campaign.classify(8, GOOD_LINE, "other_dir") == (Verdict.ERROR, None)
+
+
+@pytest.mark.parametrize(
+    ("exit_code", "stdout"),
+    [
+        pytest.param(0, "", id="pass"),
+        pytest.param(8, GOOD_LINE + "\n", id="fail"),
+        pytest.param(6, "engine\n", id="error"),
+    ],
+)
+def test_campaign_record_passes_check_campaign(
+    tmp_path, monkeypatch, exit_code, stdout
+):
+    _, case, _ = campaign(tmp_path, monkeypatch, exit_code, stdout)
+    check_via_cli_result(case)
+
+
+def test_report_marks_via_cli_focus_not_checked(tmp_path, monkeypatch):
+    _, case, _ = campaign(tmp_path, monkeypatch, 0, "")
+    manifest = tmp_path / "report" / "cases.json"
+    manifest.parent.mkdir()
+    manifest.write_text(json.dumps([case]))
+    monkeypatch.setattr(report_campaign, "MANIFEST", manifest)
+    report_campaign.main()
+    row = manifest.with_name("README.md").read_text().splitlines()[-1]
+    assert [c.strip() for c in row.split("|")][4] == "not checked"
