@@ -421,8 +421,7 @@ def engine_toml(*, dfbf: Checkout, formats: Checkout) -> str:
     if missing_dfbf:
         raise RunTestsError(
             Exit.ENGINE,
-            f"dfbf checkout at {dfbf.path} missing crates: "
-            f"{', '.join(missing_dfbf)}",
+            f"dfbf checkout at {dfbf.path} missing crates: {', '.join(missing_dfbf)}",
         )
     if missing_fmt:
         raise RunTestsError(

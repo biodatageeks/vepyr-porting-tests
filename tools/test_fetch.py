@@ -1086,6 +1086,9 @@ def test_an_unreachable_hub_endpoint_is_exit_4_not_a_traceback(tmp_path: Path) -
             "--flavours",
             "ensembl",
             "--dry-run",
+            # Consent past the freshness guard (#236), which would otherwise fail
+            # closed with exit 7 on the same unreachable Hub before the lister runs.
+            "--old-vepyr-cache",
         ],
         env=env,
         capture_output=True,

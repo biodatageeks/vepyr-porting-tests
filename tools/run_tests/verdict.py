@@ -2,7 +2,10 @@
 
 Cache fetch uses :attr:`Exit.REVISION`, :attr:`Exit.INCOMPLETE` and
 :attr:`Exit.VERIFY`; data-test runs use :attr:`Exit.TESTS_FAILED`; engine
-resolve/checkout uses :attr:`Exit.ENGINE`.
+resolve/checkout uses :attr:`Exit.ENGINE`; the cache freshness guard (issue #236)
+uses :attr:`Exit.STALE_CACHE` when a selected flavour's pin is not the newest Hub
+commit of its ``ref``, the Hub HEAD cannot be resolved, or a cache used as-is has no
+``PROVENANCE.json`` record for it, unless ``--old-vepyr-cache`` consents.
 """
 
 from __future__ import annotations
@@ -22,6 +25,7 @@ class Exit(IntEnum):
     INCOMPLETE = 4
     VERIFY = 5
     ENGINE = 6
+    STALE_CACHE = 7
 
 
 class RunTestsError(Exception):
