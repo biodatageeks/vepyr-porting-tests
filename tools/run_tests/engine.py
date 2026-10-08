@@ -36,6 +36,7 @@ __all__ = [
     "engine_toml",
     "materialise",
     "resolve",
+    "resolve_sha",
     "validate_ref",
     "workspace_crate_dirs",
 ]
@@ -230,6 +231,15 @@ def _resolve_sha(api: GhApi, ref: str) -> str:
     if not isinstance(sha, str) or not _SHA.match(sha):
         raise RunTestsError(Exit.ENGINE, f"--vepyr {ref}: commits API returned no sha")
     return sha
+
+
+def resolve_sha(api: GhApi, ref: str) -> str:
+    """Public :func:`_resolve_sha`: the 40-char sha ``ref`` names on biodatageeks/vepyr.
+
+    Raises:
+        RunTestsError: exit 2 for a malformed ref, exit 6 when it does not resolve.
+    """
+    return _resolve_sha(api, ref)
 
 
 def _read_cargo_toml(api: GhApi, sha: str) -> dict[str, Any]:

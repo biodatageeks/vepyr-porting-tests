@@ -26,6 +26,8 @@ export VEPYR_CACHE_ROOT=/mnt/hf-cache
 ./run_tests
 # run only chosen data-test directories (repeatable; may be scratch copies):
 ./run_tests --only tests/data/intergenic_variant_single_record --vepyr master
+# annotate through the user-facing `python -m vepyr annotate` CLI instead of cargo:
+./run_tests --cache-dir /mnt/hf-cache --via-cli --only tests/data/intergenic_variant_single_record
 ```
 
 | Flag | Status in this commit |
@@ -41,6 +43,7 @@ export VEPYR_CACHE_ROOT=/mnt/hf-cache
 | `--no-trim-manifests` | Leaves `chrom_manifest.json` naming shards that were not fetched |
 | `--vepyr REF` | Resolves `REF` on biodatageeks/vepyr and path-patches that revision's dfbf/formats ladder. **Optional:** omitted, data-tests run against `master`'s current HEAD; the summary prints the full 40-char resolved sha either way. Pass `REF` whenever a pinned, reproducible run is wanted (CI, bisecting, ledger evidence) |
 | `--only DIR` | Repeatable. Runs only the named data-test directories (each holds `test.toml`; may be outside `tests/data`, e.g. a scratch copy): they are copied into a fresh temporary root that `DATA_DIRS_ROOT` names, cargo runs only the exact `data_dirs` test, and the root is deleted afterwards; `tests/data` is never touched. The summary's `targets` line lists exactly these names. A missing directory, one without `test.toml`, or two with the same basename is a usage error (exit 2, `not a data-test directory`). The engine is still `--vepyr REF` (or its default) |
+| `--via-cli` | Annotates each selected data-test (all of `tests/data`, or the `--only` directories, which may be outside `tests/data`) through the user-facing `python -m vepyr annotate` CLI instead of `cargo test --test data_dirs`; it complements the Rust loop, it does not replace it. See "`--via-cli` mode" below |
 | `--old-vepyr-cache` | Consent to a vepyr cache that is not provably the newest (see "Cache freshness guard" below): the run proceeds and the summary records `old cache: YES (consented)` |
 
 **"Targets" means data-test directories** — `tests/data/<name>/` holding a
@@ -78,11 +81,41 @@ Xet download concurrency/buffers via `hf_xet` (already pulled in with
 
 Exit codes: `0` ok, `1` data-tests failed, `2` usage (missing cache),
 `3` revision clash vs `PINS.toml`, `4` incomplete selection or missing cache
-pieces, `5` verification failure, `6` engine resolve/checkout failure,
-`7` stale cache (see below; `--old-vepyr-cache` consents). Every run
+pieces, `5` verification failure, `6` engine resolve/checkout failure (with
+`--via-cli` also a failed vepyr build or run), `7` stale cache (see below;
+`--old-vepyr-cache` consents), `8` `--via-cli` body MISMATCH. Every run
 ends with a summary of effective flags, the cache directory, targets, the
 contigs accumulated per flavour, and the `vepyr sha` line naming the exact
 40-char revision the run tested against.
+
+**`--via-cli` mode** (#231). The vepyr CLI is built from `biodatageeks/vepyr` at
+the sha that `--vepyr REF` (default: `master` HEAD) resolves to, once per sha, into
+`<cache root>/.vepyr_cli/<sha>/` (a shallow git fetch of that sha, `uv build --wheel`,
+`uv venv` + `uv pip install`); `BUILD.json` there and the summary detail record the
+vepyr sha and the wheel's sha256. For each directory, `tools/run_tests/cli_argv.py`
+derives the argv from `test.toml` `[vepyr]` and each `[[vepyr_run]]` override:
+`flavour` -> `--dir_cache <root>/116_GRCh38_<flavour>`, `reference_fasta = true` ->
+`--fasta <root>/fasta/<pinned .fa>`, `everything = true` -> `--everything`, plus
+`--cache_version 116 --no_progress`; `preserve_record_layout = true` and
+`buffer_size = 5000` are the CLI's defaults (no flag); `required_contigs` emits no
+flag. A value the CLI cannot express (`buffer_size != 5000`,
+`preserve_record_layout = false`, `everything = false`, `reference_fasta = false`)
+or an unknown key is an `UnmappableKey`: that directory is not run, each such run is
+named on stderr, and the exit code is `2`. At vepyr `af305aff` this applies to 4 of
+the 5 runs of `runner_buffer_size_invariance` (`buffer_size = 1, 2, 3, 5`), which
+therefore cannot run via the CLI; the default cargo path still runs them.
+
+Each output is compared by the same rule as `tests/data_dirs.rs`: md5 of the body
+(every line not starting with `#`, line terminators kept) against
+`[compare] body_md5`. Body-mismatch contract: a directory whose every run matched
+prints `PASS <dir-name>` on stdout; a mismatching one prints exactly
+`MISMATCH <dir-name> expected=<md5> actual=<md5>` on stdout (one line per
+directory, the first mismatching run), and the run exits `8` (`Exit.MISMATCH`).
+Precedence: any other error wins and sets the exit code (`2` unmappable or unusable
+`test.toml`, `6` vepyr build failure or a vepyr run that exits non-zero or writes no
+output, `3`/`4` cache errors, `7` stale cache), while the `MISMATCH` lines of the compared directories
+are still printed. Exit `8` therefore means every selected run was compared and at
+least one mismatched.
 
 **Cache freshness guard.** Whenever a cache root is given (`--cache-dir` or
 `$VEPYR_CACHE_ROOT`), before any download or data-test, `./run_tests` asks the
