@@ -1,0 +1,4 @@
+#!/usr/bin/env bash
+# ./issue_status — the read-only issue hand-over gate; `./issue_status --help`.
+here="$(cd -- "$(dirname -- "${BASH_SOURCE[0]}")" && pwd)"
+exec env PYTHONPATH="$here/tools" uv run --frozen --project "$here" python -m issue_status "$@"

@@ -188,6 +188,48 @@ one failing fixture per check id, `not-json.txt`); `tools/fixtures/gh_stub/gh` i
 offline `gh` that serves one fixture from `$GH_STUB_STATE` and logs every call to
 `$GH_STUB_STATE.log`. Tests: `tools/test_pr_status.py`.
 
+## ./issue_status (read-only issue hand-over gate)
+
+`./issue_status N` answers whether issue `N` may be handed over to the owner
+(`state:manual-reviewing-issue`; #178, the rules are in `AGENTS.md`, "Issue and pull
+request lifecycle"). It only reads: one `gh issue view N --json
+number,body,labels,comments`. It never changes a label, a comment or the body.
+
+```bash
+./issue_status 178                                                       # real mode
+./issue_status --from-json tools/fixtures/issue_status/ready.json        # READY, exit 0
+./issue_status --from-json tools/fixtures/issue_status/status-stale.json # FAIL status-stale: ..., exit 1
+```
+
+It prints one `FAIL <check>: <reason>` line per failed check (all of them) or `READY`.
+A record is pinned to the body by `body_sha256`, the sha256 of the UTF-8 bytes of the
+`body` string `gh issue view N --json body` returns (nothing appended). The checks:
+`status-missing`, `status-duplicate` (exactly one issue comment whose first non-empty
+line is `### issue-status:v1`, with a valid fenced `json` block), `status-stale`
+(`"stale": true`, or its `body_sha256` is not the current body's), `issue-check` (its
+`issue_check` is not 0), `ac-passes-on-master` (no AC rows, or a row with
+`master_exit` = `expected` that is not a `regression_guard`), `verdict-missing` (no
+`### issue-review:v1` verdict whose `body_sha256` is the current body's: a verdict for
+an older body never counts), `verdict-findings` (the latest such verdict is not exactly
+`CLEAN`), `dry-run-mismatch` (a status AC id missing from the verdict's `ac_dry_run`, a
+dry-run exit that differs from the row's `master_exit`, or the verdict's `master`
+differing from the status `master`), and `state-label` (exactly one `state:*` label,
+`state:auto-reviewing-issue` or `state:manual-reviewing-issue`, so the gate passes
+before the hand-over move). Checks that need the status data are skipped when it is
+missing or duplicated, the verdict checks when there is no current verdict.
+
+The verdicts are ordered by `createdAt`; with equal `createdAt` the comment later in the `comments` list is the later verdict (a stable sort). A status comment without a valid `json` block is `FAIL status-missing` (exit 1), but a `### issue-review:v1` comment without a valid block, or with a block that does not follow the schema, is a tool error (exit 2) naming the comment by `createdAt` and URL, even when a compliant verdict sits next to it. A review written before #178 under that heading (`"role":"review"`, verdict `APPROVE`/`CHANGES_REQUESTED`) is such a comment: change its first line to `### issue-review-legacy:v0`, which the gate ignores, or delete it (the `gh api` command is in `AGENTS.md`, "Issue records").
+
+Exit codes: `0` ready, `1` not ready, `2` usage or tool error (no argument, non-numeric
+`N`, unreadable or non-JSON input, `gh` missing or failing, or malformed input: every
+field the gate reads is type-checked, including `body_sha256` as 64 and `master` as 40
+lowercase hex characters, and a verdict comment without a valid `json` block is one
+`issue_status: malformed input:` line, never a pass). Fixtures:
+`tools/fixtures/issue_status/` (`ready.json`, one failing fixture per check id,
+`not-json.txt`); real-mode tests serve the issue through `tools/fixtures/gh_stub/gh`.
+Tests: `tools/test_issue_status.py`. The parsing helpers and exit codes are shared with
+`./pr_status` (`tools/pr_status/gate.py`), which is unchanged.
+
 ## ./set_state (state-label writer)
 
 `./set_state` is the only tool that writes the `state:*` labels (#158). It reads the
@@ -195,7 +237,8 @@ current labels, refuses any move that is not one of the 20 legal transitions (th
 table is in `AGENTS.md`), and runs the `./pr_status` gate and refuses unless it is READY
 before two PR moves: `state:manual-reviewing` (the hand-over stage,
 `./pr_status --handover N`) and `state:awaiting-merge` (the owner's stage,
-`./pr_status N`). Then it makes one `gh <kind> edit` call per moved item and reads the
+`./pr_status N`); and it runs the `./issue_status N` gate and refuses unless it is READY
+before the issue hand-over `state:manual-reviewing-issue` (#178). Then it makes one `gh <kind> edit` call per moved item and reads the
 labels back.
 
 A PR move is mirrored to each closing issue (#177): the PR's
