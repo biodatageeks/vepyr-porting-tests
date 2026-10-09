@@ -51,6 +51,13 @@ export VEPYR_CACHE_ROOT=/mnt/hf-cache
 They all run inside the one generic cargo target, so the `cargo test` invocation
 carries a single `--test data_dirs`.
 
+Both runner modes print a live progress bar and `RUN <fixture>` before annotation,
+followed by the fixture result. The bar counts completed fixtures (including
+failures and skips), with passed/failed/skipped totals; it does not count the named
+coverage entries. Fixtures with multiple configurations also print `run 1/5`,
+`run 2/5`, etc. Output is flushed immediately and uses plain lines so it remains
+readable when redirected to a log. No extra flag is needed.
+
 **`--vepyr REF` examples.** `REF` is anything `biodatageeks/vepyr` can dereference:
 
 ```bash

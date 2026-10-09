@@ -80,6 +80,7 @@ mod common;
 
 use std::collections::HashMap;
 use std::fmt::Write as _;
+use std::io::Write as _;
 use std::path::{Path, PathBuf};
 use std::sync::Arc;
 
@@ -761,6 +762,18 @@ enum CacheRoot<'a> {
 }
 
 impl CacheRoot<'_> {
+    /// Show real fixture progress immediately, even under libtest's capture.
+    /// Synthetic self-tests keep their output inside the normal test capture.
+    fn status(self, message: &str) {
+        if matches!(self, Self::Env) {
+            let mut out = std::io::stdout().lock();
+            writeln!(out, "{message}").expect("write test progress");
+            out.flush().expect("flush test progress");
+        } else {
+            println!("{message}");
+        }
+    }
+
     #[track_caller]
     fn full_cache(self, flavour: Flavour) -> FullCache {
         match self {
@@ -792,17 +805,17 @@ async fn check_dir(test: &TestDir, cache_root: CacheRoot<'_>) -> Outcome {
         .unwrap_or_else(|error| panic!("[{name}] cannot read {ORACLE_NAME}: {error}"));
     let oracle_md5 = body_md5(&oracle);
     if oracle_md5 != test.body_md5 {
-        println!(
+        cache_root.status(&format!(
             "[{name}] oracle edited: the body md5 of {ORACLE_NAME} is {oracle_md5}, \
              [compare] body_md5 is {} (re-bless with ./bless)",
             test.body_md5
-        );
+        ));
         return Outcome::Failed;
     }
     let input = std::fs::read_to_string(test.dir.join(INPUT_NAME))
         .unwrap_or_else(|error| panic!("[{name}] cannot read {INPUT_NAME}: {error}"));
     if let Some(reason) = &test.skip_reason {
-        println!("SKIP {name}: {reason}");
+        cache_root.status(&format!("SKIP {name}: {reason}"));
         return Outcome::Skipped;
     }
 
@@ -810,7 +823,10 @@ async fn check_dir(test: &TestDir, cache_root: CacheRoot<'_>) -> Outcome {
     let mut passed = true;
     for (index, run) in test.runs.iter().enumerate() {
         if let Some(overrides) = &run.overrides {
-            println!("run {}/{total}: {overrides}", index + 1);
+            cache_root.status(&format!(
+                "RUN [{name}] run {}/{total}: {overrides}",
+                index + 1
+            ));
         }
         let settings = &run.settings;
         let full = cache_root.full_cache(settings.flavour);
@@ -829,7 +845,7 @@ async fn check_dir(test: &TestDir, cache_root: CacheRoot<'_>) -> Outcome {
 
         let (written, output, _tmp) = annotate_vcf_at(&full.dir(), &input, &config).await;
         if let Err(error) = written {
-            println!("[{name}] vepyr failed: {error}");
+            cache_root.status(&format!("[{name}] vepyr failed: {error}"));
             passed = false;
             continue;
         }
@@ -840,7 +856,7 @@ async fn check_dir(test: &TestDir, cache_root: CacheRoot<'_>) -> Outcome {
             let _ = writeln!(block, "expected {}, got {got}", test.body_md5);
             let _ = writeln!(block, "VEP: {vep}");
             let _ = write!(block, "vepyr: {vepyr}");
-            println!("{block}");
+            cache_root.status(&block);
             passed = false;
         }
     }
@@ -849,6 +865,17 @@ async fn check_dir(test: &TestDir, cache_root: CacheRoot<'_>) -> Outcome {
     } else {
         Outcome::Failed
     }
+}
+
+/// Completed fixtures, not named coverage entries or individual override runs.
+fn progress_bar(total: usize, passed: usize, failed: usize, skipped: usize) -> String {
+    let done = passed + failed + skipped;
+    let filled = if total == 0 { 0 } else { done * 20 / total };
+    format!(
+        "[{}{}] {done}/{total} fixtures | {passed} passed, {failed} failed, {skipped} skipped",
+        "#".repeat(filled),
+        "-".repeat(20 - filled)
+    )
 }
 
 /// Load and check every directory under `root`; panic naming the failed ones.
@@ -861,12 +888,19 @@ async fn run_all(root: &Path, cache_root: CacheRoot<'_>) {
     let mut skipped_tests = 0;
     let mut skipped_runs = 0;
     for dir in &dirs {
+        cache_root.status(&format!(
+            "{} | RUN {}",
+            progress_bar(dirs.len(), passed, failed.len(), skipped),
+            dir.file_name()
+                .expect("fixture directory name")
+                .to_string_lossy()
+        ));
         let test = TestDir::load(dir);
         tests += test.tests.len();
         match check_dir(&test, cache_root).await {
             Outcome::Passed => {
                 passed += 1;
-                println!("[{}] ok", test.name);
+                cache_root.status(&format!("[{}] ok", test.name));
             }
             Outcome::Failed => failed.push(test.name),
             Outcome::Skipped => {
@@ -876,14 +910,18 @@ async fn run_all(root: &Path, cache_root: CacheRoot<'_>) {
             }
         }
     }
-    println!(
+    cache_root.status(&format!(
+        "{} | DONE",
+        progress_bar(dirs.len(), passed, failed.len(), skipped)
+    ));
+    cache_root.status(&format!(
         "data_dirs: {} directory(ies) ({tests} named tests) under {}, \
          {passed} passed, {} failed, {skipped} skipped \
          ({skipped_tests} named tests, {skipped_runs} runs skipped)",
         dirs.len(),
         root.display(),
         failed.len()
-    );
+    ));
     assert!(
         failed.is_empty(),
         "data_dirs: failing test directories: {}",

@@ -130,6 +130,67 @@ def test_body_md5_rule() -> None:
     assert body_md5(vcf) == hashlib.md5(b"A\nB").hexdigest()
 
 
+def test_progress_is_flushed_before_runs_and_counts_every_outcome(
+    tmp_path: Path,
+) -> None:
+    class FlushedOutput(io.StringIO):
+        visible = ""
+
+        def flush(self) -> None:
+            self.visible = self.getvalue()
+
+    out = FlushedOutput()
+    dirs = [_data_test(tmp_path, name) for name in ["multi", "skipped", "bad", "error"]]
+    config = dirs[0] / "test.toml"
+    config.write_text(
+        config.read_text()
+        + "\n[[vepyr_run]]\nbuffer_size = 5000\n[[vepyr_run]]\nbuffer_size = 5000\n"
+    )
+    config = dirs[1] / "test.toml"
+    config.write_text(
+        'skip_reason = "Unsupported symbolic deletion"\n' + config.read_text()
+    )
+    fake = FakeCli(bodies={"bad": BAD_BODY})
+    multi_runs = 0
+
+    def observe(argv: Sequence[str]) -> int:
+        nonlocal multi_runs
+        name = Path(argv[argv.index("--input_file") + 1]).parent.name
+        assert f"| RUN {name}\n" in out.visible
+        if name == "multi":
+            multi_runs += 1
+            assert f"RUN [multi] run {multi_runs}/2\n" in out.visible
+        return 9 if name == "error" else fake(argv)
+
+    report = via_cli.run_dirs(
+        iter(dirs),
+        build=BUILD,
+        cache_root=tmp_path,
+        fasta=tmp_path / "unused.fa",
+        runner=observe,
+        out=out,
+        err=io.StringIO(),
+    )
+    assert multi_runs == 2
+    assert report.passed == ["multi"]
+    assert report.mismatched == ["bad"]
+    assert [name for name, _ in report.errors] == ["error"]
+    assert [name for name, _ in report.skipped] == ["skipped"]
+    assert report.code is Exit.ENGINE
+    bars = [line for line in out.visible.splitlines() if line.startswith("[")]
+    assert [line.split(" fixtures")[0].split()[-1] for line in bars] == [
+        "0/4",
+        "1/4",
+        "2/4",
+        "3/4",
+        "4/4",
+    ]
+    assert (
+        bars[-1]
+        == "[####################] 4/4 fixtures | 1 passed, 2 failed, 1 skipped | DONE"
+    )
+
+
 def test_skip_is_visible_and_removing_it_restores_mismatch(tmp_path: Path) -> None:
     skipped = _data_test(tmp_path, "skipped")
     active = _data_test(tmp_path, "active")

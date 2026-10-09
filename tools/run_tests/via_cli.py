@@ -210,6 +210,7 @@ class _Context:
     cache_root: Path
     fasta: Path
     runner: CliRunner
+    out: TextIO
 
 
 def _argvs(
@@ -250,6 +251,8 @@ def _compare_dir(
         mismatch: str | None = None
         for index, argv in enumerate(argvs, start=1):
             where = f"[{dir_.name}] run {index}/{len(argvs)}"
+            if len(argvs) > 1:
+                print(f"RUN {where}", file=ctx.out, flush=True)
             if (code := ctx.runner(argv)) != 0:
                 raise RunTestsError(
                     Exit.ENGINE, f"{where}: vepyr annotate exited {code}"
@@ -264,6 +267,21 @@ def _compare_dir(
     return expected, mismatch
 
 
+def _progress(total: int, report: Report, status: str, out: TextIO) -> None:
+    """A line-oriented bar of completed fixtures, also readable in saved logs."""
+    passed = len(report.passed)
+    failed = len(report.mismatched) + len(report.errors)
+    skipped = len(report.skipped)
+    done = passed + failed + skipped
+    filled = done * 20 // total if total else 0
+    print(
+        f"[{'#' * filled}{'-' * (20 - filled)}] {done}/{total} fixtures | "
+        f"{passed} passed, {failed} failed, {skipped} skipped | {status}",
+        file=out,
+        flush=True,
+    )
+
+
 def run_dirs(
     dirs: Iterable[Path],
     *,
@@ -276,6 +294,7 @@ def run_dirs(
 ) -> Report:
     """Annotate each of ``dirs`` via the vepyr CLI and compare body md5s.
 
+    Prints a live fixture progress bar and the current directory before annotation.
     Prints ``PASS <dir>`` / ``MISMATCH <dir> expected=<md5> actual=<md5>`` or
     ``SKIP <dir>: <reason>`` on
     ``out`` (stdout) and every error on ``err`` (stderr); a directory with an
@@ -284,15 +303,19 @@ def run_dirs(
     """
     out = sys.stdout if out is None else out
     err = sys.stderr if err is None else err
-    ctx = _Context(build=build, cache_root=cache_root, fasta=fasta, runner=runner)
+    ctx = _Context(
+        build=build, cache_root=cache_root, fasta=fasta, runner=runner, out=out
+    )
+    dirs = tuple(dirs)
     report = Report()
     for dir_ in dirs:
         name = dir_.name
+        _progress(len(dirs), report, f"RUN {name}", out)
         try:
             runs, expected, reason = _load(dir_)
             if reason is not None:
                 report.skipped.append((name, reason))
-                print(f"SKIP {name}: {reason}", file=out)
+                print(f"SKIP {name}: {reason}", file=out, flush=True)
                 continue
             expected, mismatch = _compare_dir(dir_, ctx, runs, expected)
         except RunTestsError as exc:
@@ -302,12 +325,18 @@ def run_dirs(
                     f"run_tests: error ({exc.code.name.lower()}, exit "
                     f"{int(exc.code)}): {line}",
                     file=err,
+                    flush=True,
                 )
             continue
         if mismatch is None:
             report.passed.append(name)
-            print(f"PASS {name}", file=out)
+            print(f"PASS {name}", file=out, flush=True)
         else:
             report.mismatched.append(name)
-            print(f"MISMATCH {name} expected={expected} actual={mismatch}", file=out)
+            print(
+                f"MISMATCH {name} expected={expected} actual={mismatch}",
+                file=out,
+                flush=True,
+            )
+    _progress(len(dirs), report, "DONE", out)
     return report
