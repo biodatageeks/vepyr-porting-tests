@@ -20,13 +20,8 @@ from __future__ import annotations
 from collections.abc import Iterable, Iterator
 from dataclasses import dataclass
 from pathlib import Path
-from typing import Final
 
 __all__ = ["VcfFormatError", "VcfRecord", "iter_records", "read_records"]
-
-FIXED_COLUMNS: Final[int] = 5
-"""CHROM, POS, ID, REF, ALT."""
-
 
 class VcfFormatError(ValueError):
     """A body line that is not a tab-separated VCF record."""

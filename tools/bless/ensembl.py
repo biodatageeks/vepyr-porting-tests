@@ -35,6 +35,8 @@ from dataclasses import dataclass
 from pathlib import Path
 from typing import Final
 
+import fixture_sources
+
 from bless import BlessError
 from bless.testdir import write_atomically
 
@@ -99,7 +101,7 @@ class Provenance:
     """Where a cache or FASTA came from, as recorded in ``test.toml``.
 
     Attributes:
-        source: Download URL, or ``local:<path>`` when ``bless`` did not fetch it.
+        source: Recorded download URL, or the declared URL when unverified.
         checksum: ``sha256:<hex> sum:<ensembl sum>`` of the fetched archive, or
             ``unverified`` when the path was not fetched by ``bless``.
     """
@@ -195,21 +197,22 @@ def cache_provenance(cache_dir: Path, *, merged: bool = False) -> Provenance:
     """Provenance of a cache directory, fetched by ``bless`` or not."""
     if merged:
         # The root's download receipt describes the Ensembl archive, not merged.
-        merged_path = cache_dir / (SPECIES + "_merged") / f"{RELEASE}_{ASSEMBLY}"
         return Provenance(
-            source=f"local:{merged_path}",
+            source=fixture_sources.vep_cache("merged"),
             checksum="unverified",
         )
-    return read_provenance(cache_dir / SOURCE_RECORD) or Provenance(
-        source=f"local:{cache_dir}", checksum="unverified"
-    )
+    prov = read_provenance(cache_dir / SOURCE_RECORD)
+    if prov is not None and fixture_sources.is_download_url(prov.source):
+        return prov
+    return Provenance(source=CACHE.url, checksum="unverified")
 
 
 def fasta_provenance(fasta: Path) -> Provenance:
     """Provenance of a FASTA file, fetched by ``bless`` or not."""
-    return read_provenance(fasta.with_name(fasta.name + SOURCE_RECORD)) or Provenance(
-        source=f"local:{fasta}", checksum="unverified"
-    )
+    prov = read_provenance(fasta.with_name(fasta.name + SOURCE_RECORD))
+    if prov is not None and fixture_sources.is_download_url(prov.source):
+        return prov
+    return Provenance(source=FASTA.url, checksum="unverified")
 
 
 def _write_provenance(record: Path, prov: Provenance) -> None:

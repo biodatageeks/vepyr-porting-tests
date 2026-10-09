@@ -1,834 +1,368 @@
-"""CLI contract tests for ``./run_tests`` (fetch + data-test run wiring).
-
-The fetch path is exercised end to end through :func:`run_tests.cli.main` with the
-``lister`` / ``downloader`` / ``fasta_fetcher`` seams filled by the synthetic Hub of
-:mod:`test_fetch`. Cargo and GitHub are injected so nothing here touches the network
-or spawns a real ``cargo``.
-"""
+"""Runner checks are separate from ./run_tests's named data suite."""
 
 from __future__ import annotations
 
-import gzip
-import hashlib
+import dataclasses
 import io
 import json
-import os
-from collections.abc import Callable, Iterator, Mapping, Sequence
-from contextlib import redirect_stderr, redirect_stdout
-from dataclasses import dataclass, field
+import shutil
 from pathlib import Path
 
 import pytest
-from test_fetch import PINS_TOML, REVISIONS, TINY_FA, FakeHub, build_hub
 
-from run_tests import cli, engine, tests
-from run_tests import summary as summary_mod
-from run_tests.cli import DEFAULT_VEPYR_REF, MISSING_CACHE, main
-from run_tests.fetch import PROVENANCE, Flavour, HeadResolver, RemoteFile, bsd_sum
-from run_tests.summary import HEADER
+from run_tests import cli, fixtures, install, suite
 from run_tests.verdict import Exit, RunTestsError
 
-
-@dataclass(frozen=True, slots=True, kw_only=True)
-class Outcome:
-    """One ``main()`` call: its exit code and everything it printed."""
-
-    code: int
-    stdout: str
-    stderr: str
-
-    @property
-    def summary(self) -> str:
-        _, marker, block = self.stdout.partition(HEADER)
-        return marker + block
-
-
-@dataclass
-class CargoLog:
-    """Records cargo argv invocations for assertions."""
-
-    calls: list[tuple[list[str], dict[str, str]]] = field(default_factory=list)
-    test_exit_code: int = 0
-
-    def __call__(self, argv: Sequence[str], env: Mapping[str, str]) -> int:
-        self.calls.append((list(argv), dict(env)))
-        return self.test_exit_code
-
-
-def fresh_head(repo_id: str, ref: str) -> str:
-    """A Hub whose HEAD of ``ref`` is exactly the pinned sha: the guard passes."""
-    assert ref == "main", ref
-    return next(sha for f, sha in REVISIONS.items() if repo_id.endswith(f.value))
-
-
-@dataclass(frozen=True, slots=True, kw_only=True)
-class Harness:
-    """A cache root, a synthetic Hub, and a repository whose PINS.toml points at it."""
-
-    root: Path
-    hub: FakeHub
-    fasta_fetches: list[str]
-    cargo: CargoLog
-    repo: Path
-
-    def run(
-        self,
-        *argv: str,
-        gh_api: engine.GhApi | None = None,
-        head_resolver: HeadResolver = fresh_head,
-    ) -> Outcome:
-        out, err = io.StringIO(), io.StringIO()
-        with redirect_stdout(out), redirect_stderr(err):
-            code = main(
-                list(argv),
-                lister=self.hub.lister,
-                downloader=self.hub.downloader,
-                fasta_fetcher=self._fasta_fetcher,
-                cargo_runner=self.cargo,
-                gh_api=gh_api,
-                head_resolver=head_resolver,
-            )
-        return Outcome(code=code, stdout=out.getvalue(), stderr=err.getvalue())
-
-    def _fasta_fetcher(self, url: str, destination: Path) -> None:
-        self.fasta_fetches.append(url)
-        destination.write_bytes(_GZ)
-
-    @property
-    def provenance(self) -> dict[str, object]:
-        return json.loads((self.root / PROVENANCE).read_text())
-
-
-_GZ: bytes = gzip.compress(TINY_FA)
+ROOT = fixtures.ROOT
+SOURCE = ROOT / "tests/data/runner_buffer_size_invariance"
+BUILD = install.CliBuild(Path("/fake/python"), "0.9.0", "test double")
 
 
 @pytest.fixture
-def harness(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> Iterator[Harness]:
-    """Point the CLI at a throwaway repository root whose PINS.toml is synthetic."""
+def case(tmp_path):
+    dest = tmp_path / SOURCE.name
+    shutil.copytree(SOURCE, dest)
+    return dest
+
+
+def test_entire_suite_loads_and_preserves_counts():
+    cases = fixtures.load_all(sorted((ROOT / "tests/data").iterdir()))
+    assert len(cases) == 70
+    assert sum(len(c.ids) for c in cases) == 205
+    assert sum(len(c.runs) for c in cases) == 74
+    assert sum(len(c.ids) for c in cases if c.skip) == 1
+
+
+@pytest.mark.parametrize("target", ["0.9.0", "0.10.0rc1", "a" * 40])
+def test_one_positional_argument(target):
+    assert cli.parse_args([target]) == target
+
+
+@pytest.mark.parametrize(
+    "args", [[], ["0.9.0", "--via-cli"], ["--vepyr", "0.9.0"], ["0.9.0", "--only", "x"]]
+)
+def test_legacy_flags_are_not_parameters(args):
+    with pytest.raises(SystemExit):
+        cli.parse_args(args)
+
+
+@pytest.mark.parametrize(
+    "target", ["master", "latest", "abc1234", "../x", "0.9.0;echo x"]
+)
+def test_ref_or_package_expression_is_not_accepted(target):
+    with pytest.raises(RunTestsError):
+        cli.parse_args([target])
+
+
+@pytest.mark.parametrize(
+    ("before", "after", "message"),
+    [
+        ('flavour = "merged"', 'flavour = "ensembl"', "cache flavour mismatch"),
+        ("everything = true", "everything = false", "unsupported mode"),
+        ("buffer_size = 1", "buffer_size = 0", "positive integer"),
+        ("buffer_size = 1", "buffer_size = true", "wrong type"),
+        ("buffer_size = 1", "unknown_key = 1", "unknown key"),
+        ("--everything --vcf", "--vcf", "unsupported mode"),
+        ('required_contigs = ["chr21"]', "required_contigs = []", "required_contigs"),
+        ("release/116.2/t/", "master/t/", "tagged Ensembl"),
+        ('cache_source = "https://', 'cache_source = "file://', "HTTP"),
+        ('name = "runner_buffer_size_invariance"', 'name = "wrong"', "directory name"),
+        (
+            'description = "Fixture',
+            'skip_reason = ""\ndescription = "Fixture',
+            "non-empty",
+        ),
+    ],
+)
+def test_loader_rejects_metadata_mutations(case, before, after, message):
+    path = case / "test.toml"
+    text = path.read_text()
+    assert before in text
+    path.write_text(text.replace(before, after, 1))
+    with pytest.raises(RunTestsError, match=message):
+        fixtures.load(case)
+
+
+def test_edited_oracle_fails_even_when_skipped(case):
+    path = case / "test.toml"
+    path.write_text('skip_reason = "unsupported"\n' + path.read_text())
+    with (case / "expected_output.vcf").open("ab") as f:
+        f.write(b"21\t123\t.\tA\tG\t.\t.\t.\n")
+    with pytest.raises(RunTestsError, match="oracle edited"):
+        fixtures.load(case)
+
+
+def test_duplicate_global_ids_fail(case):
+    with pytest.raises(RunTestsError, match="declared by both"):
+        fixtures.load_all([case, case])
+
+
+def test_empty_selection_cannot_pass():
+    with pytest.raises(RunTestsError, match="no data fixtures"):
+        fixtures.load_all([])
+
+
+def test_body_rule_preserves_crlf_and_final_unterminated_line():
+    assert fixtures.body_lines(b"#header\r\na\r\nb\nc") == [b"a\r\n", b"b\n", b"c"]
+
+
+def test_each_buffer_run_executes_but_named_progress_counts_once(case, tmp_path):
+    fixture = fixtures.load(case)
+    calls = []
+
+    def runner(argv):
+        calls.append(argv)
+        Path(argv[argv.index("--output_file") + 1]).write_bytes(
+            (case / "expected_output.vcf").read_bytes()
+        )
+        return 0
+
+    out = io.StringIO()
+    report = suite.run(
+        [fixture],
+        build=BUILD,
+        cache_root=tmp_path,
+        fasta=Path("ref.fa"),
+        runner=runner,
+        out=out,
+    )
+    assert report.code == Exit.OK
+    assert len(calls) == 5
+    assert [a[a.index("--buffer-size") + 1] for a in calls[:4]] == ["1", "2", "3", "5"]
+    assert "--buffer-size" not in calls[4]
+    assert report.passed == [case.name]
+    assert out.getvalue().count(f"PASS {case.name}") == 1
+    assert "1/1 tests | 1 passed, 0 failed, 0 skipped | DONE" in out.getvalue()
+
+
+@pytest.mark.parametrize(
+    ("behavior", "code", "label"),
+    [("mismatch", 8, "MISMATCH"), ("error", 6, "ERROR"), ("missing", 6, "ERROR")],
+)
+def test_failures_are_never_green(case, tmp_path, behavior, code, label):
+    calls = []
+
+    def runner(argv):
+        calls.append(argv)
+        if behavior == "error":
+            return 2
+        if behavior == "mismatch":
+            Path(argv[argv.index("--output_file") + 1]).write_bytes(b"#header\n")
+        return 0
+
+    out = io.StringIO()
+    report = suite.run(
+        [fixtures.load(case)],
+        build=BUILD,
+        cache_root=tmp_path,
+        fasta=Path("ref.fa"),
+        runner=runner,
+        out=out,
+        err=io.StringIO(),
+    )
+    assert report.code == code
+    assert not report.passed
+    assert f"{label} {case.name}" in out.getvalue()
+
+
+def test_skipped_fixture_never_invokes_cli(case, tmp_path):
+    fixture = dataclasses.replace(fixtures.load(case), skip="unsupported deletion")
+
+    def never(_):
+        pytest.fail("skipped fixture invoked vepyr")
+
+    report = suite.run(
+        [fixture],
+        build=BUILD,
+        cache_root=tmp_path,
+        fasta=Path("ref.fa"),
+        runner=never,
+        out=io.StringIO(),
+    )
+    assert report.skipped == [(case.name, "unsupported deletion")]
+    assert not report.passed
+
+
+def test_selection_only_invokes_data_cli(case, tmp_path):
+    def runner(argv):
+        assert argv[:3] == [str(BUILD.python), "-m", "vepyr"]
+        Path(argv[argv.index("--output_file") + 1]).write_bytes(
+            (case / "expected_output.vcf").read_bytes()
+        )
+        return 0
+
+    code = cli.run_selection(
+        "0.9.0",
+        [case],
+        root=tmp_path,
+        preparer=lambda *_: Path("ref.fa"),
+        installer=lambda *_: BUILD,
+        runner=runner,
+    )
+    assert code == 0
+
+
+def test_release_install_is_wheel_only_and_reused(tmp_path, monkeypatch):
+    calls = []
+
+    def run(argv, **kw):
+        calls.append(argv)
+        if argv[:2] == ["uv", "venv"]:
+            python = Path(argv[-1]) / "bin/python"
+            python.parent.mkdir(parents=True)
+            python.touch()
+        return ""
+
+    monkeypatch.setattr(install, "_run", run)
+    result = install.install("0.9.0", tmp_path)
+    assert result.source == "PyPI wheel"
+    command = next(a for a in calls if a[:3] == ["uv", "pip", "install"])
+    assert command[-1] == "vepyr==0.9.0"
+    assert command[command.index("--only-binary") + 1] == ":all:"
+    assert not any(a[0] in {"git", "cargo"} or a[:2] == ["uv", "build"] for a in calls)
+    count = len(calls)
+    assert install.install("0.9.0", tmp_path) == result
+    assert len(calls) == count
+
+
+def test_git_build_verifies_sha_and_records_wheel(tmp_path, monkeypatch):
+    calls = []
+    sha = "a" * 40
+
+    def run(argv, **kw):
+        calls.append(argv)
+        if argv[:2] == ["uv", "build"]:
+            out = Path(argv[argv.index("--out-dir") + 1])
+            out.mkdir()
+            (out / "vepyr-test.whl").write_bytes(b"wheel")
+        if argv[:2] == ["git", "rev-parse"]:
+            return sha + "\n"
+        return ""
+
+    monkeypatch.setattr(install, "_run", run)
+    install.install(sha, tmp_path)
+    assert any(a[:2] == ["uv", "build"] for a in calls)
+    assert next(a for a in calls if a[:2] == ["git", "fetch"])[-1] == sha
+    assert json.loads((tmp_path / ".vepyr_cli" / sha / "INSTALL.json").read_text())[
+        "wheel_sha256"
+    ]
+
+
+def test_git_checkout_mismatch_cannot_build_or_write_receipt(tmp_path, monkeypatch):
+    calls = []
+
+    def run(argv, **kw):
+        calls.append(argv)
+        return "b" * 40 if argv[:2] == ["git", "rev-parse"] else ""
+
+    monkeypatch.setattr(install, "_run", run)
+    with pytest.raises(RunTestsError, match="requested"):
+        install.install("a" * 40, tmp_path)
+    assert not any(a[:2] == ["uv", "build"] for a in calls)
+    assert not list(tmp_path.rglob("INSTALL.json"))
+
+
+def test_cache_rejects_required_shard_omitted_from_remote_manifest(
+    tmp_path, monkeypatch
+):
+    import hashlib
+
+    from test_fetch import PINS_TOML, build_hub
+
+    from run_tests import fetch
+
+    hub = build_hub(tmp_path / "remote", contigs=("chr1", "chr21"))
+    manifest = tmp_path / "remote/merged/exon/chrom_manifest.json"
+    manifest.write_text(
+        json.dumps(
+            [
+                entry
+                for entry in json.loads(manifest.read_text())
+                if entry["dataset"] != "chr21.parquet"
+            ]
+        )
+    )
     repo = tmp_path / "repo"
     repo.mkdir()
-    (repo / "tests").mkdir()
-    gz = tmp_path / "served.fa.gz"
-    gz.write_bytes(_GZ)
-    checksum, blocks = bsd_sum(gz)
+    fasta_bytes = b">21\nA\n"
     (repo / "PINS.toml").write_text(
-        PINS_TOML + "\n[grch38_fasta]\n"
-        'repo = "https://ftp.ensembl.org/x"\n'
-        'ref = "tiny.fa.gz"\n'
-        f'sha = "{hashlib.sha256(TINY_FA).hexdigest()}"\n'
-        'role = "dataset"\n'
-        f'ensembl_sum = "{checksum} {blocks}"\n'
+        PINS_TOML
+        + '\n[grch38_fasta]\nrepo = "https://example.org"\nref = "tiny.fa.gz"\n'
+        + f'sha = "{hashlib.sha256(fasta_bytes).hexdigest()}"\n'
+        + 'ensembl_sum = "0 0"\n'
     )
-    monkeypatch.setattr(cli, "_repo_root", lambda: repo)
-    yield Harness(
-        root=tmp_path / "cache",
-        hub=build_hub(tmp_path / "hub"),
-        fasta_fetches=[],
-        cargo=CargoLog(),
-        repo=repo,
+    cache = tmp_path / "cache"
+    (cache / "fasta").mkdir(parents=True)
+    (cache / "fasta/tiny.fa").write_bytes(fasta_bytes)
+    (cache / "fasta/tiny.fa.fai").write_text("21\t1\t4\t1\t2\n")
+    original = fixtures.load(SOURCE)
+    fixture = dataclasses.replace(
+        original,
+        runs=[dict(original.runs[0], required_contigs=["chr1", "chr21"])],
     )
+    monkeypatch.setattr(fetch, "hub_lister", hub.lister)
+    monkeypatch.setattr(fetch, "hub_downloader", hub.downloader)
+    with pytest.raises(RunTestsError, match="unlisted in manifest") as failure:
+        cli.prepare_cache([fixture], cache, repo)
+    assert failure.value.code == Exit.INCOMPLETE
+    entity = cache / "116_GRCh38_merged/exon"
+    assert (entity / "chr21.parquet").is_file()
+    assert "chr21.parquet" not in (entity / fetch.MANIFEST).read_text()
 
 
-def _bare(argv: list[str], **kwargs: object) -> Outcome:
-    out, err = io.StringIO(), io.StringIO()
-    with redirect_stdout(out), redirect_stderr(err):
-        code = main(
-            argv,
-            lister=_never,
-            downloader=_never,
-            fasta_fetcher=_never,
-            head_resolver=_never,
-            **kwargs,  # type: ignore[arg-type]
-        )
-    return Outcome(code=code, stdout=out.getvalue(), stderr=err.getvalue())
+@pytest.mark.parametrize("mutation", ["tracked", "untracked"])
+def test_git_install_retry_rejects_modified_checkout(tmp_path, monkeypatch, mutation):
+    import subprocess
 
+    upstream = tmp_path / "upstream"
+    upstream.mkdir()
 
-def _never(*_args: object, **_kwargs: object) -> None:
-    raise AssertionError("this path must not touch the Hub")
+    def git(*args):
+        return subprocess.run(
+            ["git", *args], cwd=upstream, check=True, capture_output=True, text=True
+        ).stdout.strip()
 
-
-def test_help_lists_required_flags_and_not_contigs() -> None:
-    result = _bare(["--help"])
-    assert result.code == 0
-    for flag in (
-        "--cache-dir",
-        "--add-contigs",
-        "--flavours",
-        "--vepyr",
-        "--list",
-        "--dry-run",
-        "--verify",
-        "--fast",
-        "--no-trim-manifests",
-    ):
-        assert flag in result.stdout, flag
-    assert "--contigs " not in result.stdout
-
-
-def _add_data_dir(repo: Path, name: str) -> Path:
-    """Create a stub data-test directory ``tests/data/<name>/`` with a ``test.toml``."""
-    directory = repo / tests.DATA_DIR / name
-    directory.mkdir(parents=True, exist_ok=True)
-    (directory / "test.toml").write_text(f'name = "{name}"\n')
-    return directory
-
-
-def test_list_reports_zero_data_problem_targets(harness: Harness) -> None:
-    """``--list`` over a repository with no ``tests/data/<name>/`` reports none.
-
-    The count is taken against the throwaway repository of the ``harness``
-    fixture, never the real checkout: the repository does carry data-problem
-    targets, so asserting on its contents would test the tree rather than the
-    CLI, and would break whenever a target is added or removed.
-    """
-    assert not (harness.repo / tests.DATA_DIR).exists()
-    result = harness.run("--list")
-    assert result.code == 0
-    assert "0 data-problem target(s)" in result.stdout
-    assert "(none)" in result.stdout
-
-
-def test_list_reports_discovered_data_targets(
-    harness: Harness, monkeypatch: pytest.MonkeyPatch
-) -> None:
-    _add_data_dir(harness.repo, "example")
-    result = harness.run("--list")
-    assert result.code == 0
-    assert "data  example" in result.stdout
-    assert "1 data-problem target(s)" in result.stdout
-
-
-def test_bare_invocation_needs_cache_root() -> None:
-    result = _bare([])
-    assert result.code == int(Exit.USAGE)
-    assert MISSING_CACHE in result.stderr
-
-
-def test_a_glob_in_add_contigs_is_refused_before_anything_is_listed() -> None:
-    result = _bare(["--cache-dir", "/tmp/x", "--add-contigs", "chr*"])
-    assert result.code == int(Exit.USAGE)
-    assert "--add-contigs" in result.stderr
-
-
-def test_cache_dir_with_contigs_fetches_writes_provenance_and_summarises(
-    harness: Harness,
-) -> None:
-    result = harness.run(
-        "--cache-dir",
-        str(harness.root),
-        "--add-contigs",
-        "chr21",
-        "--flavours",
-        "ensembl",
+    git("init", "-q")
+    (upstream / "module.py").write_text("ORIGINAL\n")
+    git("add", "module.py")
+    git(
+        "-c",
+        "user.name=Review",
+        "-c",
+        "user.email=review@example.invalid",
+        "commit",
+        "-qm",
+        "baseline",
     )
-    assert result.code == int(Exit.OK), result.stderr
-    assert (harness.root / PROVENANCE).is_file()
-    assert (harness.root / "116_GRCh38_ensembl/variation/chr21.parquet").is_file()
-    assert harness.fasta_fetches == ["https://ftp.ensembl.org/x/tiny.fa.gz"]
-    assert (harness.root / "fasta/tiny.fa.fai").is_file()
-    assert result.summary.startswith(HEADER)
-    assert "contigs requested: chr21" in result.summary
-    assert "ensembl : chr21" in result.summary
-    assert "0 data-problem target(s)" in result.summary
-    assert "outcome          : ok (exit 0)" in result.summary
-    assert harness.cargo.calls == []
-
-
-def test_a_second_run_accumulates_and_the_summary_shows_both_contigs(
-    harness: Harness,
-) -> None:
-    common = ["--cache-dir", str(harness.root), "--flavours", "ensembl"]
-    assert harness.run(*common, "--add-contigs", "chr21").code == int(Exit.OK)
-    result = harness.run(*common, "--add-contigs", "chr22")
-    assert result.code == int(Exit.OK), result.stderr
-    assert (harness.root / "116_GRCh38_ensembl/exon/chr21.parquet").is_file()
-    assert "contigs requested: chr22" in result.summary
-    assert "ensembl : chr21, chr22" in result.summary
-
-
-def test_dry_run_lists_and_writes_nothing(harness: Harness) -> None:
-    result = harness.run(
-        "--cache-dir",
-        str(harness.root),
-        "--add-contigs",
-        "chr21",
-        "--flavours",
-        "ensembl",
-        "--dry-run",
-    )
-    assert result.code == int(Exit.OK), result.stderr
-    assert not harness.root.exists()
-    assert harness.hub.calls == [] and harness.fasta_fetches == []
-    assert "116_GRCh38_ensembl/variation/chr21.parquet" in result.stdout
-    assert "dry-run          : yes" in result.summary
-    assert "fasta            : no" in result.summary
-
-
-def test_env_cache_root_honours_dry_run(
-    harness: Harness, monkeypatch: pytest.MonkeyPatch, tmp_path: Path
-) -> None:
-    """Regression for #27: ``$VEPYR_CACHE_ROOT`` + ``--dry-run`` is a true no-op.
-
-    Pre-fix the guard read ``inv.cache_dir is not None``, so the env-supplied root fell
-    through to a real engine checkout and a real ``cargo test``.
-    """
-    harness.root.mkdir()
-    monkeypatch.setenv(tests.CACHE_ENV, str(harness.root))
-    _add_data_dir(harness.repo, "pilot")
-
-    def snapshot() -> set[Path]:
-        return {
-            path.relative_to(tmp_path)
-            for base in (harness.root, harness.repo)
-            for path in base.rglob("*")
-        }
-
-    before = snapshot()
-    result = harness.run(
-        "--flavours",
-        "ensembl",
-        "--add-contigs",
-        "chr21",
-        "--dry-run",
-        "--vepyr",
-        "0.7.0",
-    )
-    assert result.code == int(Exit.OK), result.stderr
-    assert snapshot() == before, "dry-run must not write under the cache root or repo"
-    assert harness.cargo.calls == [], "dry-run must not invoke cargo"
-    assert harness.fasta_fetches == []
-    assert "dry-run          : yes" in result.summary
-    assert "fasta            : no" in result.summary
-
-
-def test_a_revision_clash_surfaces_exit_3_through_main(harness: Harness) -> None:
-    common = ["--cache-dir", str(harness.root), "--flavours", "ensembl"]
-    assert harness.run(*common, "--add-contigs", "chr21").code == int(Exit.OK)
-    path = harness.root / PROVENANCE
-    path.write_text(path.read_text().replace(REVISIONS[Flavour.ENSEMBL], "0" * 40))
-    result = harness.run(*common, "--add-contigs", "chr21")
-    assert result.code == int(Exit.REVISION)
-    assert "revision on disk" in result.stderr
-    assert "outcome          : revision (exit 3)" in result.summary
-
-
-def test_a_contig_missing_from_one_entity_is_refused_with_exit_4(
-    harness: Harness,
-) -> None:
-    motif = harness.hub.repo_dir("biodatageeks/vepyr_116_GRCh38_ensembl") / "motif"
-    (motif / "chr22.parquet").unlink()
-    result = harness.run(
-        "--cache-dir",
-        str(harness.root),
-        "--add-contigs",
-        "chr22",
-        "--flavours",
-        "ensembl",
-    )
-    assert result.code == int(Exit.INCOMPLETE)
-    assert "motif" in result.stderr
-    assert "outcome          : incomplete (exit 4)" in result.summary
-    assert not harness.root.exists()
-
-
-def test_an_unknown_flavour_is_a_usage_error_on_the_fetch_path(
-    harness: Harness,
-) -> None:
-    result = harness.run("--cache-dir", str(harness.root), "--flavours", "bogus")
-    assert result.code == int(Exit.USAGE)
-    assert "bogus" in result.stderr
-    assert "outcome          : usage (exit 2)" in result.summary
-
-
-def test_no_trim_manifests_leaves_the_manifest_verbatim(harness: Harness) -> None:
-    result = harness.run(
-        "--cache-dir",
-        str(harness.root),
-        "--add-contigs",
-        "chr21",
-        "--flavours",
-        "ensembl",
-        "--no-trim-manifests",
-    )
-    assert result.code == int(Exit.OK), result.stderr
-    manifest = json.loads(
-        (harness.root / "116_GRCh38_ensembl/exon/chrom_manifest.json").read_text()
-    )
-    assert [e["chrom"] for e in manifest] == ["chr1", "chr21", "chr22"]
-    assert "trim manifests   : no" in result.summary
-
-
-def test_verify_is_passed_through_and_catches_a_corrupted_shard(
-    harness: Harness,
-) -> None:
-    common = ["--cache-dir", str(harness.root), "--flavours", "ensembl"]
-    assert harness.run(*common, "--add-contigs", "chr21", "--verify").code == int(
-        Exit.OK
-    )
-    (harness.root / "116_GRCh38_ensembl/variation/chr21.parquet").write_bytes(b"bad")
-    result = harness.run(*common, "--add-contigs", "chr21", "--verify")
-    assert result.code == int(Exit.VERIFY)
-    assert "outcome          : verify (exit 5)" in result.summary
-
-
-def test_fast_exports_the_env_before_the_first_hub_call(
-    harness: Harness, monkeypatch: pytest.MonkeyPatch
-) -> None:
-    monkeypatch.delenv("HF_XET_HIGH_PERFORMANCE", raising=False)
-    seen: list[str | None] = []
-    real: Callable[[str, str], list[RemoteFile]] = harness.hub.lister
-
-    def spy(repo_id: str, revision: str) -> list[RemoteFile]:
-        seen.append(os.environ.get("HF_XET_HIGH_PERFORMANCE"))
-        return real(repo_id, revision)
-
-    harness.hub.lister = spy  # type: ignore[method-assign]
-    common = [
-        "--cache-dir",
-        str(harness.root),
-        "--add-contigs",
-        "chr21",
-        "--flavours",
-        "ensembl",
-        "--dry-run",
-    ]
-    assert harness.run(*common, "--fast").code == int(Exit.OK)
-    assert seen == ["1"]
-    monkeypatch.delenv("HF_XET_HIGH_PERFORMANCE", raising=False)
-    seen.clear()
-    assert harness.run(*common).code == int(Exit.OK)
-    assert seen == [None]
-
-
-class _FakeGh:
-    """Minimal GhApi: returns a fixed vepyr Cargo.toml ladder."""
-
-    def __init__(self, cargo_toml: str, sha: str = "a" * 40) -> None:
-        self.sha = sha
-        self.cargo_toml = cargo_toml
-
-    def get(self, path: str) -> object:
-        if path.startswith(f"repos/{engine.VEPYR_REPO}/commits/"):
-            return {"sha": self.sha}
-        if "contents/Cargo.toml" in path:
-            import base64
-
-            return {
-                "encoding": "base64",
-                "content": base64.b64encode(self.cargo_toml.encode()).decode(),
-            }
-        raise engine.GhError(path, "unexpected")
-
-
-def _tiny_ladder_toml() -> str:
-    rev = "b" * 40
-    dfbf = (
-        f'datafusion-bio-function-vep = {{ git = "{engine.DFBF_GIT}", '
-        f'rev = "{rev}", features = ["cache-builder"] }}'
-    )
-    return f"""
-[package]
-name = "vepyr"
-version = "0.0.0"
-
-[dependencies]
-{dfbf}
-datafusion-bio-format-ensembl-cache = {{ git = "{engine.FORMATS_GIT}", tag = "v0.0.0" }}
-datafusion-bio-format-vcf = {{ git = "{engine.FORMATS_GIT}", tag = "v0.0.0" }}
-"""
-
-
-def _write_crate(path: Path, name: str) -> None:
-    path.mkdir(parents=True, exist_ok=True)
-    (path / "Cargo.toml").write_text(f'[package]\nname = "{name}"\nversion = "0.0.0"\n')
-
-
-def test_vepyr_run_invokes_cargo_with_cache_env(
-    harness: Harness, monkeypatch: pytest.MonkeyPatch, tmp_path: Path
-) -> None:
-    assert harness.run(
-        "--cache-dir",
-        str(harness.root),
-        "--add-contigs",
-        "chr21",
-        "--flavours",
-        "ensembl",
-    ).code == int(Exit.OK)
-    _add_data_dir(harness.repo, "pilot")
-
-    src = tmp_path / "src"
-    dfbf = src / "datafusion-bio-functions" / "datafusion" / "bio-function-vep"
-    formats = src / "datafusion-bio-formats" / "datafusion"
-    fmt_cache = formats / "bio-format-ensembl-cache"
-    fmt_vcf = formats / "bio-format-vcf"
-    _write_crate(dfbf, "datafusion-bio-function-vep")
-    _write_crate(fmt_cache, "datafusion-bio-format-ensembl-cache")
-    _write_crate(fmt_vcf, "datafusion-bio-format-vcf")
-    (src / "datafusion-bio-functions" / "Cargo.toml").write_text(
-        '[workspace]\nmembers = ["datafusion/bio-function-vep"]\n'
-    )
-    (src / "datafusion-bio-formats" / "Cargo.toml").write_text(
-        "[workspace]\nmembers = ["
-        '"datafusion/bio-format-ensembl-cache", '
-        '"datafusion/bio-format-vcf"]\n'
-    )
-
-    def fake_checkout(**kwargs: object) -> engine.Checkout:
-        name = str(kwargs["name"])
-        target = Path(str(kwargs["target"]))
-        return engine.Checkout(
-            name=name,
-            path=target,
-            git_url=str(kwargs["git_url"]),
-            rev=str(kwargs["rev"]),
-            head="d" * 40,
-        )
-
-    monkeypatch.setattr(engine, "default_src_root", lambda environ=None: src)
-    monkeypatch.setattr(engine, "_checkout_repo", fake_checkout)
-
-    result = harness.run(
-        "--cache-dir",
-        str(harness.root),
-        "--flavours",
-        "ensembl",
-        "--vepyr",
-        "0.7.0",
-        gh_api=_FakeGh(_tiny_ladder_toml()),
-    )
-    assert result.code == int(Exit.OK), result.stderr
-    assert harness.cargo.calls, "cargo should have been invoked"
-    cargo_test = [c for c in harness.cargo.calls if c[0][:2] == ["cargo", "test"]]
-    assert cargo_test
-    argv, env = cargo_test[0]
-    assert argv[argv.index("--test") + 1] == tests.RUNNER_TARGET
-    assert "pilot" not in argv
-    assert env[tests.CACHE_ENV] == str(harness.root)
-    assert "targets          : pilot" in result.summary
-    # Issue #21: no `cargo update -p <bare crate name>` pre-step — the path
-    # `[patch]` tables re-lock the ladder on their own, and bare specs were
-    # ambiguous whenever one crate name resolved to two sources.
-    assert not [c for c in harness.cargo.calls if c[0][:2] == ["cargo", "update"]]
-
-
-def test_cargo_failure_is_exit_1(
-    harness: Harness, monkeypatch: pytest.MonkeyPatch
-) -> None:
-    assert harness.run(
-        "--cache-dir",
-        str(harness.root),
-        "--add-contigs",
-        "chr21",
-        "--flavours",
-        "ensembl",
-    ).code == int(Exit.OK)
-    _add_data_dir(harness.repo, "pilot")
-    harness.cargo.test_exit_code = 1
-
-    src = harness.repo / ".run_tests" / "src"
-    ensembl_cache = "datafusion-bio-format-ensembl-cache"
-    for root, members in (
-        (
-            src / "datafusion-bio-functions",
-            [("datafusion/bio-function-vep", "datafusion-bio-function-vep")],
-        ),
-        (
-            src / "datafusion-bio-formats",
-            [
-                ("datafusion/bio-format-ensembl-cache", ensembl_cache),
-                ("datafusion/bio-format-vcf", "datafusion-bio-format-vcf"),
-            ],
-        ),
-    ):
-        member_paths = []
-        for rel, name in members:
-            path = root / rel
-            _write_crate(path, name)
-            member_paths.append(rel)
-        (root / "Cargo.toml").write_text(
-            "[workspace]\nmembers = ["
-            + ", ".join(f'"{m}"' for m in member_paths)
-            + "]\n"
-        )
-
-    def fake_checkout(**kwargs: object) -> engine.Checkout:
-        target = Path(str(kwargs["target"]))
-        return engine.Checkout(
-            name=str(kwargs["name"]),
-            path=target,
-            git_url=str(kwargs["git_url"]),
-            rev=str(kwargs["rev"]),
-            head="e" * 40,
-        )
-
-    monkeypatch.setattr(engine, "default_src_root", lambda environ=None: src)
-    monkeypatch.setattr(engine, "_checkout_repo", fake_checkout)
-    result = harness.run(
-        "--cache-dir",
-        str(harness.root),
-        "--flavours",
-        "ensembl",
-        "--vepyr",
-        "0.7.0",
-        gh_api=_FakeGh(_tiny_ladder_toml()),
-    )
-    assert result.code == int(Exit.TESTS_FAILED)
-    assert "outcome          : tests_failed (exit 1)" in result.summary
-
-
-def test_env_cache_root_runs_without_fetch(
-    harness: Harness, monkeypatch: pytest.MonkeyPatch
-) -> None:
-    assert harness.run(
-        "--cache-dir",
-        str(harness.root),
-        "--add-contigs",
-        "chr21",
-        "--flavours",
-        "ensembl",
-    ).code == int(Exit.OK)
-    monkeypatch.setenv(tests.CACHE_ENV, str(harness.root))
-    result = harness.run("--flavours", "ensembl")
-    assert result.code == int(Exit.OK), result.stderr
-    assert "0 data-problem target(s)" in result.summary
-
-
-def _stub_engine(src: Path, monkeypatch: pytest.MonkeyPatch) -> None:
-    """Lay out the three patched workspaces under ``src`` and stub the checkouts."""
-    ensembl_cache = "datafusion-bio-format-ensembl-cache"
-    for root, members in (
-        (
-            src / "datafusion-bio-functions",
-            [("datafusion/bio-function-vep", "datafusion-bio-function-vep")],
-        ),
-        (
-            src / "datafusion-bio-formats",
-            [
-                ("datafusion/bio-format-ensembl-cache", ensembl_cache),
-                ("datafusion/bio-format-vcf", "datafusion-bio-format-vcf"),
-            ],
-        ),
-    ):
-        for rel, name in members:
-            _write_crate(root / rel, name)
-        (root / "Cargo.toml").write_text(
-            "[workspace]\nmembers = ["
-            + ", ".join(f'"{rel}"' for rel, _ in members)
-            + "]\n"
-        )
-
-    def fake_checkout(**kwargs: object) -> engine.Checkout:
-        return engine.Checkout(
-            name=str(kwargs["name"]),
-            path=Path(str(kwargs["target"])),
-            git_url=str(kwargs["git_url"]),
-            rev=str(kwargs["rev"]),
-            head="f" * 40,
-        )
-
-    monkeypatch.setattr(engine, "default_src_root", lambda environ=None: src)
-    monkeypatch.setattr(engine, "_checkout_repo", fake_checkout)
-
-
-def test_relative_cache_dir_prechecks_the_directory_cargo_is_given(
-    harness: Harness, monkeypatch: pytest.MonkeyPatch, tmp_path: Path
-) -> None:
-    """A relative ``--cache-dir`` used from outside the repo root must not fork.
-
-    Regression for #26: the precheck ran in the caller's cwd while cargo is spawned
-    with ``cwd=_repo_root()``, so both sides must see the *same absolute* root.
-    """
-    elsewhere = tmp_path / "elsewhere"
-    elsewhere.mkdir()
-    monkeypatch.chdir(elsewhere)
-    assert elsewhere.resolve() != harness.repo.resolve()
-
-    relative = "./relative-cache"
-    assert harness.run(
-        "--cache-dir", relative, "--add-contigs", "chr21", "--flavours", "ensembl"
-    ).code == int(Exit.OK)
-    assert (elsewhere / "relative-cache").is_dir()
-
-    _add_data_dir(harness.repo, "pilot")
-    _stub_engine(tmp_path / "src", monkeypatch)
-
-    prechecked: list[Path] = []
-    real_precheck = tests.precheck_cache
-
-    def spy(root: Path, **kwargs: object) -> None:
-        prechecked.append(root)
-        real_precheck(root, **kwargs)  # type: ignore[arg-type]
-
-    monkeypatch.setattr(cli.tests, "precheck_cache", spy)
-
-    result = harness.run(
-        "--cache-dir",
-        relative,
-        "--flavours",
-        "ensembl",
-        "--vepyr",
-        "0.7.0",
-        gh_api=_FakeGh(_tiny_ladder_toml()),
-    )
-    assert result.code == int(Exit.OK), result.stderr
-
-    cargo_test = [c for c in harness.cargo.calls if c[0][:2] == ["cargo", "test"]]
-    assert cargo_test, "cargo test should have been invoked"
-    env_root = cargo_test[0][1][tests.CACHE_ENV]
-    assert prechecked, "the precheck should have run"
-    assert Path(env_root).is_absolute()
-    assert str(prechecked[-1]) == env_root
-    assert Path(env_root) == (elsewhere / "relative-cache").resolve()
-
-
-def test_absolute_cache_dir_and_env_root_are_unchanged(
-    harness: Harness, monkeypatch: pytest.MonkeyPatch
-) -> None:
-    """AC 2: absolute ``--cache-dir`` / ``$VEPYR_CACHE_ROOT`` behave as before."""
-    absolute = harness.root.resolve()
-    inv = cli.parse_args(["--cache-dir", str(absolute), "--flavours", "ensembl"])
-    assert cli._resolve_cache_root(inv) == absolute
-
-    env_only = cli.parse_args(["--flavours", "ensembl"])
-    monkeypatch.setenv(tests.CACHE_ENV, str(absolute))
-    assert cli._resolve_cache_root(env_only) == absolute
-    monkeypatch.delenv(tests.CACHE_ENV)
-    assert cli._resolve_cache_root(env_only) is None
-
-
-def test_precheck_follows_a_bumped_fasta_pin_name(harness: Harness) -> None:
-    """Bumping ``[grch38_fasta].ref`` moves precheck's FASTA name with the pin.
-
-    The regression this pins down: a hardcoded basename made a complete cache laid
-    out under the newly pinned name report as missing, unfixable by re-fetching.
-    """
-    assert harness.run(
-        "--cache-dir",
-        str(harness.root),
-        "--add-contigs",
-        "chr21",
-        "--flavours",
-        "ensembl",
-    ).code == int(Exit.OK)
-    fasta_dir = harness.root / "fasta"
-    for suffix in ("", ".fai"):
-        (fasta_dir / f"tiny.fa{suffix}").rename(fasta_dir / f"bumped.fa{suffix}")
-
-    pins_toml = harness.repo / "PINS.toml"
-    pins_toml.write_text(
-        pins_toml.read_text().replace('ref = "tiny.fa.gz"', 'ref = "bumped.fa.gz"')
-    )
-    assert 'ref = "bumped.fa.gz"' in pins_toml.read_text()
-
-    tests.precheck_cache(harness.root, pins_toml=pins_toml, flavours=["ensembl"])
-
-    (fasta_dir / "bumped.fa").rename(fasta_dir / "tiny.fa")
-    with pytest.raises(RunTestsError) as excinfo:
-        tests.precheck_cache(harness.root, pins_toml=pins_toml, flavours=["ensembl"])
-    assert excinfo.value.code is Exit.INCOMPLETE
-    assert "bumped.fa" in str(excinfo.value)
-
-
-def test_omitted_vepyr_resolves_master_head_and_prints_the_sha(
-    harness: Harness, monkeypatch: pytest.MonkeyPatch, tmp_path: Path
-) -> None:
-    """Issue #30 AC1/AC2: no ``--vepyr`` runs against master HEAD, sha in summary."""
-    assert harness.run(
-        "--cache-dir",
-        str(harness.root),
-        "--add-contigs",
-        "chr21",
-        "--flavours",
-        "ensembl",
-    ).code == int(Exit.OK)
-    _add_data_dir(harness.repo, "pilot")
-    _stub_engine(tmp_path / "src", monkeypatch)
-
-    master_sha = "b" * 40
-    gh = _FakeGh(_tiny_ladder_toml(), sha=master_sha)
-    asked: list[str] = []
-    inner_get = gh.get
-
-    def spy(path: str) -> object:
-        asked.append(path)
-        return inner_get(path)
-
-    monkeypatch.setattr(gh, "get", spy)
-
-    result = harness.run(
-        "--cache-dir", str(harness.root), "--flavours", "ensembl", gh_api=gh
-    )
-
-    assert result.code == int(Exit.OK), result.stderr
-    assert f"repos/{engine.VEPYR_REPO}/commits/{DEFAULT_VEPYR_REF}" in asked
-    assert [c for c in harness.cargo.calls if c[0][:2] == ["cargo", "test"]]
-    assert f"vepyr sha        : {master_sha}" in result.summary
-    assert DEFAULT_VEPYR_REF in result.summary
-    assert summary_mod.DEFAULT_MARK in result.summary
-
-
-def test_explicit_vepyr_ref_is_not_marked_default(
-    harness: Harness, monkeypatch: pytest.MonkeyPatch, tmp_path: Path
-) -> None:
-    """Issue #30 AC3: ``--vepyr REF`` still resolves REF, with no default marker."""
-    assert harness.run(
-        "--cache-dir",
-        str(harness.root),
-        "--add-contigs",
-        "chr21",
-        "--flavours",
-        "ensembl",
-    ).code == int(Exit.OK)
-    _add_data_dir(harness.repo, "pilot")
-    _stub_engine(tmp_path / "src", monkeypatch)
-
-    pinned = "c" * 40
-    result = harness.run(
-        "--cache-dir",
-        str(harness.root),
-        "--flavours",
-        "ensembl",
-        "--vepyr",
-        "0.7.0",
-        gh_api=_FakeGh(_tiny_ladder_toml(), sha=pinned),
-    )
-    assert result.code == int(Exit.OK), result.stderr
-    assert "vepyr            : 0.7.0" in result.summary
-    assert f"vepyr sha        : {pinned}" in result.summary
-    assert summary_mod.DEFAULT_MARK not in result.summary
-
-
-class _UnresolvableGh(_FakeGh):
-    """A GhApi on which no vepyr ref resolves: every call raises GhError."""
-
-    def get(self, path: str) -> object:
-        raise engine.GhError(path, "No commit found for SHA: no-such-ref")
-
-
-def test_unresolvable_vepyr_ref_exits_6(
-    harness: Harness, monkeypatch: pytest.MonkeyPatch, tmp_path: Path
-) -> None:
-    """F34: an unresolvable ``--vepyr REF`` exits 6 with the engine error line."""
-    assert harness.run(
-        "--cache-dir",
-        str(harness.root),
-        "--add-contigs",
-        "chr21",
-        "--flavours",
-        "ensembl",
-    ).code == int(Exit.OK)
-    _add_data_dir(harness.repo, "pilot")
-    _stub_engine(tmp_path / "src", monkeypatch)
-
-    result = harness.run(
-        "--cache-dir",
-        str(harness.root),
-        "--flavours",
-        "ensembl",
-        "--vepyr",
-        "no-such-ref",
-        gh_api=_UnresolvableGh(_tiny_ladder_toml()),
-    )
-    assert result.code == int(Exit.ENGINE), result.stderr
-    assert "run_tests: error (engine, exit 6):" in result.stderr
-    assert "--vepyr no-such-ref: cannot resolve on" in result.stderr
+    sha = git("rev-parse", "HEAD")
+    cache = tmp_path / "cache"
+    base = cache / ".vepyr_cli" / sha
+    builds = []
+    run_git = install._run
+
+    def run(argv, **kwargs):
+        if argv[0] == "git":
+            return run_git(argv, **kwargs)
+        if argv[:2] == ["uv", "venv"]:
+            python = Path(argv[-1]) / "bin/python"
+            python.parent.mkdir(parents=True, exist_ok=True)
+            python.touch()
+        if argv[:2] == ["uv", "build"]:
+            builds.append((Path(argv[-1]) / "module.py").read_text())
+            wheels = Path(argv[argv.index("--out-dir") + 1])
+            wheels.mkdir(exist_ok=True)
+            (wheels / "vepyr-test.whl").write_bytes(b"wheel")
+        return ""
+
+    monkeypatch.setattr(install, "REPOSITORY", str(upstream))
+    monkeypatch.setattr(install, "_run", run)
+    install.install(sha, cache)
+    receipt = base / "INSTALL.json"
+    receipt.unlink()
+    changed = "module.py" if mutation == "tracked" else "injected.py"
+    (base / "src" / changed).write_text("MUTATED\n")
+    with pytest.raises(RunTestsError, match="local changes") as failure:
+        install.install(sha, cache)
+    assert failure.value.code == Exit.ENGINE
+    assert builds == ["ORIGINAL\n"]
+    assert not receipt.exists()

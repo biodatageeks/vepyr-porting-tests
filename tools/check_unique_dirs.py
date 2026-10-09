@@ -15,7 +15,7 @@ A data-test directory is one comparison: vepyr's output body against the body of
 Header lines are not part of the key, so two directories whose oracles differ
 only in VEP's header are duplicates (the runner compares bodies only). Several
 VEP assertions that one comparison covers belong in one directory as
-``[[property]]`` tables of its ``test.toml``, not in copies of the directory.
+``[[tests]]`` tables of its ``test.toml``, not in copies of the directory.
 
 ``DIR`` is a data root: every immediate subdirectory holding a ``test.toml`` is
 a data-test. One ``DUPLICATE <n> <dir> <dir> ...`` line is printed per group of

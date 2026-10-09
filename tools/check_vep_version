@@ -13,15 +13,14 @@ The pin is ``tools/vep_pin.toml`` (VEP software 116.2, cache 116). For every
 ``<root>/tests/data/*/test.toml`` the check requires:
 
 * ``[vep] image`` equal to the pinned digest reference;
-* ``[origin] vep_test_pinned`` and ``vep_subject`` to be upstream permalinks at
-  the pinned commit, and ``vep_test`` at the pinned tag or commit; in a
-  multi-property directory (#238) the same holds for every ``[[property]]``;
+* every ``[[tests]] vep_test`` to name the pinned release tag; external
+  single-test ``[origin]`` tables follow the same rule;
 * none of the legacy literals (:data:`LEGACY_PATTERN`) in the file.
 
 A directory named in the **temporary** allow-list
 ``tools/vep_pin_legacy_allowlist.txt`` (one name per line; a missing file is an
 empty list) is exempt, but must still record the legacy image digest: the list
-names exactly :data:`LEGACY_COUNT` data-tests blessed with VEP 116.0 before the
+names exactly :data:`LEGACY_COUNT` fixtures blessed with VEP 116.0 before the
 pin, and is deleted by #237 when they are re-blessed. An entry whose test was
 re-blessed therefore fails, forcing its removal.
 
@@ -60,8 +59,8 @@ LEGACY_DIGEST: Final[str] = (
 )
 """Digest of ``ensemblorg/ensembl-vep:release_116.0``, the pre-pin image."""
 
-LEGACY_COUNT: Final[int] = 16
-"""Size of the allow-list while it exists (#239 AC7a); #237 deletes it."""
+LEGACY_COUNT: Final[int] = 15
+"""15 legacy fixtures contain 16 tests after grouping the HGVS/Runner pair."""
 
 LEGACY_PATTERN: Final[str] = r"release_116\.0|release/116\.0|57ea5c52"
 """Literals naming VEP 116.0 (image tag, upstream tag, upstream commit)."""
@@ -123,14 +122,6 @@ def read_allowlist(path: Path) -> list[str]:
     return [line.strip() for line in text.splitlines() if line.strip()]
 
 
-def _commit_of(url: Any) -> str | None:
-    """The ``blob/<ref>/`` component of an upstream permalink, else ``None``."""
-    if not isinstance(url, str) or not url.startswith(f"{UPSTREAM_REPO_URL}/blob/"):
-        return None
-    rest = url.removeprefix(f"{UPSTREAM_REPO_URL}/blob/")
-    return rest.split("/", 1)[0] if "/" in rest else None
-
-
 def check_allowlist(data: Path, names: Sequence[str]) -> Iterator[Violation]:
     """Check the allow-list itself (#239 AC7a, AC7b).
 
@@ -164,15 +155,15 @@ def check_allowlist(data: Path, names: Sequence[str]) -> Iterator[Violation]:
 
 
 def _provenance(doc: dict[str, Any]) -> list[tuple[str, dict[str, Any]]]:
-    """The link tables of a ``test.toml``: each ``[[property]]``, else ``[origin]``.
+    """The link tables of a ``test.toml``: each ``[[tests]]``, else ``[origin]``.
 
     Returns:
         ``(label, table)`` pairs; a missing or mistyped table is checked as empty.
     """
-    match doc.get("property"):
+    match doc.get("tests"):
         case list() as props if props:
             return [
-                (f"[[property]] {p.get('id')!r}", p if isinstance(p, dict) else {})
+                (f"[[tests]] {p.get('id')!r}", p if isinstance(p, dict) else {})
                 for p in props
             ]
     origin = doc.get("origin", {})
@@ -182,26 +173,27 @@ def _provenance(doc: dict[str, Any]) -> list[tuple[str, dict[str, Any]]]:
 def _check_links(
     where: str, label: str, links: dict[str, Any], pin: VepPin
 ) -> Iterator[Violation]:
-    """Check the upstream links of one ``[origin]`` / ``[[property]]`` table."""
-    for key in ("vep_test_pinned", "vep_subject"):
-        if (ref := _commit_of(links.get(key))) != pin.upstream_commit:
-            yield Violation(
-                where,
-                f"{label} {key} is at {ref!r}, pin is commit {pin.upstream_commit}",
-            )
+    """Check the upstream links of one ``[origin]`` / ``[[tests]]`` table."""
+    for key in (
+        "vep_test_pinned",
+        "vep_subject",
+        "ledger",
+        "issue",
+        "source_assertions",
+    ):
+        if key in links:
+            yield Violation(where, f"{label} obsolete key {key!r}; keep only vep_test")
     match links.get("vep_test"):
-        case str() as url if url.startswith(
-            tuple(
-                f"{UPSTREAM_REPO_URL}/blob/{ref}/"
-                for ref in (pin.upstream_tag, pin.upstream_commit)
-            )
+        case str() as url if re.fullmatch(
+            re.escape(f"{UPSTREAM_REPO_URL}/blob/{pin.upstream_tag}/t/")
+            + r"[^/\s?#]+\.t(?:#L[0-9]+(?:-L[0-9]+)?)?",
+            url,
         ):
             pass
         case url:
             yield Violation(
                 where,
-                f"{label} vep_test {url!r} is not at tag {pin.upstream_tag} "
-                f"or commit {pin.upstream_commit}",
+                f"{label} vep_test {url!r} is not a test URL at tag {pin.upstream_tag}",
             )
 
 

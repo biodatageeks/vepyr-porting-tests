@@ -6,6 +6,7 @@ tiny shell stubs placed alone on ``PATH``; the caches are built in ``tmp_path``.
 
 from __future__ import annotations
 
+import shutil
 import subprocess
 import time
 from collections.abc import Callable
@@ -67,7 +68,7 @@ def run(capsys: pytest.CaptureFixture[str], *argv: str) -> tuple[int, dict[str, 
 
 
 def vepyr_cache(
-    root: Path, flavours: tuple[fetch.Flavour, ...] = (fetch.Flavour.ENSEMBL,)
+    root: Path, flavours: tuple[fetch.Flavour, ...] = (fetch.Flavour.MERGED,)
 ) -> Path:
     """A minimal cache that satisfies the real ``precheck_cache`` for ``PINS.toml``.
 
@@ -91,6 +92,8 @@ def vepyr_cache(
     fetch.write_provenance(root, fetch.Provenance(datasets=records))
     for f in flavours:
         (root / f.dir_name).mkdir()
+        for name in fetch.CACHE_METADATA:
+            (root / f.dir_name / name).write_text("metadata")
     (root / fetch.FASTA_DIR).mkdir()
     for suffix in ("", ".fai"):
         (root / fetch.FASTA_DIR / f"{fasta_pin.fa_name}{suffix}").write_text(">21\nA\n")
@@ -107,7 +110,7 @@ def test_no_optional_flags_three_skips_exit0(
         "vep cache",
         "vep fasta",
     ]
-    assert sum(line.startswith("PASS") for line in lines.values()) == 6
+    assert sum(line.startswith("PASS") for line in lines.values()) == 5
 
 
 def test_wrong_bcftools_banner_fails(
@@ -127,7 +130,7 @@ def test_wrong_htslib_fails(healthy: Stub, capsys: pytest.CaptureFixture[str]) -
     assert code == 1 and "htslib version mismatch" in lines["bcftools pin"]
 
 
-@pytest.mark.parametrize("tool", ["uv", "cargo", "git", "bcftools", "docker"])
+@pytest.mark.parametrize("tool", ["uv", "git", "bcftools", "docker"])
 def test_missing_tool_fails(
     tool: str, healthy: Stub, tmp_path: Path, capsys: pytest.CaptureFixture[str]
 ) -> None:
@@ -198,7 +201,7 @@ def test_hollow_vepyr_cache_fails_naming_provenance(
 ) -> None:
     hollow = tmp_path / "hollow"
     (hollow / "fasta").mkdir(parents=True)
-    (hollow / "116_GRCh38_ensembl").mkdir()
+    (hollow / "116_GRCh38_merged").mkdir()
     for suffix in ("", ".fai"):
         (
             hollow / "fasta" / f"Homo_sapiens.GRCh38.dna.primary_assembly.fa{suffix}"
@@ -230,18 +233,16 @@ def test_vepyr_cache_without_dataset_dir_fails(
     healthy: Stub, tmp_path: Path, capsys: pytest.CaptureFixture[str]
 ) -> None:
     """Provenance and FASTA pass ``precheck_cache``, a recorded dataset dir is gone."""
-    root = vepyr_cache(
-        tmp_path / "cache", (fetch.Flavour.ENSEMBL, fetch.Flavour.REFSEQ)
-    )
-    (root / fetch.Flavour.REFSEQ.dir_name).rmdir()
+    root = vepyr_cache(tmp_path / "cache", (fetch.Flavour.MERGED, fetch.Flavour.REFSEQ))
+    shutil.rmtree(root / fetch.Flavour.REFSEQ.dir_name)
     code, lines = run(capsys, "--vepyr-cache-root", str(root))
     assert code == 1
     line = lines["vepyr cache"]
-    assert line.startswith("FAIL vepyr cache: dataset directory")
+    assert line.startswith("FAIL vepyr cache:")
     assert str(root / "116_GRCh38_refseq") in line and "missing" in line
 
 
-def test_refseq_only_vepyr_cache_fails_naming_ensembl(
+def test_refseq_only_vepyr_cache_fails_naming_merged(
     healthy: Stub, tmp_path: Path, capsys: pytest.CaptureFixture[str]
 ) -> None:
     """Super-review F1 on PR #181: the data-tests' flavour is required regardless."""
@@ -249,43 +250,38 @@ def test_refseq_only_vepyr_cache_fails_naming_ensembl(
     code, lines = run(capsys, "--vepyr-cache-root", str(root))
     assert code == 1
     line = lines["vepyr cache"]
-    assert line.startswith("FAIL vepyr cache: dataset directory")
-    assert "required: the data-tests run on the ensembl flavour" in line
-    assert str(root / check_env.REQUIRED_FLAVOUR.dir_name) in line
-    assert "116_GRCh38_ensembl" in line
+    assert line.startswith("FAIL vepyr cache:")
+    assert "flavour merged never fetched" in line
+    assert str(root) in line
 
 
-def test_ensembl_and_refseq_vepyr_cache_passes(
+def test_merged_and_refseq_vepyr_cache_passes(
     healthy: Stub, tmp_path: Path, capsys: pytest.CaptureFixture[str]
 ) -> None:
-    root = vepyr_cache(
-        tmp_path / "cache", (fetch.Flavour.ENSEMBL, fetch.Flavour.REFSEQ)
-    )
+    root = vepyr_cache(tmp_path / "cache", (fetch.Flavour.MERGED, fetch.Flavour.REFSEQ))
     code, lines = run(capsys, "--vepyr-cache-root", str(root))
     assert code == 0
     assert lines["vepyr cache"].startswith("PASS vepyr cache:")
-    assert "116_GRCh38_ensembl, 116_GRCh38_refseq" in lines["vepyr cache"]
+    assert "116_GRCh38_merged, 116_GRCh38_refseq" in lines["vepyr cache"]
 
 
-def test_ensembl_recorded_but_dir_missing_fails(
+def test_merged_recorded_but_dir_missing_fails(
     healthy: Stub, tmp_path: Path, capsys: pytest.CaptureFixture[str]
 ) -> None:
-    root = vepyr_cache(
-        tmp_path / "cache", (fetch.Flavour.ENSEMBL, fetch.Flavour.REFSEQ)
-    )
-    (root / fetch.Flavour.ENSEMBL.dir_name).rmdir()
+    root = vepyr_cache(tmp_path / "cache", (fetch.Flavour.MERGED, fetch.Flavour.REFSEQ))
+    shutil.rmtree(root / fetch.Flavour.MERGED.dir_name)
     code, lines = run(capsys, "--vepyr-cache-root", str(root))
     assert code == 1
-    assert "116_GRCh38_ensembl" in lines["vepyr cache"]
+    assert "116_GRCh38_merged" in lines["vepyr cache"]
     assert lines["vepyr cache"].startswith("FAIL vepyr cache:")
 
 
 def test_vepyr_cache_dataset_dirs_follow_provenance(tmp_path: Path) -> None:
     """Directory names come from the recorded flavours, not a hard-coded list."""
     root = vepyr_cache(tmp_path / "cache")
-    assert check_env.dataset_dirs(root) == [root / "116_GRCh38_ensembl"]
+    assert check_env.dataset_dirs(root) == [root / "116_GRCh38_merged"]
     prov = root / fetch.PROVENANCE
-    prov.write_text(prov.read_text().replace('"ensembl"', '"refseq"'))
+    prov.write_text(prov.read_text().replace('"merged"', '"refseq"'))
     assert check_env.dataset_dirs(root) == [root / "116_GRCh38_refseq"]
 
 
@@ -296,7 +292,7 @@ def test_vepyr_cache_wrong_revision_fails(
     prov = root / fetch.PROVENANCE
     pins, _ = fetch.load_dataset_pins(REPO / "PINS.toml")
     prov.write_text(
-        prov.read_text().replace(pins[fetch.Flavour.ENSEMBL].revision, "0" * 40)
+        prov.read_text().replace(pins[fetch.Flavour.MERGED].revision, "0" * 40)
     )
     code, lines = run(capsys, "--vepyr-cache-root", str(root))
     assert code == 1 and "PINS.toml" in lines["vepyr cache"]

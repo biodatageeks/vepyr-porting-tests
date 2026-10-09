@@ -10,14 +10,14 @@
     tools/build_test_index [--root DIR] [--out FILE] [--check]
 
 Walks ``<root>/*/test.toml`` (default root ``tests/data``) sorted by directory
-name and writes one row per *property* to ``<out>`` (default ``tests/INDEX.csv``)
-(#238): a directory with ``[[property]]`` tables gives one row per table, in file
-order; a single-property directory (``[origin]``) gives one row whose ``id`` is
+name and writes one row per *test* to ``<out>`` (default ``tests/INDEX.csv``)
+(#238): a directory with ``[[tests]]`` tables gives one row per table, in file
+order; a single-test directory (``[origin]``) gives one row whose ``id`` is
 the directory name and whose ``description`` and links come from the top-level
 ``description`` and ``[origin]``. The ``dir`` column names the directory (the one
 comparison), so rows sharing a ``dir`` share ``body_md5``. Every column comes
 from a real ``test.toml`` key (schema: #80/#87/#238, enforced by
-``tests/data_dirs.rs``); the index is a generated artefact and is never edited
+``tools/run_tests/fixtures.py``); the index is a generated artefact and is never edited
 by hand.
 
 Format: RFC 4180 (``csv``, ``QUOTE_MINIMAL``), LF line endings, UTF-8 without
@@ -49,6 +49,8 @@ from dataclasses import dataclass
 from pathlib import Path
 from typing import Any, Final
 
+from fixture_skip import skip_reason
+
 REPO_ROOT: Final[Path] = Path(__file__).resolve().parent.parent
 DEFAULT_ROOT: Final[Path] = REPO_ROOT / "tests" / "data"
 DEFAULT_OUT: Final[Path] = REPO_ROOT / "tests" / "INDEX.csv"
@@ -61,7 +63,7 @@ class TestTomlError(Exception):
 type Extractor = Callable[[dict[str, Any], Path], str]
 """Reads one cell from a row's view: the directory's ``test.toml`` with the
 ``origin`` table and the top-level ``id`` / ``description`` set to the row's
-property (see :func:`property_views`)."""
+test (see :func:`test_views`)."""
 
 
 def _lookup(
@@ -107,23 +109,6 @@ def _str(table: str | None, key: str, *, required: bool = True) -> Extractor:
     return extract
 
 
-def _int(table: str, key: str) -> Extractor:
-    """Column extractor for an optional integer key (empty cell when absent)."""
-
-    def extract(doc: dict[str, Any], path: Path) -> str:
-        match _lookup(doc, path, table, key, required=False):
-            case None:
-                return ""
-            case bool():
-                raise TestTomlError(f"{path}: key '{table}.{key}' must be an integer")
-            case int() as n:
-                return str(n)
-            case _:
-                raise TestTomlError(f"{path}: key '{table}.{key}' must be an integer")
-
-    return extract
-
-
 def _contigs(doc: dict[str, Any], path: Path) -> str:
     """``[vepyr] required_contigs``, ``;``-joined."""
     value = _lookup(doc, path, "vepyr", "required_contigs", required=True)
@@ -143,14 +128,23 @@ def _runs(doc: dict[str, Any], path: Path) -> str:
             raise TestTomlError(f"{path}: key 'vepyr_run' must be an array of tables")
 
 
+def _skip_reason(doc: dict[str, Any], path: Path) -> str:
+    """Retain skipped coverage in the index without implying it passed."""
+    try:
+        return skip_reason(doc) or ""
+    except ValueError as exc:
+        raise TestTomlError(f"{path}: {exc}") from exc
+
+
 COLUMNS: Final[tuple[tuple[str, Extractor], ...]] = (
     ("dir", _str(None, "name")),
     ("id", _str(None, "id")),
     ("description", _str(None, "description")),
-    ("vep_test_pinned", _str("origin", "vep_test_pinned")),
-    ("vep_subject", _str("origin", "vep_subject")),
-    ("ledger", _str("origin", "ledger", required=False)),
-    ("issue", _int("origin", "issue")),
+    ("skip_reason", _skip_reason),
+    ("vep_test", _str("origin", "vep_test")),
+    ("cache_source", _str("vep", "cache_source")),
+    ("vep_cache", _str("vep", "vep_cache")),
+    ("fasta_source", _str("vep", "fasta_source")),
     ("required_contigs", _contigs),
     ("vepyr_runs", _runs),
     ("body_md5", _str("compare", "body_md5")),
@@ -158,22 +152,22 @@ COLUMNS: Final[tuple[tuple[str, Extractor], ...]] = (
 """Column name and extractor, in output order (issue #92)."""
 
 
-def property_views(doc: dict[str, Any], path: Path) -> list[dict[str, Any]]:
-    """Return one view of ``doc`` per property, for the column extractors.
+def test_views(doc: dict[str, Any], path: Path) -> list[dict[str, Any]]:
+    """Return one view of ``doc`` per test, for the column extractors.
 
     Args:
         doc: The parsed ``test.toml``.
         path: The file, for error messages.
 
     Returns:
-        For each ``[[property]]`` table (or, without them, for the directory
+        For each ``[[tests]]`` table (or, without them, for the directory
         itself), ``doc`` with ``id``, ``description`` and ``origin`` taken from
-        that property.
+        that test.
 
     Raises:
-        TestTomlError: ``property`` is not an array of tables.
+        TestTomlError: ``test`` is not an array of tables.
     """
-    match doc.get("property"):
+    match doc.get("tests"):
         case None:
             return [{**doc, "id": doc.get("name")}]
         case list() as props if props and all(isinstance(p, dict) for p in props):
@@ -188,13 +182,13 @@ def property_views(doc: dict[str, Any], path: Path) -> list[dict[str, Any]]:
             ]
         case _:
             raise TestTomlError(
-                f"{path}: key 'property' must be a non-empty array of tables"
+                f"{path}: key 'tests' must be a non-empty array of tables"
             )
 
 
 @dataclass(frozen=True, slots=True)
 class Row:
-    """One property's index row (``slug`` = its directory)."""
+    """One test's index row (``slug`` = its directory)."""
 
     slug: str
     cells: tuple[str, ...]
@@ -230,7 +224,7 @@ def read_rows(root: Path) -> list[Row]:
             Row(
                 test_dir.name, tuple(extract(view, toml_path) for _, extract in COLUMNS)
             )
-            for view in property_views(doc, toml_path)
+            for view in test_views(doc, toml_path)
         )
     return rows
 
@@ -304,7 +298,7 @@ def main(argv: Sequence[str] | None = None) -> int:
 
     if not args.check:
         args.out.write_bytes(text.encode("utf-8"))
-        print(f"build_test_index: wrote {args.out} ({len(rows)} property rows)")
+        print(f"build_test_index: wrote {args.out} ({len(rows)} test rows)")
         return 0
 
     try:
@@ -322,7 +316,7 @@ def main(argv: Sequence[str] | None = None) -> int:
         )
         return 1
     if committed == text:
-        print(f"build_test_index: {args.out} is up to date ({len(rows)} property rows)")
+        print(f"build_test_index: {args.out} is up to date ({len(rows)} test rows)")
         return 0
     print(
         f"build_test_index: {args.out} is stale or hand-edited; "

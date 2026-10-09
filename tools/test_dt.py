@@ -156,7 +156,6 @@ def runner_calls(
     config = tmp_path / "dt.toml"
     config.write_text(
         f'vepyr_cache_root = "{tmp_path / "cache"}"\n'
-        f'cargo_target_root = "{tmp_path / "targets"}"\n'
         f'scratch_root = "{tmp_path / "scratch"}"\n'
         f'main_checkout = "{tmp_path / "main"}"\n',
         encoding="utf-8",
@@ -179,7 +178,7 @@ def fake_run_tests(
     slug = VERIFY_DIR.name
 
     def fake(args: list[str], *a: Any, **kw: Any) -> subprocess.CompletedProcess[str]:
-        if not (args and args[0].endswith("run_tests")):
+        if not (len(args) > 2 and args[1] == "-c" and "run_selection" in args[2]):
             return real(args, *a, **kw)
         calls.append(list(args))
         match results[len(calls) - 1]:
@@ -189,7 +188,7 @@ def fake_run_tests(
                 out = "vepyr sha        : " + "a" * 40 + "\n"
                 return subprocess.CompletedProcess(args, 0, out, "")
             case code:
-                out = f"[{slug}] body md5 mismatch\n"
+                out = f"MISMATCH {slug} expected=aaa actual=bbb\n"
                 return subprocess.CompletedProcess(args, code, out, "")
 
     monkeypatch.setattr(dt.subprocess, "run", fake)
@@ -206,18 +205,18 @@ def test_verify_runner_exit0(
     runner_calls: list[list[str]],
     capsys: pytest.CaptureFixture[str],
 ) -> None:
-    fake_run_tests(dt, monkeypatch, runner_calls, [0, 1])
-    assert verify(dt, "--vepyr", "master") == 0
+    fake_run_tests(dt, monkeypatch, runner_calls, [0, 8])
+    assert verify(dt, "--vepyr", "0.9.0") == 0
     out = capsys.readouterr().out
     assert len(runner_calls) == 2
     for argv, copy in zip(runner_calls, ("pos", "neg"), strict=True):
-        assert argv[0] == str(REPO / "run_tests")
-        assert argv[1] == "--only" and argv[3:] == ["--vepyr", "master"]
-        only = Path(argv[2])
+        assert argv[1] == "-c" and "run_selection" in argv[2]
+        assert argv[3] == "0.9.0"
+        only = Path(argv[4])
         assert only.name == VERIFY_DIR.name and only.parent.name == copy
         assert not only.is_relative_to(REPO)
     assert "PASS runner: exit 0; vepyr sha : " + "a" * 40 in out
-    assert "PASS runner-negative: exit 1, 1 'body md5 mismatch' block(s)" in out
+    assert "PASS runner-negative: exit 8, 1 named-test mismatch(es)" in out
     assert "PASS summary: 9/9 checks passed" in out
 
 
@@ -225,7 +224,7 @@ def test_verify_runner_exit1(
     dt: ModuleType, monkeypatch: pytest.MonkeyPatch, runner_calls: list[list[str]]
 ) -> None:
     fake_run_tests(dt, monkeypatch, runner_calls, [1])
-    assert verify(dt, "--vepyr", "master") == 1
+    assert verify(dt, "--vepyr", "0.9.0") == 1
     assert len(runner_calls) == 1  # negative control not run after a failed positive
 
 
@@ -239,14 +238,14 @@ def test_verify_runner_exit2(
     assert verify(dt) == 2
     assert "--vepyr" in capsys.readouterr().err
     assert runner_calls == []
-    assert verify(dt, "--no-cargo") == 0  # --no-cargo needs no --vepyr
+    assert verify(dt, "--no-runner") == 0  # --no-runner needs no --vepyr
 
 
 def test_verify_runner_exit3(
     dt: ModuleType, monkeypatch: pytest.MonkeyPatch, runner_calls: list[list[str]]
 ) -> None:
     fake_run_tests(dt, monkeypatch, runner_calls, [OSError("cannot start")])
-    assert verify(dt, "--vepyr", "master") == 3
+    assert verify(dt, "--vepyr", "0.9.0") == 3
 
 
 # ---------------------------------------------------------------- index check (#151)
@@ -261,6 +260,7 @@ def index_repo(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> Path:
     repo = tmp_path / "repo"
     (repo / "tools").mkdir(parents=True)
     shutil.copy2(REPO / "tools" / "build_test_index", repo / "tools")
+    shutil.copy2(REPO / "tools" / "fixture_skip.py", repo / "tools")
     (repo / "tests" / "data" / VERIFY_DIR.name).mkdir(parents=True)
     shutil.copy2(VERIFY_DIR / "test.toml", repo / "tests" / "data" / VERIFY_DIR.name)
     subprocess.run([repo / "tools" / "build_test_index"], cwd=repo, check=True)
@@ -320,7 +320,8 @@ def checkout(dt: ModuleType, tmp_path: Path, monkeypatch: pytest.MonkeyPatch) ->
     repo = tmp_path / "repo"
     (repo / "tools").mkdir(parents=True)
     (repo / "tests").mkdir()
-    for rel in ("bless", "tools/normalize_input", "tests/data_dirs.rs"):
+    for rel in ("bless", "tools/normalize_input", "tools/run_tests/fixtures.py"):
+        (repo / rel).parent.mkdir(parents=True, exist_ok=True)
         (repo / rel).write_text("")
     stub = repo / "check_env"
     stub.write_text(
@@ -342,7 +343,6 @@ def checkout(dt: ModuleType, tmp_path: Path, monkeypatch: pytest.MonkeyPatch) ->
         f'vep_cache_dir = "{paths["vep_cache"]}"\nvep_fasta = "{paths["fa"]}"\n'
         f'docker_shared_root = "{paths["docker"]}"\n'
         f'vepyr_cache_root = "{paths["vepyr"]}"\n'
-        f'cargo_target_root = "{tmp_path / "targets"}"\n'
         f'main_checkout = "{paths["main"]}"\n'
     )
     monkeypatch.setenv("DT_CONFIG", str(config))
@@ -428,7 +428,8 @@ def fake_repo(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> Path:
     repo = root / "repo"
     (repo / "tools").mkdir(parents=True)
     (repo / "tests" / "data").mkdir(parents=True)
-    (repo / "tests" / "data_dirs.rs").write_text("", encoding="utf-8")
+    (repo / "tools/run_tests").mkdir(parents=True, exist_ok=True)
+    (repo / "tools/run_tests/fixtures.py").write_text("", encoding="utf-8")
     shutil.copy2(REPO / "tools" / "workspace_guard", repo / "tools" / "workspace_guard")
     for rel, text in (
         ("bless", "#!/bin/sh\nexit 3\n"),

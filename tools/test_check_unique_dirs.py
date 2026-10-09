@@ -1,7 +1,7 @@
 """Tests for ``tools/check_unique_dirs`` and ``tools/merge_duplicate_dirs`` (#238).
 
-Fixtures are copies of the data_dirs self-test directory
-(``tests/fixtures/data_dirs_selftest/case``) in ``tmp_path``.
+Fixtures are copies of the synthetic deduplication case
+(``tools/fixtures/check_unique_dirs/case``) in ``tmp_path``.
 """
 
 from __future__ import annotations
@@ -21,7 +21,7 @@ from merge_duplicate_dirs import render_test_toml
 
 REPO: Final[Path] = Path(__file__).resolve().parent.parent
 TOOL: Final[Path] = REPO / "tools" / "check_unique_dirs"
-CASE: Final[Path] = REPO / "tests" / "fixtures" / "data_dirs_selftest" / "case"
+CASE: Final[Path] = REPO / "tools" / "fixtures" / "check_unique_dirs" / "case"
 
 
 def _copy(root: Path, name: str, *, toml_edit: tuple[str, str] | None = None) -> Path:
@@ -112,10 +112,10 @@ def test_groups_sorted_by_size_then_name(tmp_path: Path) -> None:
 # ----------------------------------------------------------------------------
 
 
-def test_merge_keeps_first_dir_and_every_property(tmp_path: Path) -> None:
+def test_merge_keeps_first_dir_and_every_test(tmp_path: Path) -> None:
     root = tmp_path / "data"
     for name in ("m_b", "m_a", "m_c"):
-        _copy(root, name, toml_edit=("issue = 80", f'ledger = "L{name}"\nissue = 80'))
+        _copy(root, name, toml_edit=("#L244-L292", f"#L{len(name)}"))
     _copy(root, "lone", toml_edit=("chr1", "chr9"))
     kept = root / "m_a"
     before = {f: _sha(kept / f) for f in ("input.vcf", "expected_output.vcf")}
@@ -125,10 +125,10 @@ def test_merge_keeps_first_dir_and_every_property(tmp_path: Path) -> None:
     assert {f: _sha(kept / f) for f in before} == before
     doc = tomllib.loads((kept / "test.toml").read_text())
     assert "origin" not in doc
-    assert [p["id"] for p in doc["property"]] == ["m_a", "m_b", "m_c"]
-    assert doc["property"][1]["ledger"] == "Lm_b"
-    assert doc["property"][1]["issue"] == 80
-    assert doc["property"][0]["description"].startswith("Synthetic fixture")
+    assert [p["id"] for p in doc["tests"]] == ["m_a", "m_b", "m_c"]
+    assert doc["tests"][1]["vep_test"].endswith("#L3")
+    assert "issue" not in doc["tests"][1]
+    assert doc["tests"][0]["description"].startswith("Synthetic fixture")
     assert doc["name"] == "m_a"
     assert main([str(root)]) == 0
     rows = index.read_text().splitlines()
@@ -145,7 +145,7 @@ def test_merge_keeps_first_dir_and_every_property(tmp_path: Path) -> None:
 
 
 def test_merge_into_an_already_merged_dir(tmp_path: Path) -> None:
-    """Re-run after more duplicates appear (e.g. after #237): properties carry over."""
+    """Re-run after more duplicates appear (e.g. after #237): tests carry over."""
     root = tmp_path / "data"
     for name in ("a", "b"):
         _copy(root, name)
@@ -153,7 +153,7 @@ def test_merge_into_an_already_merged_dir(tmp_path: Path) -> None:
     _copy(root, "c")
     assert merge_main([str(root)]) == 0
     doc = tomllib.loads((root / "a" / "test.toml").read_text())
-    assert [p["id"] for p in doc["property"]] == ["a", "b", "c"]
+    assert [p["id"] for p in doc["tests"]] == ["a", "b", "c"]
 
 
 def test_merge_excluded_flavour_is_left_alone(tmp_path: Path) -> None:
@@ -181,11 +181,11 @@ def test_merge_refuses_colliding_ids(tmp_path: Path) -> None:
         _copy(root, name)
     assert merge_main([str(root)]) == 0
     c = _copy(root, "c")
-    props = (root / "a" / "test.toml").read_text().split("[[property]]", 1)[1]
+    props = (root / "a" / "test.toml").read_text().split("[[tests]]", 1)[1]
     text = (c / "test.toml").read_text()
     start = text.index("[origin]")
     end = text.index("\n[", start + 1) + 1
-    (c / "test.toml").write_text(text[:start] + text[end:] + "\n[[property]]" + props)
+    (c / "test.toml").write_text(text[:start] + text[end:] + "\n[[tests]]" + props)
     assert merge_main([str(root)]) == 1
     assert (root / "c").is_dir()
 
@@ -198,8 +198,37 @@ def test_render_keeps_other_lines_and_comments() -> None:
     assert out.startswith(text.split('description = "')[0])
     assert 'description = "Top."\n' in out
     assert out.endswith(
-        '[[property]]\nid = "case"\ndescription = "D."\nvep_test = "u"\nissue = 1\n'
+        '[[tests]]\nid = "case"\ndescription = "D."\nvep_test = "u"\nissue = 1\n'
     )
     for table in ("\n[input]\n", "\n[vep]\n", "\n[vepyr]\n", "\n[compare]\n"):
         section = text.split(table, 1)[1].split("\n[", 1)[0]
         assert table + section in out
+
+
+@pytest.mark.parametrize("other_reason", [None, "Another reason"])
+def test_merge_refuses_conflicting_skip_policy(
+    tmp_path: Path, other_reason: str | None
+) -> None:
+    root = tmp_path / "data"
+    for name, reason in [("a", "Unsupported symbolic deletion"), ("b", other_reason)]:
+        directory = _copy(root, name)
+        path = directory / "test.toml"
+        if reason is not None:
+            path.write_text(f'skip_reason = "{reason}"\n' + path.read_text())
+    before = {p: p.read_bytes() for p in root.rglob("*") if p.is_file()}
+    assert main([str(root)]) == 1  # Still a duplicate comparison.
+    assert merge_main([str(root)]) == 1
+    assert {p: p.read_bytes() for p in root.rglob("*") if p.is_file()} == before
+
+
+def test_merge_preserves_shared_skip_reason(tmp_path: Path) -> None:
+    for name in ["a", "b"]:
+        directory = _copy(tmp_path, name)
+        path = directory / "test.toml"
+        path.write_text(
+            'skip_reason = "Unsupported symbolic deletion"\n' + path.read_text()
+        )
+    assert merge_main([str(tmp_path)]) == 0
+    doc = tomllib.loads((tmp_path / "a" / "test.toml").read_text())
+    assert doc["skip_reason"] == "Unsupported symbolic deletion"
+    assert len(doc["tests"]) == 2

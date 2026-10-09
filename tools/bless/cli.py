@@ -31,6 +31,8 @@ from dataclasses import dataclass
 from pathlib import Path
 from typing import Final
 
+import fixture_sources
+
 from bless import BlessError, ensembl, testdir, vep
 
 #: Default parent of the per-run Docker work directory: ``<repo-root>/.bless/``,
@@ -382,8 +384,11 @@ def _bless(
                     "image": pinned,
                     "command": vep.vep_command(extra),
                     "date": dt.datetime.now(dt.UTC).date().isoformat(),
-                    "cache_source": cprov.source,
-                    "cache_checksum": cprov.checksum,
+                    "cache_source": fixture_sources.cache_source(
+                        test.table("vepyr").get("flavour", "ensembl")
+                    ),
+                    "vep_cache": cprov.source,
+                    "vep_cache_checksum": cprov.checksum,
                     "fasta_source": fprov.source,
                     "fasta_checksum": fprov.checksum,
                 },

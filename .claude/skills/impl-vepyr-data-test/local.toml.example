@@ -30,17 +30,11 @@ vep_fasta = "/path/to/GRCh38.fa"
 # creates and deletes a fresh `.bless-work-<slug>-*` directory under it per bless/reproduce.
 docker_shared_root = "/path/to/docker-shared"
 
-# DT_VEPYR_CACHE_ROOT -- vepyr cache root (VEPYR_CACHE_ROOT for cargo). Since #149
-# (reference_fasta = true) it must hold, as `./run_tests --cache-dir` writes them:
-#   116_GRCh38_ensembl/
+# DT_VEPYR_CACHE_ROOT -- vepyr cache root (VEPYR_CACHE_ROOT for the Python runner).
+# `./run_tests VERSION_OR_SHA` prepares:
+#   116_GRCh38_merged/
 #   fasta/Homo_sapiens.GRCh38.dna.primary_assembly.fa  (+ .fai)
 vepyr_cache_root = "/path/to/vepyr_cache"
-
-# DT_CARGO_TARGET_ROOT -- parent of per-checkout CARGO_TARGET_DIRs (target-<checkout>-<hash>).
-# NEVER share one target/ across worktrees: the test binary embeds the manifest path of
-# the checkout it was built in and panics looking for PINS.toml there. Expect a full
-# rebuild per new worktree (run dt verify in the background) and delete it when done.
-cargo_target_root = "/path/to/dt-cargo-targets"
 
 # DT_SCRATCH_ROOT -- where scratch copies go (never inside any git checkout: exit 2). Empty = system temp.
 scratch_root = ""

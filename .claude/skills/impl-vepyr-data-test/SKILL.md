@@ -11,14 +11,13 @@ description: Use when implementing, re-blessing, verifying or reviewing a data-t
 
 ## Contract (origin/master; default branch is `master`, not `main`)
 
-- One mode (#143/#149). `[vepyr]` has `everything = true`, `reference_fasta = true`, `preserve_record_layout = true`, `flavour = "ensembl"`, **no `fields`**; the runner derives the cache entities itself; `required_contigs`, optional `buffer_size` and `[[vepyr_run]]` come from the issue. Who enforces what:
+- One mode (#143/#149). `[vepyr]` has `everything = true`, `reference_fasta = true`, `preserve_record_layout = true`, `flavour = "merged"`, **no `fields`**; the runner derives the cache entities itself; `required_contigs`, optional `buffer_size` and `[[vepyr_run]]` come from the issue. Who enforces what:
   - the 3 keys mapped in `tools/vep_flags.toml`: `./bless` (`require_vepyr_mode`) and the loader reject another value (`unsupported mode`);
   - `fields`: only the loader rejects it (`unknown key`); bless accepts it;
-  - `flavour = "ensembl"`: owner policy (README: the oracle is always Ensembl; #156). Bless is flavour-blind; the loader (`tests/data_dirs.rs`) refuses any other flavour, and `dt verify` no longer checks it.
-  - Schema: `tests/data_dirs.rs` header, README "Porting method".
-- `[origin] ledger` = README short form `"<Stem>.ledger.toml n=<N>"` (e.g. `"Runner.ledger.toml n=16"`); never a URL to a former source repository, even if older rows have one.
-- Extra VEP flags: none. `--check_existing` is the only allowlisted one (`ALLOWED_VEP_FLAGS`, `tools/bless/vep.py`). `--everything` already enables it in VEP 116 (`Config.pm` `@OPTION_SETS`: everything -> af/pubmed -> check_existing), so adding it leaves the body and `body_md5` unchanged. It changes only the `##VEP-command-line` header and `[vep] command`/`extra_flags`. `dt` has no pass-through.
-- One directory per distinct (input, oracle) (#238): before adding a directory run `tools/check_unique_dirs tests/data`; if the new test's input and oracle bodies and config equal an existing directory's, add a `[[property]]` table (id = the would-be slug, `description`, the `[origin]` links) to that directory instead of a new one (README "One directory per distinct comparison"). Never commit a new duplicate.
+  - `flavour = "merged"`: every committed data fixture uses the merged cache. Bless and the loader require the VEP command and runtime cache flavours to agree; `committed_dirs_load` additionally checks the merged-only suite policy.
+  - Schema: `tools/run_tests/fixtures.py` header, README "Porting method".
+- Extra VEP flags: record `extra_flags = ["--merged"]` in `[vep]` and use the native merged cache. `--check_existing` is also allowlisted (`tools/bless/vep.py`); `--everything` already enables it. `dt` has no flag pass-through, so record the flags in the fixture before blessing.
+- One directory per distinct (input, oracle) (#238): before adding a directory run `tools/check_unique_dirs tests/data`; if the new test's input and oracle bodies and config equal an existing directory's, add a `[[tests]]` table (id = the would-be slug, `description`, one tagged `vep_test` URL) to that directory instead of a new one (README "One directory per distinct comparison"). Never commit a new duplicate.
 - Input: only `tools/normalize_input` (`bcftools norm -m -both`, no `-f`); VEP and vepyr read the same `input.vcf`; oracle is always VEP.
 
 ## Recipe (in order)
@@ -29,12 +28,12 @@ description: Use when implementing, re-blessing, verifying or reviewing a data-t
 3. `dt refcheck <raw> --negative-control` (before blessing).
 4. `dt raw2input --raw <raw> --dir tests/data/<slug>`.
 5. Issue names a fixture: `dt fixture-match --input tests/data/<slug> --fixture <src> --records N`.
-6. Hand-write the non-bless keys of `test.toml` per the Contract. `[origin]`: `issue = N`; `vep_test`, `vep_test_pinned` = the two URLs of the form field "VEP test link"; `vep_subject` (VEP module permalink at the `upstream_commit` of `tools/vep_pin.toml`, `2cb0bbe2`) and `ledger` (`<Stem>.ledger.toml n=<N>`, per the Contract) = the issue body's `[origin] vep_subject:` / `[origin] ledger:` bullets (under "VEP test link"; `data-test.yml` has no field of their own). A required key (`vep_test`, `vep_test_pinned`, `vep_subject`) the issue does not state -> STOP and report which one is missing; never invent it.
+6. Hand-write the non-bless keys of `test.toml`. Each `[[tests]]` has a unique `id`, `description`, and one `vep_test` URL at the release tag from `tools/vep_pin.toml`. Do not add `issue`, `ledger`, `vep_test_pinned`, or `vep_subject` to fixture metadata. Reuse the matching fixture for additional tests. The source fields are HTTP(S) URLs: `cache_source` is the pinned vepyr dataset; `vep_cache` is the native VEP archive; `fasta_source` is the FASTA download. Keep unverified checksums unverified.
 7. `dt bless tests/data/<slug>`.
-8. `dt verify --vepyr REF --reproduce tests/data/<slug>` (background; checks mode, runs `./run_tests --only <copy> --vepyr REF`: cite the `vepyr sha` line of the `./run_tests` summary, never a vepyr version). Also `./check_normalised_input` -> exit 0, and the issue's own cargo AC as `./run_tests --only DIR --vepyr REF` (DIR a scratch copy of the test directory), with `VEPYR_CACHE_ROOT` (the `env vepyr_cache_root` line) and `CARGO_TARGET_DIR` (the `# CARGO_TARGET_DIR` line) from `dt env` set.
+8. `dt verify --vepyr VERSION_OR_SHA --reproduce tests/data/<slug>` (background; checks mode and runs a scratch fixture through the Python data runner). Cite the requested version or full Git SHA and its installation line. Also run `./check_normalised_input` and the issue's own data-test AC. `./run_tests VERSION_OR_SHA` runs the complete data suite; unit tests use `uv run --frozen pytest tools/` separately.
 9. `tools/build_test_index` regenerates `tests/INDEX.csv`. The check runs inside `dt verify` (#151): `PASS build_test_index` = `tools/build_test_index --check` exit 0 on the checkout's `tests/INDEX.csv`; `PASS build_test_index-negative` = the same check on a copy without its last row exits 1. Never hand-edit the CSV; on a conflict in it when merging `master` into the branch (merge commit, never a rebase) use the recipe in `AGENTS.md` ("`tests/INDEX.csv` in parallel PRs").
 10. `dt report tests/data/<slug>` -> PR body table. Commit only the directory and `tests/INDEX.csv`, with exactly the attribution lines given by your session. Publish (never to master, never `--force`, only your own branch): `git push -u origin issue-<N>-<slug>`, then `gh pr create -R biodatageeks/vepyr-porting-tests --base master --head issue-<N>-<slug> --title "[data-test] <issue title> (#N)" --label data-test --milestone <issue's> --body-file <scratch>/pr-<N>-body-<ts>.md`; body English, `Closes #N`, the `dt report` table, ending with the attribution line your session gives (label/title per `gh pr list -R biodatageeks/vepyr-porting-tests --state merged --limit 8 --json labels,title`: the issue's template label).
-11. Sticky status comment (`AGENTS.md`, "Issue and pull request lifecycle"): right after `gh pr create`, `./set_state pr <PR> implementing`. Then ONE issue comment on the PR whose first line is `### pr-status:v1`: a table of EVERY local check run in steps 0-9, not only the ACs (`./issue_check` gate, `dt env`/`refcheck`/`raw2input`/`verify`, `./check_normalised_input`, `tools/build_test_index --check` and its negative, the cargo AC, `./bless --check`/`--reproduce`), each with command, exit code, expected exit, head sha, evidence level (scaffold vs full: real VEP/Docker/cargo), failed checks too; below it the fenced `json` block of the same rows (format: `resolve-pr/reference.md`). Write it to a unique `<scratch>/pr-<N>-status-<ts>.md`, read it back, post it once with `gh pr comment <PR> --body-file`, and verify with `gh api repos/<o>/<r>/issues/comments/<id> --jq .body`. Later results edit that same comment in place (`gh api -X PATCH repos/<o>/<r>/issues/comments/<id> -F body=@<file>`); never a second one. Sign `— Claude-<n>` (rule defined by the `resolve-pr` skill, step 2: n = highest existing `— Claude-<n>` on the PR + 1, else 1).
+11. Sticky status comment (`AGENTS.md`, "Issue and pull request lifecycle"): right after `gh pr create`, `./set_state pr <PR> implementing`. Then ONE issue comment on the PR whose first line is `### pr-status:v1`: a table of EVERY local check run in steps 0-9, not only the ACs (`./issue_check` gate, `dt env`/`refcheck`/`raw2input`/`verify`, `./check_normalised_input`, `tools/build_test_index --check` and its negative, the data-runner AC, `./bless --check`/`--reproduce`), each with command, exit code, expected exit, head sha, evidence level (scaffold vs full: real VEP/Docker/vepyr CLI), failed checks too; below it the fenced `json` block of the same rows (format: `resolve-pr/reference.md`). Write it to a unique `<scratch>/pr-<N>-status-<ts>.md`, read it back, post it once with `gh pr comment <PR> --body-file`, and verify with `gh api repos/<o>/<r>/issues/comments/<id> --jq .body`. Later results edit that same comment in place (`gh api -X PATCH repos/<o>/<r>/issues/comments/<id> -F body=@<file>`); never a second one. Sign `— Claude-<n>` (rule defined by the `resolve-pr` skill, step 2: n = highest existing `— Claude-<n>` on the PR + 1, else 1).
 12. Before any later push, with `<PR>` = the PR number (not the issue `N`); fails closed in bash and zsh:
     ```sh
     labels=$(gh pr view <PR> -R biodatageeks/vepyr-porting-tests --json labels --jq '.labels[].name') \
@@ -53,12 +52,12 @@ Every negative control must run only after its positive passed (`dt` marks it FA
 
 | command | proves |
 |---|---|
-| `dt env` | config, repo = cwd checkout (not main), base, upstream is not `origin/master`; then `./check_env` with the configured paths: `UV_PROJECT_ENVIRONMENT` outside checkouts, uv/cargo/git, bcftools pin, docker daemon, vepyr cache (provenance, pinned revisions, FASTA, dataset directory per recorded flavour), VEP cache, VEP FASTA (+ `.fai`) |
+| `dt env` | config, repo = cwd checkout (not main), base, upstream is not `origin/master`; then `./check_env` with the configured paths: `UV_PROJECT_ENVIRONMENT` outside checkouts, uv/git, bcftools pin, docker daemon, vepyr cache (provenance, pinned revisions, FASTA, dataset directory per recorded flavour), VEP cache, VEP FASTA (+ `.fai`) |
 | `dt refcheck <vcf\|dir> [--negative-control]` | every REF = GRCh38 base(s) at POS |
 | `dt raw2input --raw R --dir D` | `tools/normalize_input`, raw->input diff, idempotence via `./check_normalised_input D` |
 | `dt fixture-match --input I --fixture F --records N [--by-pos] [--rust-const NAME]` | first N records = fixture; F = local path or http(s) URL (runs `tools/fixture_match`) |
 | `dt bless D` | `./bless` in a temporary Docker-shared dir |
-| `dt verify D --vepyr REF [--reproduce] [--no-cargo]` | `./check_test_dir` (files, input-records, order, oracle-meta, one-to-one; no opt-out), mode, idempotence, md5, REF, `bless --check` (+tamper), runner (+flip) |
+| `dt verify D --vepyr REF [--reproduce] [--no-runner]` | `./check_test_dir` (files, input-records, order, oracle-meta, one-to-one; no opt-out), mode, idempotence, md5, REF, `bless --check` (+tamper), runner (+flip) |
 | `dt report D` | size, sha256, origin table |
 
 zsh: always brace, `${REPO}:...`; `$REPO:c`, `:h`, `:t`, `:r` (and `:e :a :A :l :u :q`) are modifiers.
@@ -67,7 +66,7 @@ zsh: always brace, `${REPO}:...`; `$REPO:c`, `:h`, `:t`, `:r` (and `:e :a :A :l 
 
 - vepyr body md5 != VEP: report `VEP:`/`vepyr:` lines; never touch the oracle. Never file or comment upstream (vepyr, dfbf, Ensembl); the owner decides.
 - REF != FASTA.
-- Issue asks for a value outside the Contract (another flag, flavour, `fields`, `everything = false`) or leaves `required_contigs`/`[origin]` values open.
+- Issue asks for a value outside the Contract (another flag, flavour, `fields`, `everything = false`) or leaves `required_contigs`/`vep_test` values open.
 - Issue contradicts code; `dt` exits 2/3 and the cause is not your input.
 
 ## Red flags
@@ -78,8 +77,6 @@ zsh: always brace, `${REPO}:...`; `$REPO:c`, `:h`, `:t`, `:r` (and `:e :a :A :l 
 | "Edit the oracle so md5 matches" | Only `./bless` writes it. |
 | "REF mismatch is harmless" | Oracle pins garbage (#17). |
 | "Use chr21 so vepyr is happy" | Owner decided `21`; `required_contigs` names shards (`chr21`). |
-| "`cargo test <slug>`" / real `tests/data` as `DATA_DIRS_ROOT` | No per-dir filter; breaks the selftest. Always a scratch copy. |
-| "`dt verify` has no `[slug] ok`, so the cargo AC is unproven" | Run the issue's cargo AC itself and cite its output. |
 | "Reuse the main `target/`" | Binary embeds its checkout path -> PINS.toml panic. |
 | "Scratch files in the repo / commit raw.vcf" | Scratch lives outside; raw not committed (#90). |
 | "Plain `bcftools norm` by hand" / "add `-f`" | Not idempotent / forbidden. Use `tools/normalize_input`. |
