@@ -24,8 +24,6 @@ from typing import Any, Final, Protocol
 from run_tests.verdict import Exit, RunTestsError
 
 __all__ = [
-    "DFBF_GIT",
-    "FORMATS_GIT",
     "VEPYR_REPO",
     "Checkout",
     "EnginePlan",
@@ -42,8 +40,6 @@ __all__ = [
 ]
 
 VEPYR_REPO: Final[str] = "biodatageeks/vepyr"
-DFBF_GIT: Final[str] = "https://github.com/biodatageeks/datafusion-bio-functions.git"
-FORMATS_GIT: Final[str] = "https://github.com/biodatageeks/datafusion-bio-formats.git"
 _DFBF_CRATE: Final[str] = "datafusion-bio-function-vep"
 _FORMATS_CRATES: Final[tuple[str, ...]] = (
     "datafusion-bio-format-ensembl-cache",
@@ -423,7 +419,20 @@ def _checkout_repo(
 
 
 def engine_toml(*, dfbf: Checkout, formats: Checkout) -> str:
-    """Path-patch config for ``cargo --config`` (byte-stable)."""
+    """Path-patch config for ``cargo --config`` (byte-stable).
+
+    Each ``[patch.<url>]`` key is the checkout's own ``git_url``, i.e. the
+    exact string read from vepyr's ``Cargo.toml``: cargo matches patch
+    sources by literal URL, so key and fetch URL share one source by
+    construction. ``formats.git_url`` keys every formats crate because
+    :func:`resolve` rejects manifests whose formats crates disagree.
+    """
+    for checkout in (dfbf, formats):
+        if not checkout.git_url:
+            raise RunTestsError(
+                Exit.ENGINE,
+                f"{checkout.name} checkout at {checkout.path} has no git URL",
+            )
     dfbf_crates = workspace_crate_dirs(dfbf.path)
     formats_crates = workspace_crate_dirs(formats.path)
     missing_dfbf = [c for c in (_DFBF_CRATE,) if c not in dfbf_crates]
@@ -444,9 +453,9 @@ def engine_toml(*, dfbf: Checkout, formats: Checkout) -> str:
     lines = [
         header,
         f"# dfbf@{dfbf.head[:12]} formats@{formats.head[:12]}",
-        f"[patch.{json.dumps(DFBF_GIT)}]",
+        f"[patch.{json.dumps(dfbf.git_url)}]",
         f"{_DFBF_CRATE} = {{ path = {json.dumps(str(dfbf_crates[_DFBF_CRATE]))} }}",
-        f"[patch.{json.dumps(FORMATS_GIT)}]",
+        f"[patch.{json.dumps(formats.git_url)}]",
     ]
     width = max(len(c) for c in patched)
     for name in patched:
