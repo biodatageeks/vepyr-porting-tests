@@ -176,16 +176,6 @@ def test_readme_without_diff_is_a_tool_error() -> None:
         gate.evaluate(doc)
 
 
-def test_readme_part_keeps_only_readme() -> None:
-    diff = (
-        "diff --git a/x b/x\n+x\ndiff --git a/README.md b/README.md\n@@ -1 +1 @@\n+r\n"
-    )
-    assert (
-        gate.readme_part(diff)
-        == "diff --git a/README.md b/README.md\n@@ -1 +1 @@\n+r\n"
-    )
-
-
 @pytest.mark.parametrize(
     "args",
     [
@@ -203,6 +193,10 @@ def test_help_exits_0() -> None:
     assert run_cli("--help").returncode == 0
 
 
+#: The only ``gh`` calls real mode makes on a PR without README changes.
+REAL_READS: Final = ("pr view ", "issue view ", "api --paginate --slurp ")
+
+
 def test_real_mode_reads_only(tmp_path: Path) -> None:
     state = tmp_path / "state"
     state.write_text(
@@ -215,7 +209,7 @@ def test_real_mode_reads_only(tmp_path: Path) -> None:
     done = run_cli("7", env=env)
     assert (done.returncode, done.stdout) == (0, "READY\n")
     calls = (tmp_path / "state.log").read_text(encoding="utf-8").splitlines()
-    assert calls and all(c.startswith(("pr view ", "issue view ")) for c in calls)
+    assert calls and all(c.startswith(REAL_READS) for c in calls)
 
 
 def test_real_mode_gh_failure_exits_2(tmp_path: Path) -> None:
@@ -459,7 +453,7 @@ def test_handover_real_mode_reads_only(tmp_path: Path) -> None:
     done = run_cli("--handover", "7", env=env)
     assert (done.returncode, done.stdout) == (0, "READY\n")
     calls = (tmp_path / "state.log").read_text(encoding="utf-8").splitlines()
-    assert calls and all(c.startswith(("pr view ", "issue view ")) for c in calls)
+    assert calls and all(c.startswith(REAL_READS) for c in calls)
 
 
 # --- deeply nested JSON (#177) ---
@@ -514,3 +508,161 @@ def test_recursion_in_gh_output_is_a_tool_error(
     monkeypatch.setattr(gate, "_gh", lambda args: DEEP)
     with pytest.raises(gate.GateError, match="nested too deeply"):
         gate.fetch(7)
+
+
+# --- large PRs: complete file list, no gh pr diff (#249) ---
+
+TIER_PATH: Final = "tests/data/x/test.toml"
+
+
+def _large(
+    base: str, size: int = 420, tier_at: int | None = None, readme: bool = True
+) -> dict[str, Any]:
+    """``base`` with ``size`` changed files: ``docs/f<i>.md`` fillers, optionally
+    ``README.md`` (first, with a non-tier diff) and ``TIER_PATH`` at index ``tier_at``.
+    """
+    doc = fixture(base)
+    paths = [f"docs/f{i}.md" for i in range(size)]
+    if tier_at is not None:
+        paths[tier_at] = TIER_PATH
+    if readme:
+        paths[0] = gate.README
+        doc["readme"] = README_TEXT
+        doc["readme_diff"] = "@@ -1,2 +1,2 @@\n # T\n-intro\n+intro edited\n"
+    doc["files"] = [{"path": p} for p in paths]
+    return doc
+
+
+def _run_stub(
+    tmp_path: Path, doc: dict[str, Any], **extra: str
+) -> tuple[subprocess.CompletedProcess[str], list[str]]:
+    """Run ``./pr_status 7`` on the gh stub serving ``doc``; return the gh calls."""
+    state = tmp_path / "state"
+    state.write_text(json.dumps(doc), encoding="utf-8")
+    env = {
+        "PATH": f"{STUB_DIR}{os.pathsep}{os.environ['PATH']}",
+        "GH_STUB_STATE": str(state),
+        **extra,
+    }
+    done = run_cli("7", env=env)
+    log = tmp_path / "state.log"
+    calls = log.read_text(encoding="utf-8").splitlines() if log.exists() else []
+    return done, calls
+
+
+def test_stub_emulates_github_limits(tmp_path: Path) -> None:
+    """The stub caps ``pr view`` files at 100 and refuses ``pr diff`` above 300."""
+    state = tmp_path / "state"
+    state.write_text(json.dumps(_large("ready", tier_at=350)), encoding="utf-8")
+    env = {**os.environ, "GH_STUB_STATE": str(state)}
+    gh = str(STUB_DIR / "gh")
+    view = subprocess.run(
+        [gh, "pr", "view", "7", "--json", "files,changedFiles"],
+        capture_output=True,
+        text=True,
+        env=env,
+        check=True,
+    )
+    out = json.loads(view.stdout)
+    assert (len(out["files"]), out["changedFiles"]) == (100, 420)
+    diff = subprocess.run(
+        [gh, "pr", "diff", "7"], capture_output=True, text=True, env=env, check=False
+    )
+    assert diff.returncode == 1 and "HTTP 406" in diff.stderr
+
+
+def test_large_pr_420_files_gets_a_verdict_without_pr_diff(tmp_path: Path) -> None:
+    """AC 1: 420 files incl. README and a tier path -> a verdict, never ``pr diff``."""
+    done, calls = _run_stub(tmp_path, _large("ready-superreviewed", tier_at=200))
+    assert (done.returncode, done.stdout, done.stderr) == (gate.READY, "READY\n", "")
+    assert not any(c.startswith("pr diff") for c in calls)
+    assert any("contents/README.md" in c for c in calls)  # README diff was classified
+    # The same PR without its super-review is NOT_READY, not a tool error.
+    done, _ = _run_stub(tmp_path, _large("ready", tier_at=200))
+    assert done.returncode == gate.NOT_READY
+    assert done.stdout.startswith("FAIL superreview-missing:")
+
+
+def test_incomplete_file_list_is_a_tool_error(tmp_path: Path) -> None:
+    """AC 2: 419 of 420 entries -> exit 2 naming both counts, no verdict."""
+    done, _ = _run_stub(tmp_path, _large("ready"), GH_STUB_DROP_FILES="1")
+    assert (done.returncode, done.stdout) == (gate.TOOL_ERROR, "")
+    assert "file list incomplete for PR 7: got 419 of 420 files" in done.stderr
+    # Positive control: the full list from the same stub gives a verdict.
+    assert _run_stub(tmp_path, _large("ready"))[0].returncode == gate.READY
+
+
+def test_incomplete_file_list_readme_without_patch_is_a_tool_error(
+    tmp_path: Path,
+) -> None:
+    """AC 2: README.md listed but GitHub sent no ``patch`` -> exit 2."""
+    done, _ = _run_stub(tmp_path, _large("ready", size=3), GH_STUB_NO_PATCH="1")
+    assert (done.returncode, done.stdout) == (gate.TOOL_ERROR, "")
+    assert "README.md changed in PR 7 but GitHub sent no patch" in done.stderr
+
+
+def test_tier_beyond_first_100_requires_superreview(tmp_path: Path) -> None:
+    """AC 3: the only tier path is entry 350 of 420 -> super-review required.
+
+    Mutation: reading ``files`` from ``pr view`` (capped at 100) makes this fail.
+    """
+    doc = _large("ready", tier_at=349, readme=False)
+    done, _ = _run_stub(tmp_path, doc)
+    assert done.returncode == gate.NOT_READY
+    assert [line.split(":")[0] for line in done.stdout.splitlines()] == [
+        "FAIL superreview-missing"
+    ]
+    # Control: without that path the same 420-file PR is READY.
+    done, _ = _run_stub(tmp_path, _large("ready", readme=False))
+    assert (done.returncode, done.stdout) == (gate.READY, "READY\n")
+
+
+def test_duplicate_filenames_are_a_tool_error(tmp_path: Path) -> None:
+    """Super-review #252: changedFiles=3 with pages [[a, a, b]] -> exit 2.
+
+    Mutation: removing the uniqueness check in ``fetch`` makes this READY.
+    """
+    doc = fixture("ready")
+    doc["files"] = [{"path": p} for p in ("docs/a.md", "docs/a.md", "docs/b.md")]
+    doc["changedFiles"] = 3
+    done, _ = _run_stub(tmp_path, doc)
+    assert (done.returncode, done.stdout, done.stderr) == (
+        gate.TOOL_ERROR,
+        "",
+        (
+            "pr_status: file list for PR 7 repeats filenames (docs/a.md x2): "
+            "2 unique of 3 entries; review the tier by hand with "
+            "git diff --name-only origin/master...<head>\n"
+        ),
+    )
+    # Control: three unique names with the same count give a verdict.
+    doc["files"][1] = {"path": "docs/c.md"}
+    assert _run_stub(tmp_path, doc)[0].returncode == gate.READY
+
+
+@pytest.mark.parametrize("bad", [True, False, "3", 3.0, None])
+def test_changed_files_must_be_a_plain_int(tmp_path: Path, bad: object) -> None:
+    """A bool (an ``int`` subclass) or non-int ``changedFiles`` -> exit 2."""
+    doc = _large("ready", size=1, readme=False)
+    doc["changedFiles"] = bad
+    done, _ = _run_stub(tmp_path, doc)
+    assert (done.returncode, done.stdout) == (gate.TOOL_ERROR, "")
+    assert f"changedFiles is {bad!r}, not a number" in done.stderr
+
+
+def test_head_moved_during_reads_is_a_tool_error(tmp_path: Path) -> None:
+    """Finding 4 (#252): head re-read after the file list differs -> exit 2.
+
+    Mutation: dropping the ``_same_head`` call in ``fetch`` makes this READY.
+    """
+    doc = fixture("ready")
+    done, calls = _run_stub(tmp_path, doc, GH_STUB_HEAD_AFTER="f" * 40)
+    assert (done.returncode, done.stdout) == (gate.TOOL_ERROR, "")
+    assert done.stderr == (
+        f"pr_status: PR 7 head moved from {doc['headRefOid']} to {'f' * 40} "
+        "while reading its files; re-run ./pr_status\n"
+    )
+    files_at = next(i for i, c in enumerate(calls) if "/files" in c)
+    assert calls[-1].endswith("--json headRefOid") and len(calls) - 1 > files_at
+    # Control: the same head on the re-read gives a verdict.
+    assert _run_stub(tmp_path, doc)[0].returncode == gate.READY

@@ -1,10 +1,13 @@
 """The ``./pr_status`` gate: is a pull request ready for the owner (#158)?
 
 One JSON document describes the PR: the output of ``gh pr view N --json
-headRefOid,labels,comments,reviews,files,closingIssuesReferences`` plus the
-top-level keys ``issues`` (the closing issues with their labels) and, only when
-``README.md`` is among ``files``, ``readme_diff`` and ``readme``. Real mode
-builds that document with ``gh`` reads; fixture mode (``--from-json``) loads it
+headRefOid,labels,comments,reviews,changedFiles,closingIssuesReferences`` plus
+the top-level keys ``files`` (every changed path, read from the paginated REST
+list ``repos/{slug}/pulls/N/files``, because ``pr view`` stops at 100 files and
+``gh pr diff`` at 300; #249), ``issues`` (the closing issues with their labels)
+and, only when ``README.md`` is among ``files``, ``readme_diff`` (its ``patch``)
+and ``readme``. Real mode builds that document with ``gh`` reads and exits 2
+when the file list is incomplete; fixture mode (``--from-json``) loads it
 from a file. Both feed :func:`evaluate`, which returns one :class:`Failure` per
 failed check. The tool only reads: it never changes a label, a comment or a
 review.
@@ -25,6 +28,7 @@ import json
 import re
 import subprocess
 import sys
+from collections import Counter
 from collections.abc import Iterable, Mapping, Sequence
 from dataclasses import dataclass
 from enum import StrEnum
@@ -38,7 +42,7 @@ TOOL_ERROR: Final = 2
 STICKY_MARKER: Final = "### pr-status:v1"
 VERDICT_MARKER: Final = "### pr-review:v1"
 PR_VIEW_FIELDS: Final = (
-    "headRefOid,labels,comments,reviews,files,closingIssuesReferences"
+    "headRefOid,labels,comments,reviews,changedFiles,closingIssuesReferences"
 )
 APPROVE: Final = "APPROVE"
 GATE_STATES: Final = frozenset({"state:manual-reviewing", "state:awaiting-merge"})
@@ -541,33 +545,79 @@ def _gh_json(args: Sequence[str]) -> Any:
         raise GateError(f"gh {' '.join(args)} printed JSON nested too deeply") from exc
 
 
-def readme_part(diff: str) -> str:
-    """Keep only the ``README.md`` part of a multi-file diff (one-file diff: whole)."""
-    if not any(line.startswith("diff --git ") for line in diff.splitlines()):
-        return diff
-    keep: list[str] = []
-    inside = False
-    for line in diff.splitlines(keepends=True):
-        if line.startswith("diff --git "):
-            inside = line.rstrip().endswith(f" b/{README}")
-        if inside:
-            keep.append(line)
-    return "".join(keep)
+def changed_files(number: int, repo: str | None = None) -> list[dict[str, Any]]:
+    """Every file entry of PR ``number`` from the paginated REST list (#249).
+
+    ``gh api --paginate --slurp`` wraps the pages (JSON arrays of at most 100
+    entries) into one outer array; the pages are flattened in order. GitHub
+    serves at most 3000 entries, so the caller still checks the count.
+    """
+    slug = repo or "{owner}/{repo}"
+    pages = _gh_json(
+        [
+            "api",
+            "--paginate",
+            "--slurp",
+            f"repos/{slug}/pulls/{number}/files?per_page=100",
+        ]
+    )
+    if not isinstance(pages, list) or not all(isinstance(p, list) for p in pages):
+        raise GateError(f"gh api pulls/{number}/files: not a list of pages")
+    entries = [entry for page in pages for entry in page]
+    if not all(isinstance(e, dict) and "filename" in e for e in entries):
+        raise GateError(f"gh api pulls/{number}/files: entry without filename")
+    return entries
 
 
 def fetch(number: int, repo: str | None = None) -> dict[str, Any]:
-    """Build the gate's input document for PR ``number`` with ``gh`` reads only."""
+    """Build the gate's input document for PR ``number`` with ``gh`` reads only.
+
+    Fail-closed (#249): the file list must have exactly ``changedFiles``
+    entries, and a listed ``README.md`` must carry its ``patch``; otherwise
+    GateError (exit 2), never a verdict on a truncated list.
+    """
     where = ["--repo", repo] if repo else []
     doc = _gh_json(["pr", "view", str(number), *where, "--json", PR_VIEW_FIELDS])
     if not isinstance(doc, dict):
         raise GateError("gh pr view returned no object")
+    entries = changed_files(number, repo)
+    match doc.get("changedFiles"):
+        case bool() as flag:
+            raise GateError(f"gh pr view: changedFiles is {flag!r}, not a number")
+        case int(expected) if expected == len(entries):
+            pass
+        case int(expected):
+            raise GateError(
+                f"file list incomplete for PR {number}: got {len(entries)} of "
+                f"{expected} files (GitHub lists at most 3000); review the tier "
+                "by hand with git diff --name-only origin/master...<head>"
+            )
+        case other:
+            raise GateError(f"gh pr view: changedFiles is {other!r}, not a number")
+    counts = Counter(str(e["filename"]) for e in entries)
+    if dupes := {name: n for name, n in counts.items() if n > 1}:
+        listed = ", ".join(f"{name} x{n}" for name, n in sorted(dupes.items()))
+        raise GateError(
+            f"file list for PR {number} repeats filenames ({listed}): "
+            f"{len(counts)} unique of {len(entries)} entries; review the tier "
+            "by hand with git diff --name-only origin/master...<head>"
+        )
+    doc["files"] = [{"path": str(e["filename"])} for e in entries]
     refs = [r.get("number") for r in doc.get("closingIssuesReferences") or ()]
     doc["issues"] = [
         _gh_json(["issue", "view", str(n), *where, "--json", "number,labels"])
         for n in refs
     ]
-    if README in (str(f.get("path", "")) for f in doc.get("files") or ()):
-        doc["readme_diff"] = readme_part(_gh(["pr", "diff", str(number), *where]))
+    readme = next((e for e in entries if e["filename"] == README), None)
+    if readme is not None:
+        patch = readme.get("patch")
+        if not isinstance(patch, str):
+            raise GateError(
+                f"{README} changed in PR {number} but GitHub sent no patch for it "
+                "(diff too large); review its sections by hand with "
+                f"git diff origin/master...<head> -- {README}"
+            )
+        doc["readme_diff"] = patch if patch.endswith("\n") else patch + "\n"
         slug = repo or "{owner}/{repo}"
         doc["readme"] = _gh(
             [
@@ -577,7 +627,26 @@ def fetch(number: int, repo: str | None = None) -> dict[str, Any]:
                 f"repos/{slug}/contents/{README}?ref={doc['headRefOid']}",
             ]
         )
+    _same_head(number, where, doc["headRefOid"])
     return doc
+
+
+def _same_head(number: int, where: Sequence[str], head: str) -> None:
+    """Fail closed (#249) when PR ``number`` moved off ``head`` during the reads.
+
+    The file list is not pinned to a commit, so a push between ``pr view`` and
+    the paginated list could pair one head's sticky with another head's files.
+    """
+    match _gh_json(["pr", "view", str(number), *where, "--json", "headRefOid"]):
+        case {"headRefOid": str(now)} if now == head:
+            return
+        case {"headRefOid": str(now)}:
+            raise GateError(
+                f"PR {number} head moved from {head} to {now} while reading "
+                "its files; re-run ./pr_status"
+            )
+        case other:
+            raise GateError(f"gh pr view: no headRefOid in {other!r}")
 
 
 def load(path: Path) -> dict[str, Any]:
