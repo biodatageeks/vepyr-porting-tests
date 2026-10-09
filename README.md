@@ -14,6 +14,7 @@ results on real annotation data.
 Run the 205 named data tests through the vepyr Python CLI:
 
 ```bash
+export VEPYR_CACHE_ROOT=/tmp/cache
 ./run_tests 0.9.0
 ./run_tests <full-40-character-git-sha>
 ```
