@@ -11,6 +11,12 @@ covers provenance + FASTA only.
 :func:`only_root` copies them into a fresh temporary root that ``$DATA_DIRS_ROOT``
 names, and :func:`cargo_argv` then filters on the exact test name ``data_dirs`` so
 the ``selftest`` test (which honours the same override) never walks that root.
+
+``--flavours F`` also selects data-tests (issue #257): :func:`select_by_flavour`
+keeps the directories whose top-level ``[vepyr] flavour`` is in F (and every
+directory without a readable flavour); when it drops any, the kept ones run from
+the same scratch root as ``--only``, and the dropped ones are reported as
+``flavour not selected``.
 """
 
 from __future__ import annotations
@@ -19,8 +25,9 @@ import json
 import shutil
 import tempfile
 import tomllib
-from collections.abc import Iterator, Mapping, Sequence
+from collections.abc import Collection, Iterator, Mapping, Sequence
 from contextlib import contextmanager
+from dataclasses import dataclass
 from pathlib import Path
 from typing import Final
 
@@ -29,14 +36,19 @@ from run_tests.verdict import Exit, RunTestsError
 
 __all__ = [
     "CACHE_ENV",
+    "FLAVOUR_NOT_SELECTED",
     "NOT_A_DATA_TEST",
     "ROOT_ENV",
+    "FlavourSelection",
+    "FlavourSkip",
     "cargo_argv",
     "data_targets",
+    "dir_flavour",
     "list_table",
     "only_dirs",
     "only_root",
     "precheck_cache",
+    "select_by_flavour",
 ]
 
 CACHE_ENV: Final[str] = "VEPYR_CACHE_ROOT"
@@ -48,6 +60,8 @@ ROOT_ENV: Final[str] = "DATA_DIRS_ROOT"
 """Overrides the directory :data:`RUNNER_TARGET` walks (``tests/data_dirs.rs``)."""
 NOT_A_DATA_TEST: Final[str] = "not a data-test directory"
 """Fixed phrase of every ``--only`` usage error (callers grep for it)."""
+FLAVOUR_NOT_SELECTED: Final[str] = "flavour not selected"
+"""Fixed phrase naming a directory the ``--flavours`` filter dropped (#257)."""
 _TEST_TOML: Final[str] = "test.toml"
 
 
@@ -75,13 +89,91 @@ def data_targets(repo_root: Path) -> tuple[str, ...]:
     )
 
 
-def list_table(targets: Sequence[str]) -> str:
-    """``--list`` body: header, one target per line (or ``(none)``), count footer."""
+@dataclass(frozen=True, slots=True)
+class FlavourSkip:
+    """A data-test directory the ``--flavours`` filter dropped (issue #257)."""
+
+    name: str
+    """The directory's basename."""
+    flavour: str
+    """Its top-level ``[vepyr] flavour``, which ``--flavours`` does not name."""
+
+    def __str__(self) -> str:
+        return f"{self.name}  ({FLAVOUR_NOT_SELECTED}: {self.flavour})"
+
+
+@dataclass(frozen=True, slots=True)
+class FlavourSelection:
+    """Data-test directories split by ``--flavours``: the ones to run, the rest."""
+
+    selected: tuple[Path, ...]
+    skipped: tuple[FlavourSkip, ...] = ()
+
+    @property
+    def names(self) -> tuple[str, ...]:
+        """Basenames of :attr:`selected`, in order (the run's targets)."""
+        return tuple(path.name for path in self.selected)
+
+
+def dir_flavour(path: Path) -> str | None:
+    """The top-level ``[vepyr] flavour`` of the data-test directory ``path``.
+
+    Returns:
+        The flavour string, or ``None`` when ``test.toml`` cannot be read or parsed,
+        has no ``[vepyr]`` table, or no string ``flavour`` in it: such a directory is
+        never filtered out, and the Rust loader reports it as before.
+    """
+    try:
+        data = tomllib.loads((path / _TEST_TOML).read_text(encoding="utf-8"))
+    except (OSError, UnicodeDecodeError, tomllib.TOMLDecodeError):
+        return None
+    match data.get("vepyr"):
+        case {"flavour": str() as flavour}:
+            return flavour
+        case _:
+            return None
+
+
+def select_by_flavour(
+    dirs: Sequence[Path], flavours: Collection[str]
+) -> FlavourSelection:
+    """Keep the directories whose ``[vepyr] flavour`` is in ``flavours`` (#257).
+
+    Only the top-level ``[vepyr] flavour`` decides; per-run ``[[vepyr_run]]``
+    overrides do not. A directory without a readable flavour (:func:`dir_flavour`
+    returns ``None``) is always kept.
+
+    Args:
+        dirs: Candidate data-test directories, in run order.
+        flavours: The ``--flavours`` selection.
+
+    Returns:
+        The kept directories (order preserved) and the dropped ones.
+    """
+    selected: list[Path] = []
+    skipped: list[FlavourSkip] = []
+    for path in dirs:
+        match dir_flavour(path):
+            case str() as flavour if flavour not in flavours:
+                skipped.append(FlavourSkip(path.name, flavour))
+            case _:
+                selected.append(path)
+    return FlavourSelection(tuple(selected), tuple(skipped))
+
+
+def list_table(targets: Sequence[str], skipped: Sequence[FlavourSkip] = ()) -> str:
+    """``--list`` body: header, one target per line (or ``(none)``), count footer.
+
+    Directories the ``--flavours`` filter dropped follow the targets as
+    ``skip  <name>  (flavour not selected: <flavour>)`` rows; they are not counted
+    in the footer.
+    """
     lines = ["set   target"]
     if targets:
         lines += [f"data  {name}" for name in targets]
     else:
         lines.append("(none)")
+    lines += [f"skip  {skip}" for skip in skipped]
     lines.append(f"run_tests: {len(targets)} data-problem target(s)")
     return "\n".join(lines) + "\n"
 

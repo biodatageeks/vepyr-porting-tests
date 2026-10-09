@@ -83,10 +83,13 @@
 
 mod common;
 
+use std::any::Any;
 use std::collections::HashMap;
 use std::fmt::Write as _;
+use std::panic::AssertUnwindSafe;
 use std::path::{Path, PathBuf};
 use std::sync::Arc;
+use std::task::Poll;
 
 use datafusion_bio_function_vep::vcf_sink::AnnotateVcfConfig;
 use md5::{Digest, Md5};
@@ -834,23 +837,95 @@ async fn check_dir(test: &TestDir, cache_root: CacheRoot<'_>) -> bool {
     passed
 }
 
-/// Load and check every directory under `root`; panic naming the failed ones.
-async fn run_all(root: &Path, cache_root: CacheRoot<'_>) {
-    let dirs = test_dirs(root);
-    let mut failed = Vec::new();
-    let mut properties = 0;
-    for dir in &dirs {
-        let test = TestDir::load(dir);
-        properties += test.properties.len();
-        if check_dir(&test, cache_root).await {
-            println!("[{}] ok", test.name);
-        } else {
-            failed.push(test.name);
+/// The text of a panic payload (`&str` or `String`; anything else is named as such).
+fn panic_message(payload: &(dyn Any + Send)) -> String {
+    match (
+        payload.downcast_ref::<&str>(),
+        payload.downcast_ref::<String>(),
+    ) {
+        (Some(text), _) => (*text).to_owned(),
+        (_, Some(text)) => text.clone(),
+        _ => "<non-string panic payload>".to_owned(),
+    }
+}
+
+/// Drive `future` to completion, turning a panic in any of its polls into
+/// `Err(<panic message>)` (#257: one directory's panic must not end the walk).
+async fn catch_panic<T>(future: impl Future<Output = T>) -> Result<T, String> {
+    let mut future = std::pin::pin!(future);
+    std::future::poll_fn(move |cx| {
+        match std::panic::catch_unwind(AssertUnwindSafe(|| future.as_mut().poll(cx))) {
+            Ok(Poll::Ready(value)) => Poll::Ready(Ok(value)),
+            Ok(Poll::Pending) => Poll::Pending,
+            Err(payload) => Poll::Ready(Err(panic_message(&*payload))),
+        }
+    })
+    .await
+}
+
+/// What [`check_all`] saw: every directory's verdict, in walk order.
+#[derive(Debug, Default)]
+struct RunReport {
+    /// `(name, passed)` per directory; `name` is the directory basename when its
+    /// `test.toml` could not be loaded.
+    checked: Vec<(String, bool)>,
+    /// Property rows summed over the directories that loaded.
+    properties: usize,
+}
+
+impl RunReport {
+    /// Names of the directories that failed, in walk order.
+    fn failed(&self) -> Vec<&str> {
+        self.checked
+            .iter()
+            .filter(|(_, passed)| !passed)
+            .map(|(name, _)| name.as_str())
+            .collect()
+    }
+}
+
+/// Load and check every directory under `root`, each in its own panic boundary: a
+/// panic while loading or checking one directory (e.g. a flavour with no
+/// `PROVENANCE.json` entry) is printed as `[<name>] FAILED: <message>` and fails only
+/// that directory; the walk goes on (#257).
+async fn check_all(root: &Path, cache_root: CacheRoot<'_>) -> RunReport {
+    let mut report = RunReport::default();
+    for dir in test_dirs(root) {
+        let outcome = catch_panic(async {
+            let test = TestDir::load(&dir);
+            let passed = check_dir(&test, cache_root).await;
+            (test.name, test.properties.len(), passed)
+        })
+        .await;
+        match outcome {
+            Ok((name, properties, passed)) => {
+                if passed {
+                    println!("[{name}] ok");
+                }
+                report.properties += properties;
+                report.checked.push((name, passed));
+            }
+            Err(message) => {
+                let name = dir.file_name().map_or_else(
+                    || dir.display().to_string(),
+                    |base| base.to_string_lossy().into_owned(),
+                );
+                println!("[{name}] FAILED: {message}");
+                report.checked.push((name, false));
+            }
         }
     }
+    report
+}
+
+/// [`check_all`], then panic naming every failed directory.
+async fn run_all(root: &Path, cache_root: CacheRoot<'_>) {
+    let report = check_all(root, cache_root).await;
+    let failed = report.failed();
     println!(
-        "data_dirs: {} directory(ies) ({properties} propert(ies)) under {}, {} failed",
-        dirs.len(),
+        "data_dirs: {} directory(ies) ({} propert(ies)) under {}, {} failed",
+        report.checked.len(),
+        report.properties,
         root.display(),
         failed.len()
     );
@@ -1048,6 +1123,49 @@ async fn selftest() {
     let cache_dir = tempfile::TempDir::new().expect("tempdir");
     write_synthetic_cache(cache_dir.path());
     run_all(&root, CacheRoot::At(cache_dir.path())).await;
+}
+
+/// #257: a directory whose flavour has no `PROVENANCE.json` entry fails alone; the
+/// walk still checks the next directory, and the failure names only the first.
+///
+/// The synthetic cache records only `ensembl`, so the missing flavour is `merged`
+/// (first in walk order) and the directory that must still run and pass is the
+/// unchanged ensembl self-test case (second): its oracle matches the synthetic
+/// cache, whereas a merged run adds CSQ fields the fixture oracle does not carry.
+#[tokio::test]
+async fn missing_provenance_fails_one_dir_only() {
+    let fixture =
+        Path::new(env!("CARGO_MANIFEST_DIR")).join("tests/fixtures/data_dirs_selftest/case");
+    let original = std::fs::read_to_string(fixture.join(TOML_NAME)).expect("read fixture");
+    let merged = original
+        .replace("flavour = \"ensembl\"", "flavour = \"merged\"")
+        .replace(" --everything", " --everything --merged");
+    assert_ne!(merged, original, "fixture has no ensembl flavour");
+    let tests_root = tempfile::TempDir::new().expect("tempdir");
+    for (name, toml) in [("a_merged", &merged), ("b_ensembl", &original)] {
+        let dir = tests_root.path().join(name);
+        std::fs::create_dir(&dir).expect("create dir");
+        for entry in std::fs::read_dir(&fixture).expect("read fixture dir") {
+            let path = entry.expect("entry").path();
+            std::fs::copy(&path, dir.join(path.file_name().expect("file name"))).expect("copy");
+        }
+        let renamed = toml.replacen("name = \"case\"", &format!("name = \"{name}\""), 1);
+        assert_ne!(&renamed, toml, "fixture has no name = \"case\"");
+        std::fs::write(dir.join(TOML_NAME), renamed).expect("write test.toml");
+    }
+    let cache_dir = tempfile::TempDir::new().expect("tempdir");
+    write_synthetic_cache(cache_dir.path());
+
+    let report = check_all(tests_root.path(), CacheRoot::At(cache_dir.path())).await;
+    assert_eq!(
+        report.checked,
+        [
+            ("a_merged".to_owned(), false),
+            ("b_ensembl".to_owned(), true)
+        ],
+        "the ensembl directory after the failing one must still be checked, and pass"
+    );
+    assert_eq!(report.failed(), ["a_merged"]);
 }
 
 #[test]

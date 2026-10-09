@@ -76,6 +76,13 @@ class Invocation:
     """``--old-vepyr-cache``: consent to run on a cache that is not the newest."""
     freshness_report: freshness.FreshnessReport | None = None
     """The freshness guard's report, attached once the guard ran (not parsed)."""
+    scratch_dirs: tuple[Path, ...] = ()
+    """Directories to run from a scratch ``$DATA_DIRS_ROOT`` (not parsed): the
+    ``--only`` ones left by the ``--flavours`` filter, or the flavour-selected
+    ``tests/data`` ones when the filter dropped any (#257); empty = walk
+    ``tests/data`` as-is."""
+    skipped: tuple[tests.FlavourSkip, ...] = ()
+    """Directories the ``--flavours`` filter dropped (not parsed; #257)."""
 
     @property
     def vepyr_ref(self) -> str:
@@ -286,6 +293,7 @@ def _summary(
             vepyr_resolved=vepyr_resolved,
             vepyr_default=vepyr_effective is not None and inv.vepyr is None,
             targets=tuple(targets),
+            skipped=tuple(skip.name for skip in inv.skipped),
             fasta=root is not None and (inv.cache_dir is not None and not inv.dry_run),
             dry_run=inv.dry_run,
             verify=inv.verify,
@@ -389,18 +397,21 @@ def _run_data_tests(
 ) -> tuple[Exit, str | None, str | None]:
     """Precheck + engine + cargo. Returns ``(code, detail, vepyr_resolved)``.
 
-    With ``--only`` the directories are copied into a temporary root that cargo
-    walks via ``$DATA_DIRS_ROOT``, and only the exact ``data_dirs`` test runs.
+    With ``--only``, or when ``--flavours`` dropped any directory (#257), the
+    directories to run (:attr:`Invocation.scratch_dirs`) are copied into a
+    temporary root that cargo walks via ``$DATA_DIRS_ROOT``, and only the exact
+    ``data_dirs`` test runs.
     """
     repo = _repo_root()
     pins_toml = repo / "PINS.toml"
     tests.precheck_cache(cache_root, pins_toml=pins_toml)
     plan, config_path = engine.materialise(inv.vepyr_ref, repo_root=repo, api=gh_api)
-    argv = tests.cargo_argv(targets, config=config_path, exact=bool(inv.only))
+    scratch = inv.scratch_dirs
+    argv = tests.cargo_argv(targets, config=config_path, exact=bool(scratch))
     env = {tests.CACHE_ENV: str(cache_root)}
     with ExitStack() as stack:
-        if inv.only:
-            env[tests.ROOT_ENV] = str(stack.enter_context(tests.only_root(inv.only)))
+        if scratch:
+            env[tests.ROOT_ENV] = str(stack.enter_context(tests.only_root(scratch)))
         stack.enter_context(engine.LockGuard(repo).held())
         # No `cargo update -p …` pre-step (issue #21): cargo re-locks the patched
         # packages by itself when `--config` carries the `[patch]` path tables, and
@@ -434,7 +445,7 @@ def _run_via_cli(
     fasta = cache_root / fetch.FASTA_DIR / fasta_pin.fa_name
     sha = engine.resolve_sha(gh_api or engine.GhCli(), inv.vepyr_ref)
     build = vepyr_builder(sha, cache_root)
-    dirs = inv.only or tuple(repo / tests.DATA_DIR / name for name in targets)
+    dirs = inv.scratch_dirs or tuple(repo / tests.DATA_DIR / name for name in targets)
     report = via_cli.run_dirs(
         dirs, build=build, cache_root=cache_root, fasta=fasta, runner=cli_runner
     )
@@ -682,6 +693,23 @@ def _freshness_phase(
     return guarded
 
 
+def _select_flavours(inv: Invocation) -> Invocation:
+    """Apply the ``--flavours`` data-test filter (#257); ``--only`` intersects it.
+
+    The candidates are the ``--only`` directories, or every ``tests/data/<name>/``
+    holding a ``test.toml``. :attr:`Invocation.scratch_dirs` gets the kept ones
+    when ``--only`` was given or the filter dropped any, so cargo walks a scratch
+    root; otherwise it stays empty and ``tests/data`` is walked as-is.
+    """
+    candidates = inv.only or tuple(
+        _repo_root() / tests.DATA_DIR / name
+        for name in tests.data_targets(_repo_root())
+    )
+    selection = tests.select_by_flavour(candidates, inv.flavours)
+    scratch = selection.selected if inv.only or selection.skipped else ()
+    return replace(inv, scratch_dirs=scratch, skipped=selection.skipped)
+
+
 def main(
     argv: Sequence[str] | None = None,
     *,
@@ -703,14 +731,15 @@ def main(
     fetchers = _Fetchers(
         lister=lister, downloader=downloader, fasta_fetcher=fasta_fetcher
     )
+    inv = _select_flavours(inv)
     targets = (
-        tuple(path.name for path in inv.only)
-        if inv.only
+        tuple(path.name for path in inv.scratch_dirs)
+        if inv.scratch_dirs or inv.skipped
         else tests.data_targets(_repo_root())
     )
 
     if inv.list_only:
-        print(tests.list_table(targets), end="")
+        print(tests.list_table(targets, inv.skipped), end="")
         return int(Exit.OK)
 
     cache_root = _resolve_cache_root(inv)

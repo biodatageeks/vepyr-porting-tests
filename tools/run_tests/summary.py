@@ -19,6 +19,7 @@ __all__ = [
     "DEFAULT_MARK",
     "HEADER",
     "NEVER_FETCHED",
+    "SKIPPED_LABEL",
     "UNREADABLE",
     "WHOLE_GENOME",
     "RunSummary",
@@ -32,6 +33,8 @@ NEVER_FETCHED: Final[str] = "(never fetched)"
 UNREADABLE: Final[str] = "(PROVENANCE.json unreadable)"
 _NONE: Final[str] = "(none)"
 DEFAULT_MARK: Final[str] = "(default: no --vepyr given; floating master HEAD)"
+SKIPPED_LABEL: Final[str] = "skipped (flavour not selected)"
+"""Summary label of the directories the ``--flavours`` filter dropped (#257)."""
 
 
 @dataclass(frozen=True, slots=True, kw_only=True)
@@ -53,6 +56,8 @@ class RunSummary:
     vepyr_default: bool = False
     """``--vepyr`` was omitted and :attr:`vepyr` is the implicit default ref."""
     targets: tuple[str, ...] = ()
+    skipped: tuple[str, ...] = ()
+    """Directories the ``--flavours`` filter dropped (#257); rendered only when any."""
     freshness: tuple[str, ...] = ()
     """The freshness guard's lines (``old cache: ...`` first); empty when it did not
     run (no cache root, ``--list``, or a usage error)."""
@@ -96,6 +101,11 @@ def render(
     )
     targets = ", ".join(summary.targets) if summary.targets else _NONE
     vepyr_line = summary.vepyr or _NONE
+    skipped = (
+        [f"{SKIPPED_LABEL}: {len(summary.skipped)} ({', '.join(summary.skipped)})"]
+        if summary.skipped
+        else []
+    )
     if summary.vepyr_default:
         vepyr_line = f"{vepyr_line} {DEFAULT_MARK}"
     lines = [
@@ -106,6 +116,7 @@ def render(
         f"vepyr            : {vepyr_line}",
         f"vepyr sha        : {summary.vepyr_resolved or _NONE}",
         f"targets          : {targets}",
+        *skipped,
         f"fasta            : {'yes' if summary.fasta else 'no'}",
         f"dry-run          : {'yes' if summary.dry_run else 'no'}",
         f"verify           : {'yes' if summary.verify else 'no'}",
