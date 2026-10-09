@@ -36,7 +36,7 @@ export VEPYR_CACHE_ROOT=/mnt/hf-cache
 | `--list` | Lists the data-test directories `tests/data/<name>/` present in the working tree; exit 0 |
 | `--cache-dir DIR` | Downloads the pinned VEP cache 116 shards into `DIR` and writes `PROVENANCE.json`; then runs data-tests when targets exist |
 | `--add-contigs LIST` | Adds the named contigs to `DIR` (not `--contigs`). Default: whole genome |
-| `--flavours LIST` | Default `ensembl,refseq,merged` |
+| `--flavours LIST` | Default `ensembl,refseq,merged`. Selects the cache flavours to fetch and freshness-check, and also the data-tests to run (#257): only directories whose top-level `[vepyr] flavour` is in LIST run (a directory whose `test.toml` has no `[vepyr] flavour` or cannot be parsed always runs; per-run `[[vepyr_run]]` overrides do not count). When it drops any directory, the kept ones run from a scratch `DATA_DIRS_ROOT` as with `--only`, and `--only` intersects with it. Dropped directories are reported, never silently: `--list` prints `skip  <name>  (flavour not selected: <flavour>)` rows and the summary a `skipped (flavour not selected): <n> (<names>)` line. If nothing is left to run, the run exits 0 with `0 data-problem target(s); nothing to run`. `--via-cli` applies the same selection. In `data_dirs`, a directory whose flavour has no `PROVENANCE.json` entry fails alone (`[<name>] FAILED: ...`); the other directories still run |
 | `--dry-run` | Lists Hub files and byte totals; writes nothing; does not run tests |
 | `--verify` | Checks every selected shard against the Hub sha256 |
 | `--fast` | Sets `HF_XET_HIGH_PERFORMANCE=1` for the download (see below) |
