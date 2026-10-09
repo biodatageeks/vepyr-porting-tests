@@ -1,15 +1,10 @@
-# Self-test fixture for tests/data_dirs.rs (issue #80) — NOT a real data-test.
+# Synthetic fixture for the Python deduplication tests — NOT a real data-test.
 # input.vcf was written by `tools/normalize_input` from a 3-record synthetic VCF on
 # chr1 (one multiallelic record split into two). expected_output.vcf is a
-# hand-written VEP-shaped file, not a VEP run: the `selftest` target annotates
-# against a synthetic one-shard cache with no transcripts, where every variant is
-# `intergenic_variant`; its CSQ layout is the 80-field one of VEP 116 in the
-# one data-test mode, and the synthetic cache carries a synthetic reference FASTA
-# (#143). [origin] and [vep] carry placeholder values of the right shape so the
-# loader's full schema is exercised. Keep [compare] the last table: the issue #80
-# acceptance criteria append keys to it.
+# hand-written VEP-shaped file, not a VEP run. It is copied into temporary
+# directories to check duplicate detection and preservation during fixture merges.
 name = "case"
-description = "Synthetic fixture exercising the data_dirs loader and body-md5 compare."
+description = "Synthetic fixture exercising duplicate detection and fixture merging."
 
 [origin]
 vep_test = "https://github.com/Ensembl/ensembl-vep/blob/release/116.2/t/Runner.t#L244-L292"

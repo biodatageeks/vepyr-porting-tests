@@ -13,29 +13,26 @@ copied from an issue and a command from this repository spell the same path)::
       116_GRCh38_refseq/...     116_GRCh38_merged/...
       fasta/Homo_sapiens.GRCh38.dna.primary_assembly.fa (+ .fai)
 
-This module is a library: ``./run_tests`` (:mod:`run_tests.cli`) is the only entry
-point, and it calls :func:`fetch` (or :func:`plan`) with a :class:`Selection` built from
-``--cache-dir`` / ``--add-contigs`` / ``--flavours`` / ``--dry-run`` / ``--verify`` /
-``--fast`` / ``--no-trim-manifests``. Every failure is raised as
+This module is a library: ``./run_tests`` (:mod:`run_tests.cli`) calls :func:`fetch`
+with a :class:`Selection` derived from enabled fixtures. The CLI requests merged
+cache shards, trimmed manifests and the full FASTA. Every failure is raised as
 :class:`run_tests.verdict.RunTestsError` with a definite :class:`run_tests.verdict.Exit`
 code; there is no second CLI here.
 
-``--dry-run`` writes nothing at all — not even the directory: it lists the files the
-selection names on the Hub and their byte total, and exits 4 when the selection names no
-file (an empty plan is never a clean one).
+The library's dry-run selection writes nothing — not even the directory: it lists
+the files the selection names on the Hub and their byte total, and exits 4 when
+the selection names no file (an empty plan is never a clean one).
 
 Per-contig roots need a contig every entity carries (chr1-22, chrX, chrY): ``motif`` and
-``regulatory`` have no ``chrMT``, so ``--add-contigs chrMT`` is refused (exit 4). The
-smallest fetchable per-contig root is therefore ``--add-contigs chrY`` (52 360 000 B for
-ensembl at the 2026-09 pin; chr21 is 401 733 206 B) — for fixtures and review budgets.
+``regulatory`` have no ``chrMT``, so a selection containing only chrMT is refused
+(exit 4). Required contigs come from the fixture metadata.
 
 Why the manifests are trimmed in per-contig mode: datafusion-bio-function-vep 0.17.2
 opens the FIRST entry of ``variation/chrom_manifest.json`` to detect the cache flavour
 (``cache_source.rs:43-58``), and the first shard of every entity when it scans, so a
 partial download whose manifests still name ``chr1`` fails on a file that was never
 requested. Trimming keeps only entries whose shard is
-on disk; :data:`TRIM_DEFAULT` flips to ``False`` in one PR once upstream reads the
-flavour from a file that is always present.
+on disk so annotation can use a partially downloaded cache.
 
 Why ``variation/`` is NOT de-duplicated across flavours: the three shards of one contig
 have one size but three sha256 digests (each embeds its own
@@ -52,7 +49,6 @@ import hashlib
 import json
 import os
 import re
-import subprocess
 import tomllib
 from collections.abc import Callable, Iterable, Iterator, Sequence
 from contextlib import contextmanager
@@ -67,13 +63,10 @@ from run_tests.verdict import Exit, RunTestsError
 
 __all__ = [
     "CACHE_METADATA",
-    "CONTIG_NAME",
     "ENTITIES",
     "DatasetPin",
     "FastaPin",
-    "FetchOutcome",
     "Flavour",
-    "HeadResolver",
     "Provenance",
     "RemoteFile",
     "Selection",
@@ -81,9 +74,7 @@ __all__ = [
     "bsd_sum",
     "fetch",
     "fetch_fasta",
-    "git_sha",
     "hub_downloader",
-    "hub_head_resolver",
     "hub_lister",
     "load_dataset_pins",
     "plan",
@@ -119,15 +110,9 @@ PROVENANCE: Final[str] = "PROVENANCE.json"
 FASTA_DIR: Final[str] = "fasta"
 FASTA_PIN: Final[str] = "grch38_fasta"
 PIN_PREFIX: Final[str] = "hf_cache_"
-TRIM_DEFAULT: Final[bool] = True
-"""Trim per-contig manifests by default. Flip to ``False`` after the upstream fix."""
-
 PROVENANCE_LOCK: Final[str] = "PROVENANCE.lock"
 """Lock file beside ``PROVENANCE.json``; held (``fcntl.flock``) across every
 read-modify-write so two concurrent runs on one root cannot erase each other."""
-CONTIG_NAME: Final[re.Pattern[str]] = re.compile(r"^[A-Za-z0-9_.-]+$")
-"""What ``--add-contigs`` may contain: a glob metacharacter here would reach
-``allow_patterns`` and turn ``chr*`` into a whole-genome download."""
 _TRANSIENT_NAME: Final[re.Pattern[str]] = re.compile(r"^\..+\.\d+\.tmp$")
 """This tool's own temp names, ``.<name>.<pid>.tmp`` (:func:`_atomic_write_text`) — the
 only dot-named files :func:`_on_disk` ignores. Anything else the Hub lists, such as
@@ -159,12 +144,8 @@ class Flavour(StrEnum):
 class DatasetPin:
     """One ``role = "dataset"`` pin: where it lives and which revision is canonical."""
 
-    name: str
     repo_id: str
     revision: str
-    ref: str = "main"
-    """The pin's ``ref`` (the Hub branch it was taken from); the freshness guard
-    resolves it to the Hub HEAD sha and compares that with :attr:`revision`."""
 
     @classmethod
     def from_table(cls, name: str, table: dict[str, object]) -> DatasetPin:
@@ -176,10 +157,8 @@ class DatasetPin:
                 f"pin {name!r}: repo {repo!r} is not a huggingface.co dataset",
             )
         return cls(
-            name=name,
             repo_id=repo.removeprefix(_DATASET_HOST).rstrip("/"),
             revision=str(table["sha"]),
-            ref=str(table.get("ref", "main")),
         )
 
 
@@ -304,37 +283,6 @@ class Downloader(Protocol):
         ...
 
 
-class HeadResolver(Protocol):
-    """Resolves a Hub ref to its current commit sha (the freshness guard, #236).
-
-    Injected so tests never touch the network. Any exception means the HEAD is
-    unknown; the guard then fails closed.
-    """
-
-    def __call__(self, repo_id: str, ref: str) -> str:
-        """The 40-char commit sha ``ref`` of dataset ``repo_id`` points to now."""
-        ...
-
-
-HEAD_TIMEOUT_S: Final[float] = 10.0
-"""Timeout of the one ``dataset_info`` call per flavour the freshness guard makes."""
-
-
-def hub_head_resolver(repo_id: str, ref: str) -> str:
-    """The real resolver: one ``dataset_info(revision=ref)`` call, no file metadata.
-
-    Raises:
-        Exception: whatever ``huggingface_hub`` raises (unreachable Hub, timeout,
-            unknown repo or ref); the guard reports it as "freshness unknown".
-    """
-    from huggingface_hub import HfApi
-
-    info = HfApi().dataset_info(repo_id, revision=ref, timeout=HEAD_TIMEOUT_S)
-    if not info.sha:
-        raise ValueError(f"{repo_id}@{ref}: the Hub answered without a commit sha")
-    return info.sha
-
-
 def hub_lister(repo_id: str, revision: str) -> list[RemoteFile]:
     """The real lister: one ``dataset_info(files_metadata=True)`` call, ~1 s in all.
 
@@ -454,7 +402,6 @@ class Selection:
     """``None`` means the whole genome."""
     fasta: bool
     trim_manifests: bool
-    fast: bool
     verify: bool
     dry_run: bool
 
@@ -528,13 +475,7 @@ class Run:
 
 @dataclass(slots=True, kw_only=True)
 class Provenance:
-    """The whole ``PROVENANCE.json``.
-
-    Field order is part of the contract: the engine-side cache reader scans the text
-    for the first ``"<flavour>"`` key and expects it inside ``datasets``, which must
-    therefore be serialised before ``fasta`` and ``runs`` (``sort_keys=False``), and no
-    :class:`Run` field may be called ``revision``.
-    """
+    """The cache datasets, FASTA and run history in ``PROVENANCE.json``."""
 
     schema_version: int = SCHEMA_VERSION
     written_at: str = ""
@@ -867,7 +808,7 @@ def plan(
                 Exit.INCOMPLETE,
                 f"{flavour.dir_name}: selection {patterns} names no shard "
                 f"at {pin.revision[:12]} "
-                f"— check --add-contigs (names are chr21, chrX, chrY, ...)",
+                f"— check required_contigs (names are chr21, chrX, chrY, ...)",
             )
         if selection.contigs is not None:
             shard_dirs = {f.path.split("/", 1)[0] for f in shards}
@@ -925,22 +866,6 @@ def _merge_contigs(
     return merged
 
 
-@dataclass(frozen=True, slots=True, kw_only=True)
-class FetchOutcome:
-    """What :func:`fetch` did, for the end-of-run summary block.
-
-    Attributes:
-        code: :attr:`Exit.OK` — every other outcome is raised as :class:`RunTestsError`.
-        fetched: ``.parquet`` shards downloaded by this run.
-        present: ``.parquet`` shards on disk after the run, within the request
-            (the selection's flavours x contigs); 0 under ``--dry-run``.
-    """
-
-    code: Exit
-    fetched: int
-    present: int
-
-
 def fetch(
     selection: Selection,
     pins: dict[Flavour, DatasetPin],
@@ -953,7 +878,7 @@ def fetch(
     pins_toml: Path | None = None,
     tool: str = "tools/run_tests/fetch.py",
     out: Callable[[str], None] = print,
-) -> FetchOutcome:
+) -> Exit:
     """Run one selection end to end. Pure of I/O apart from the injected callables.
 
     The downloader is called only for a flavour with at least one requested file
@@ -968,7 +893,7 @@ def fetch(
     the ``contigs: ALL`` it records (#223).
 
     Returns:
-        The outcome (always :attr:`Exit.OK`) with the shard counters; every failure is
+        :attr:`Exit.OK` on success; every failure is
         raised as :class:`RunTestsError` by the helpers and converted by
         :mod:`run_tests.cli`.
     """
@@ -987,7 +912,7 @@ def fetch(
             f"# total: {sum(len(p.wanted) for p in plans)} files, {total} bytes; "
             "nothing written"
         )
-        return FetchOutcome(code=Exit.OK, fetched=0, present=0)
+        return Exit.OK
 
     root = selection.root
     root.mkdir(parents=True, exist_ok=True)
@@ -998,7 +923,6 @@ def fetch(
 
     records: dict[str, tuple[Plan, set[str]]] = {}
     added = skipped = refreshed = 0
-    shards_fetched = shards_present = 0
     for p in plans:
         flavour_dir = root / p.flavour.dir_name
         before = _on_disk(flavour_dir)
@@ -1045,9 +969,6 @@ def fetch(
                 )
         added += len((after - before) & wanted_paths)
         skipped += len(before & wanted_paths)
-        shards = {path for path in wanted_paths if path.endswith(".parquet")}
-        shards_fetched += len((after - before) & shards)
-        shards_present += len(after & shards)
         if selection.verify:
             violations = verify_flavour(flavour_dir, p.wanted, out=out)
             if violations:
@@ -1108,7 +1029,7 @@ def fetch(
         f"ok: {added} added, {skipped} already present, "
         f"{refreshed} manifest(s) refreshed -> {root / PROVENANCE}"
     )
-    return FetchOutcome(code=Exit.OK, fetched=shards_fetched, present=shards_present)
+    return Exit.OK
 
 
 # --------------------------------------------------------------------------------------
@@ -1264,26 +1185,3 @@ def fetch_fasta(
             f"!= PINS.toml [{FASTA_PIN}].sha {pin.sha256_fa}",
         )
     return FastaRecord(url=pin.url, ensembl_sum=pin.ensembl_sum, sha256_fa=digest)
-
-
-def git_sha(repo_root: Path) -> str:
-    """Short HEAD sha of ``repo_root`` for the provenance ``tool`` field.
-
-    Args:
-        repo_root: Directory inside the git working tree to describe.
-
-    Returns:
-        The 12-character abbreviated ``HEAD`` sha, or ``"unknown"`` when git is absent
-        or the directory is not a repository — provenance records what it can, it never
-        fails a fetch over its own audit string.
-    """
-    try:
-        proc = subprocess.run(
-            ["git", "-C", str(repo_root), "rev-parse", "--short=12", "HEAD"],
-            capture_output=True,
-            text=True,
-            check=False,
-        )
-    except OSError:
-        return "unknown"
-    return proc.stdout.strip() or "unknown"

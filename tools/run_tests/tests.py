@@ -1,9 +1,8 @@
-"""Discover data fixtures and validate downloaded cache provenance."""
+"""Validate downloaded cache provenance."""
 
 from __future__ import annotations
 
 import json
-import tomllib
 from collections.abc import Mapping, Sequence
 from pathlib import Path
 
@@ -12,31 +11,6 @@ from run_tests.verdict import Exit, RunTestsError
 
 CACHE_ENV = "VEPYR_CACHE_ROOT"
 DATA_DIR = "tests/data"
-_TEST_TOML = "test.toml"
-
-
-def data_targets(repo_root: Path) -> tuple[str, ...]:
-    """Sorted names of the data-test directories ``tests/data/<name>/``.
-
-    A directory counts only when it holds a ``test.toml``: that file is what the
-    generic runner loads, so a directory without one is not a test.
-
-    Args:
-        repo_root: Repository root.
-
-    Returns:
-        Directory names, sorted; empty when ``tests/data`` does not exist.
-    """
-    data_dir = repo_root / DATA_DIR
-    if not data_dir.is_dir():
-        return ()
-    return tuple(
-        sorted(
-            path.name
-            for path in data_dir.iterdir()
-            if path.is_dir() and (path / _TEST_TOML).is_file()
-        )
-    )
 
 
 def _pin_revision(pins: Mapping[fetch.Flavour, fetch.DatasetPin], flavour: str) -> str:
@@ -150,13 +124,3 @@ def precheck_cache(
             f"reference FASTA missing at {fasta} (need .fa and .fai). "
             f"Run: VEPYR_CACHE_ROOT={root} ./run_tests <version-or-sha>",
         )
-
-
-def read_pins_flavour_keys(pins_toml: Path) -> tuple[str, ...]:
-    """Flavour keys present as ``hf_cache_*`` tables (for tests)."""
-    data = tomllib.loads(pins_toml.read_text(encoding="utf-8"))
-    keys = []
-    for name in data:
-        if name.startswith("hf_cache_"):
-            keys.append(name.removeprefix("hf_cache_"))
-    return tuple(keys)

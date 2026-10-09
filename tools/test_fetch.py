@@ -165,7 +165,7 @@ def top_up_worker(
         lister=remote.lister,
         downloader=remote.downloader,
         out=lambda _: None,
-    ).code
+    )
     raise SystemExit(int(code))
 
 
@@ -183,7 +183,6 @@ def _selection(root: Path, **overrides: object) -> Selection:
         contigs=None,
         fasta=False,
         trim_manifests=True,
-        fast=False,
         verify=False,
         dry_run=False,
     )
@@ -205,7 +204,7 @@ def _run(
         argv=["--cache-dir", str(root)],
         pins_toml=pins,
         out=out.append,
-    ).code
+    )
     return code, out
 
 
@@ -395,7 +394,7 @@ def _fetch_fasta_root(
         downloader=remote.downloader,
         fasta_fetcher=fetcher,  # type: ignore[arg-type]
         out=lambda _: None,
-    ).code
+    )
 
 
 def test_fetch_fasta_with_a_wrong_sha256_exits_5(
@@ -593,7 +592,7 @@ def test_a_top_up_with_a_new_contig_refreshes_every_trimmed_manifest(
 def test_rerunning_the_declared_contigs_repairs_a_stale_root(
     remote: FakeHub, pins: Path, tmp_path: Path
 ) -> None:
-    """#206: the remedy ``tests/common/cache.rs`` prints repairs a root left stale.
+    """#206: fetching declared contigs repairs a root with unlisted shards.
 
     The stale root is the one master left behind: chr21 and chr22 shards, manifests
     trimmed to chr21. Every shard is present, so nothing is downloaded; only the gate
@@ -822,7 +821,7 @@ def test_the_untrim_call_runs_under_the_provenance_lock(
         lister=remote.lister,
         downloader=probing_downloader,
         out=lambda _: None,
-    ).code
+    )
     assert code is Exit.OK
     assert probes == [True]
 
@@ -837,16 +836,6 @@ def test_a_whole_genome_root_topped_up_with_one_contig_stays_all(
     _run(remote, pins, root, flavours=(Flavour.ENSEMBL,))
     _run(remote, pins, root, contigs=("chr21",), flavours=(Flavour.ENSEMBL,))
     assert read_provenance(root).datasets["ensembl"].contigs == "ALL"  # type: ignore[union-attr]
-
-
-def test_provenance_json_puts_datasets_before_runs(
-    remote: FakeHub, pins: Path, tmp_path: Path
-) -> None:
-    """tests/common/cache.rs (#645) scans the text for the first flavour key."""
-    root = tmp_path / "root"
-    _run(remote, pins, root, contigs=("chr21",), flavours=(Flavour.ENSEMBL,))
-    text = (root / PROVENANCE).read_text()
-    assert text.index('"datasets"') < text.index('"fasta"') < text.index('"runs"')
 
 
 def test_two_concurrent_runs_on_one_root_keep_both_records(
@@ -1042,7 +1031,7 @@ def test_revision_mismatch_on_disk_exits_3(
         caught.value
     )
     assert "removing PROVENANCE.json" not in str(caught.value)
-    assert "--cache-dir" in str(caught.value), (
+    assert "NEW root (set VEPYR_CACHE_ROOT)" in str(caught.value), (
         "the remedy is a NEW root, not deleting the record"
     )
 
@@ -1224,7 +1213,7 @@ def test_fetch_fasta_downloads_once_checks_sum_and_indexes(
             downloader=remote.downloader,
             fasta_fetcher=fetcher,
             out=lambda _: None,
-        ).code
+        )
         assert code == Exit.OK
     assert fetches == [fasta_pin.url], (
         "the .fa.gz is fetched exactly once across two runs"

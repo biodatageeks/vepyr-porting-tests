@@ -81,7 +81,6 @@ LEGACY_MARKER: Final = "### issue-review-legacy:v0"
 ISSUE_VIEW_FIELDS: Final = "number,body,labels,comments"
 ROLE: Final = "issue-review"
 CLEAN: Final = "CLEAN"
-FINDINGS: Final = "FINDINGS"
 #: Both accepted, so the gate can pass *before* the hand-over move (#177's
 #: circular ``state-label`` rule is avoided by design).
 GATE_STATES: Final = frozenset(

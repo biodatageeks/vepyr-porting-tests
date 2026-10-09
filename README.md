@@ -62,6 +62,9 @@ Runner unit tests are separate and never execute as part of `./run_tests`:
 uv run --frozen pytest tools/
 ```
 
+Synthetic tooling fixtures live under `tools/fixtures/`. The annotated VCF data
+suite lives under `tests/data/`.
+
 Exit codes: `0` no failed data tests (explicit skips are counted separately),
 `2` invalid arguments or fixture metadata, `3` cache revision mismatch,
 `4` missing files or download failure, `5` cache verification failure,

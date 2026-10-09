@@ -417,8 +417,7 @@ def test_a_table_with_no_trivia_before_the_next_one_still_round_trips(
     """The backward scan must not run past the table it is replacing."""
     toml_path = tmp_path / "test.toml"
     toml_path.write_text("[input]\ncommand = \"stale\"\n[vep]\n", encoding="utf-8")
-    normalize_input.upsert_input_table(toml_path, version="bcftools 1.23")
-    text = toml_path.read_text(encoding="utf-8")
+    text = normalize_input.render_input_table(toml_path, version="bcftools 1.23")
     assert "stale" not in text
     assert "[vep]" in text
     assert tomllib.loads(text)["input"]["bcftools_version"] == "bcftools 1.23"
@@ -430,8 +429,9 @@ def test_an_empty_input_table_is_replaced_without_eating_the_next_header(
     """``end`` may never reach ``start``, even when the table body is blank."""
     toml_path = tmp_path / "test.toml"
     toml_path.write_text("[input]\n\n[vep]\nargs = \"--cache\"\n", encoding="utf-8")
-    normalize_input.upsert_input_table(toml_path, version="bcftools 1.23")
-    parsed = tomllib.loads(toml_path.read_text(encoding="utf-8"))
+    parsed = tomllib.loads(
+        normalize_input.render_input_table(toml_path, version="bcftools 1.23")
+    )
     assert parsed["input"]["command"] == normalize_input.COMMAND_TEMPLATE
     assert parsed["vep"]["args"] == "--cache"
 
@@ -451,7 +451,7 @@ def test_a_bracket_inside_a_multiline_string_is_refused_not_corrupted(
     assert tomllib.loads(original), "negative control: the input is valid TOML"
 
     with pytest.raises(normalize_input.NormalizeError, match="not valid TOML"):
-        normalize_input.upsert_input_table(toml_path, version="bcftools 1.23")
+        normalize_input.render_input_table(toml_path, version="bcftools 1.23")
     assert toml_path.read_text(encoding="utf-8") == original, "left untouched"
 
 
@@ -491,7 +491,7 @@ def test_an_existing_file_that_is_not_toml_is_refused(tmp_path: Path) -> None:
     toml_path = tmp_path / "test.toml"
     toml_path.write_text("this is not = = toml\n", encoding="utf-8")
     with pytest.raises(normalize_input.NormalizeError, match="the existing file"):
-        normalize_input.upsert_input_table(toml_path, version="bcftools 1.23")
+        normalize_input.render_input_table(toml_path, version="bcftools 1.23")
 
 
 @requires_bcftools

@@ -17,7 +17,7 @@ the directory name and whose ``description`` and links come from the top-level
 ``description`` and ``[origin]``. The ``dir`` column names the directory (the one
 comparison), so rows sharing a ``dir`` share ``body_md5``. Every column comes
 from a real ``test.toml`` key (schema: #80/#87/#238, enforced by
-``tests/data_dirs.rs``); the index is a generated artefact and is never edited
+``tools/run_tests/fixtures.py``); the index is a generated artefact and is never edited
 by hand.
 
 Format: RFC 4180 (``csv``, ``QUOTE_MINIMAL``), LF line endings, UTF-8 without
@@ -105,23 +105,6 @@ def _str(table: str | None, key: str, *, required: bool = True) -> Extractor:
                 return value
             case _:
                 raise TestTomlError(f"{path}: key '{table}.{key}' must be a string")
-
-    return extract
-
-
-def _int(table: str, key: str) -> Extractor:
-    """Column extractor for an optional integer key (empty cell when absent)."""
-
-    def extract(doc: dict[str, Any], path: Path) -> str:
-        match _lookup(doc, path, table, key, required=False):
-            case None:
-                return ""
-            case bool():
-                raise TestTomlError(f"{path}: key '{table}.{key}' must be an integer")
-            case int() as n:
-                return str(n)
-            case _:
-                raise TestTomlError(f"{path}: key '{table}.{key}' must be an integer")
 
     return extract
 

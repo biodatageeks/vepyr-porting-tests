@@ -53,9 +53,6 @@ VEP_ARGV: Final[tuple[str, ...]] = (
     "--force_overwrite",
 )  # fmt: skip
 
-VEP_COMMAND: Final[str] = shlex.join(VEP_ARGV)
-"""What ``[vep] command`` records when no extra flag is given."""
-
 MAPPING_FILE: Final[Path] = Path(__file__).resolve().parents[1] / "vep_flags.toml"
 """``tools/vep_flags.toml``: the VEP flag -> ``[vepyr]`` mapping (#143), also
 read by ``tools/run_tests/fixtures.py``."""

@@ -31,7 +31,7 @@ type Runner = Callable[..., subprocess.CompletedProcess[Any]]
 """``subprocess.run``-compatible callable; injectable so tests stub subprocesses."""
 
 MISMATCH_EXIT = 8
-"""``Exit.MISMATCH`` of ``./run_tests --via-cli`` (the #231 mismatch contract)."""
+"""``Exit.MISMATCH`` of the Python data runner (the #231 mismatch contract)."""
 
 _MISMATCH = re.compile(
     r"^MISMATCH (\S+) expected=([0-9a-f]{32}) actual=([0-9a-f]{32})$"
@@ -48,7 +48,7 @@ class Verdict(StrEnum):
 
 @dataclass(frozen=True, slots=True)
 class RunTestsOutcome:
-    """Classified result of one ``./run_tests --via-cli`` subprocess."""
+    """Classified result of one Python data-runner subprocess."""
 
     verdict: Verdict
     actual_md5: str | None
@@ -58,7 +58,7 @@ class RunTestsOutcome:
 def classify(
     exit_code: int, stdout: str, dir_name: str | None = None
 ) -> tuple[Verdict, str | None]:
-    """Map a ``./run_tests --via-cli`` exit code and stdout to a verdict.
+    """Map a Python data-runner exit code and stdout to a verdict.
 
     Exit 0 is ``PASS``; exit 8 with at least one well-formed ``MISMATCH`` line
     on stdout naming ``dir_name`` (any name when ``None``) is ``FAIL`` (that
@@ -79,11 +79,9 @@ def classify(
             return Verdict.ERROR, None
 
 
-def only_dir_name(argv: Sequence[str]) -> str | None:
-    """Return the directory name of the ``--only`` value in ``argv``, if any."""
+def selected_dir_name(argv: Sequence[str]) -> str | None:
+    """Return the fixture selected by the programmatic data-runner invocation."""
     args = list(argv)
-    if "--only" in args and (i := args.index("--only") + 1) < len(args):
-        return Path(args[i]).name
     if len(args) == 6 and args[1] == "-c" and "run_selection" in args[2]:
         return Path(args[-1]).name
     return None
@@ -101,7 +99,7 @@ def run_tests_for(
     stdout, stderr = proc.stdout or "", proc.stderr or ""
     if log is not None:
         log.write_text(f"## stdout\n{stdout}## stderr\n{stderr}")
-    verdict, actual = classify(proc.returncode, stdout, only_dir_name(argv))
+    verdict, actual = classify(proc.returncode, stdout, selected_dir_name(argv))
     record = {
         "argv": [str(a) for a in argv],
         "exit": proc.returncode,
@@ -109,11 +107,6 @@ def run_tests_for(
         "verdict": str(verdict),
     }
     return RunTestsOutcome(verdict, actual, record)
-
-
-def classify_run_tests(argv: Sequence[str], runner: Runner = subprocess.run) -> Verdict:
-    """Run ``./run_tests --via-cli`` (``argv``) and return its campaign verdict."""
-    return run_tests_for(argv, runner=runner).verdict
 
 
 def body(path):

@@ -73,13 +73,11 @@ from vcf_records import VcfFormatError, iter_records
 __all__ = [
     "NormalizeError",
     "ToolVersions",
-    "bcftools_version",
     "bcftools_versions",
     "check_pinned_version",
     "main",
     "normalize",
     "render_input_table",
-    "upsert_input_table",
 ]
 
 _BCFTOOLS: Final[str] = "bcftools"
@@ -239,21 +237,6 @@ def bcftools_versions() -> ToolVersions:
     )
 
 
-def bcftools_version() -> str:
-    """Return the first line of ``bcftools --version`` (e.g. ``bcftools 1.23``).
-
-    The one line that goes into ``test.toml``; :func:`bcftools_versions` is the
-    full reading.
-
-    Returns:
-        The version banner, stripped of trailing whitespace.
-
-    Raises:
-        NormalizeError: As :func:`bcftools_versions`.
-    """
-    return bcftools_versions().bcftools
-
-
 def check_pinned_version(found: ToolVersions) -> None:
     """Refuse anything but :data:`_REQUIRED_VERSION` on :data:`_REQUIRED_HTSLIB`.
 
@@ -363,7 +346,7 @@ def _is_trivia(line: str) -> bool:
 def _check_toml(text: str, *, toml_path: Path, stage: str) -> None:
     """Fail loudly unless ``text`` parses as TOML.
 
-    ``upsert_input_table`` edits lines rather than parsing, which keeps every
+    ``render_input_table`` edits lines rather than parsing, which keeps every
     comment in the file intact but cannot understand TOML's multi-line strings:
     a line starting with ``[`` inside one looks exactly like a table header.
     Rather than silently writing a file that :mod:`tomllib` can no longer read
@@ -409,7 +392,7 @@ def render_input_table(toml_path: Path, *, version: str) -> str:
 
     Args:
         toml_path: Path of the test's ``test.toml``; need not exist.
-        version: Version banner to record, as :func:`bcftools_version` returns.
+        version: The bcftools banner from :func:`bcftools_versions`.
 
     Returns:
         The full text to write, already checked to parse as TOML.
@@ -465,32 +448,6 @@ def render_input_table(toml_path: Path, *, version: str) -> str:
 
     _check_toml(rebuilt, toml_path=toml_path, stage="the rebuilt file")
     return rebuilt
-
-
-def upsert_input_table(toml_path: Path, *, version: str) -> None:
-    """Write the ``[input]`` table of ``toml_path``, leaving other tables alone.
-
-    :func:`normalize` does not call this: it needs ``test.toml`` and
-    ``input.vcf`` to land together, so it renders the text with
-    :func:`render_input_table` and hands it to :func:`_publish` alongside the
-    VCF. This remains the public one-liner for a caller that wants only the
-    table updated and has no second document to keep in step with it -- the
-    ``[input]`` recorder on its own -- and is exercised as such by the tests.
-
-    The write is a plain one, so it is not atomic; callers that need the
-    file to survive a failed write should follow :func:`normalize`.
-
-    Args:
-        toml_path: Path of the test's ``test.toml``.
-        version: Version banner to record, as :func:`bcftools_version` returns.
-
-    Raises:
-        NormalizeError: If the existing file is not valid TOML, or if the
-            rebuilt document would not be; the file is then left untouched.
-    """
-    toml_path.write_text(
-        render_input_table(toml_path, version=version), encoding="utf-8"
-    )
 
 
 def _publish(scratch: Path, documents: dict[Path, str]) -> None:

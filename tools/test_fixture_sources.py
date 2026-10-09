@@ -3,7 +3,7 @@
 import tomllib
 
 import pytest
-from fixture_sources import ROOT, cache_source, fasta_source, is_download_url, vep_cache
+from fixture_sources import ROOT, cache_source, is_download_url, vep_cache
 
 
 @pytest.mark.parametrize("flavour", ["ensembl", "merged", "refseq"])
@@ -14,14 +14,6 @@ def test_dataset_url_uses_the_dataset_revision(flavour):
     assert vep_cache(flavour).startswith("https://ftp.ensembl.org/")
     suffix = "" if flavour == "ensembl" else f"_{flavour}"
     assert vep_cache(flavour).endswith(f"homo_sapiens{suffix}_vep_116_GRCh38.tar.gz")
-
-
-def test_fasta_url_names_the_pinned_download():
-    pins = tomllib.loads((ROOT / "PINS.toml").read_text())
-    assert (
-        fasta_source()
-        == f"{pins['grch38_fasta']['repo']}/{pins['grch38_fasta']['ref']}"
-    )
 
 
 @pytest.mark.parametrize(
@@ -42,4 +34,4 @@ def test_local_or_malformed_urls_are_rejected(url):
 def test_download_urls_are_accepted():
     assert is_download_url(cache_source("merged"))
     assert is_download_url(vep_cache("merged"))
-    assert is_download_url(fasta_source())
+    assert is_download_url("https://ftp.ensembl.org/pub/reference.fa.gz")

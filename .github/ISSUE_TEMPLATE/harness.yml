@@ -1,12 +1,12 @@
 name: Harness issue
-description: A bug, gap or change in the test harness itself (./run_tests, tools/run_tests/*, tests/common/*)
+description: A bug, gap or change in the Python test runner (./run_tests, tools/run_tests/*)
 title: "[harness] "
 labels: ["tooling"]
 body:
   - type: markdown
     attributes:
       value: |
-        Use this form for the **harness** — `./run_tests`, `tools/run_tests/*`, `tests/common/*`,
+        Use this form for the **harness** — `./run_tests`, `tools/run_tests/*`,
         and the repo plumbing around them.
 
         Not for a data-test port (use the **Data-test** form), and not for a bug in the vepyr
@@ -50,7 +50,7 @@ body:
         branch, permalink the commit on that branch — that is precisely the case where a line
         number rots fastest. Several files: list the primary one here, the rest under
         *Out of scope* or in the body of *Current behaviour*.
-      placeholder: "https://github.com/biodatageeks/vepyr-porting-tests/blob/<40-hex-sha>/tools/run_tests/engine.py#L286"
+      placeholder: "https://github.com/biodatageeks/vepyr-porting-tests/blob/<40-hex-sha>/tools/run_tests/install.py#L100"
     validations:
       required: true
 
@@ -64,11 +64,8 @@ body:
       label: Current behaviour
       description: What the harness does today, and why that is wrong or insufficient.
       placeholder: >-
-        `git checkout --quiet --detach <rev>` resolves <rev> against the clone-time local
-        branch ref, not against what the preceding `git fetch origin <rev>` retrieved. For an
-        engine repo already cloned into the cache, every later `--vepyr <branch>` run checks
-        out the revision as of the original clone while the summary prints the freshly
-        resolved sha.
+        Describe the failing stage (cache preparation, vepyr installation, annotation or
+        comparison), the requested version or full Git SHA, and the observed result.
     validations:
       required: true
 
@@ -78,8 +75,8 @@ body:
       label: Expected behaviour
       description: What it should do instead. State the observable difference, not the patch.
       placeholder: >-
-        The checked-out worktree is provably the fetched head: `git -C <checkout> rev-parse HEAD`
-        equals the sha printed in the run summary, on the second and every later run.
+        The installed vepyr matches the requested version or full Git SHA, and every
+        named test receives the correct PASS, MISMATCH, ERROR or SKIP result.
     validations:
       required: true
 
@@ -92,13 +89,8 @@ body:
         not paraphrase them. Write `n/a — <reason>` for a pure gap or docs issue with nothing
         to reproduce.
       placeholder: |
-        $ cargo update --config engine.toml \
-            -p datafusion-bio-function-vep \
-            -p datafusion-bio-format-ensembl-cache \
-            -p datafusion-bio-format-vcf
-        error: the package ID specification `datafusion-bio-format-vcf` is ambiguous
-        $ echo $?
-        101
+        $ VEPYR_CACHE_ROOT=/path/to/cache ./run_tests <version-or-full-git-sha>
+        <paste the actual output and exit status>
       render: shell
     validations:
       required: true
@@ -109,17 +101,17 @@ body:
       label: README exit code implicated
       description: >-
         Which documented `./run_tests` exit does the user actually see? A code that is not in
-        the README table (cargo's own `101`) or a symbolic constant with no mapped exit is
+        the README table or a symbolic constant with no mapped exit is
         itself worth saying out loud — pick *other* and explain under
         *Current behaviour*.
       options:
         - "0 — ok"
-        - "1 — data-tests failed"
-        - "2 — usage (missing cache root or invalid flags)"
+        - "2 — invalid arguments or fixture metadata"
         - "3 — revision clash vs PINS.toml"
         - "4 — incomplete selection or missing cache pieces"
         - "5 — verification failure"
-        - "6 — engine resolve/checkout failure"
+        - "6 — vepyr installation or execution failure"
+        - "8 — output-body mismatch"
         - "other / none — explain in Current behaviour"
     validations:
       required: false
@@ -176,7 +168,7 @@ body:
         is not a criterion, and neither is a criterion that only asserts a command is
         *present* rather than what it must *do*. At least one item must be able to FAIL on
         today's code — if every criterion passes before the fix, they are decoration. Keep the
-        standing regression gate (`pytest tools/` and/or `cargo check --tests` green) as the
+        standing regression gate (`uv run --frozen pytest tools/` green) as the
         last item, as the existing issues do.
         State what the command returns on the current master; a criterion that already passes on master gates nothing, unless it is labelled a regression guard.
       placeholder: |
@@ -184,8 +176,8 @@ body:
         2. `pytest tools/test_precheck.py -k renamed_fasta` → exit 0: with a fixture whose
            `[grch38_fasta].fa_name` is bumped, a cache laid out under the NEW name passes
            `precheck_cache`.
-        3. Semi-manual: `./run_tests --cache-dir DIR --vepyr master` → exit 0, and the summary
-           line read by eye names the same sha as `git -C <checkout> rev-parse HEAD`.
+        3. Semi-manual: `VEPYR_CACHE_ROOT=DIR ./run_tests <full-git-sha>` → exit 0,
+           with the requested SHA and per-test results visible in the log.
         4. `pytest tools/` → exit 0 (standing regression gate).
     validations:
       required: true
@@ -199,9 +191,8 @@ body:
         issue number, or "answered inline, no action". Saying both keeps the leftovers from
         becoming silent debt.
       placeholder: >-
-        Anything in #31 (`docs/dynamic-vepyr-version-resolving.md`, the "targets" wording, the
-        `cli.py`/`engine.py` docstrings). #31 owns those exact lines — touching them here makes
-        the two PRs conflict.
+        List related work owned by another issue, with its issue number and the files or
+        behavior it covers.
     validations:
       required: false
 

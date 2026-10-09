@@ -1,7 +1,7 @@
 """Tests for ``tools/check_unique_dirs`` and ``tools/merge_duplicate_dirs`` (#238).
 
-Fixtures are copies of the data_dirs self-test directory
-(``tests/fixtures/data_dirs_selftest/case``) in ``tmp_path``.
+Fixtures are copies of the synthetic deduplication case
+(``tools/fixtures/check_unique_dirs/case``) in ``tmp_path``.
 """
 
 from __future__ import annotations
@@ -21,7 +21,7 @@ from merge_duplicate_dirs import render_test_toml
 
 REPO: Final[Path] = Path(__file__).resolve().parent.parent
 TOOL: Final[Path] = REPO / "tools" / "check_unique_dirs"
-CASE: Final[Path] = REPO / "tests" / "fixtures" / "data_dirs_selftest" / "case"
+CASE: Final[Path] = REPO / "tools" / "fixtures" / "check_unique_dirs" / "case"
 
 
 def _copy(root: Path, name: str, *, toml_edit: tuple[str, str] | None = None) -> Path:

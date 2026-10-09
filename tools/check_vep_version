@@ -122,14 +122,6 @@ def read_allowlist(path: Path) -> list[str]:
     return [line.strip() for line in text.splitlines() if line.strip()]
 
 
-def _commit_of(url: Any) -> str | None:
-    """The ``blob/<ref>/`` component of an upstream permalink, else ``None``."""
-    if not isinstance(url, str) or not url.startswith(f"{UPSTREAM_REPO_URL}/blob/"):
-        return None
-    rest = url.removeprefix(f"{UPSTREAM_REPO_URL}/blob/")
-    return rest.split("/", 1)[0] if "/" in rest else None
-
-
 def check_allowlist(data: Path, names: Sequence[str]) -> Iterator[Violation]:
     """Check the allow-list itself (#239 AC7a, AC7b).
 

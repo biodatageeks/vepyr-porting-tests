@@ -13,7 +13,7 @@ import port_campaign
 import pytest
 import report_campaign
 from check_campaign import check_via_cli_result
-from port_campaign import Verdict, body, classify_run_tests, focus_value
+from port_campaign import Verdict, body, focus_value, run_tests_for
 
 
 def test_body_md5_ignores_headers_but_preserves_record_order(tmp_path):
@@ -164,12 +164,12 @@ def test_recorded_verdict(tmp_path, monkeypatch, exit_code, stdout, status):
     assert stdout in log
 
 
-def test_classify_run_tests_uses_injected_runner():
+def test_run_tests_for_uses_injected_runner():
     def runner(argv: list[str], **_: Any) -> subprocess.CompletedProcess[str]:
         return subprocess.CompletedProcess(argv, 8, "MISMATCH d expected=a actual=b\n")
 
     # md5 values must be 32 hex digits; anything else is a malformed report.
-    assert classify_run_tests(["./run_tests"], runner) is Verdict.ERROR
+    assert run_tests_for(["./run_tests"], runner=runner).verdict is Verdict.ERROR
 
 
 GOOD_LINE = f"MISMATCH {DIR_NAME} expected={MD5_A} actual={MD5_B}"
@@ -189,16 +189,30 @@ def test_malformed_or_foreign_mismatch_line_is_error(line):
     def runner(argv: list[str], **_: Any) -> subprocess.CompletedProcess[str]:
         return subprocess.CompletedProcess(argv, 8, line + "\n")
 
-    argv = ["./run_tests", "--cache-dir", "c", "--via-cli", "--only", f"x/{DIR_NAME}/"]
-    assert classify_run_tests(argv, runner) is Verdict.ERROR
+    argv = [
+        "python",
+        "-c",
+        "from run_tests.cli import run_selection",
+        "0.9.0",
+        "c",
+        f"x/{DIR_NAME}/",
+    ]
+    assert run_tests_for(argv, runner=runner).verdict is Verdict.ERROR
 
 
-def test_mismatch_line_must_name_the_only_directory():
+def test_mismatch_line_must_name_the_selected_directory():
     def runner(argv: list[str], **_: Any) -> subprocess.CompletedProcess[str]:
         return subprocess.CompletedProcess(argv, 8, GOOD_LINE + "\n")
 
-    argv = ["./run_tests", "--cache-dir", "c", "--via-cli", "--only", f"x/{DIR_NAME}/"]
-    assert classify_run_tests(argv, runner) is Verdict.FAIL
+    argv = [
+        "python",
+        "-c",
+        "from run_tests.cli import run_selection",
+        "0.9.0",
+        "c",
+        f"x/{DIR_NAME}/",
+    ]
+    assert run_tests_for(argv, runner=runner).verdict is Verdict.FAIL
     assert port_campaign.classify(8, GOOD_LINE, DIR_NAME) == (Verdict.FAIL, MD5_B)
     assert port_campaign.classify(8, GOOD_LINE, "other_dir") == (Verdict.ERROR, None)
 

@@ -1,7 +1,0 @@
-# Fixture for tests/common/ledger.rs — documents the required_contigs field shape.
-# Not a real ported assertion; Milestone 2 fills this field on real ledger rows.
-
-[[assertion]]
-n = 1
-desc = "example: loci on chr21 and chrMT"
-required_contigs = ["chr21", "chrMT"]

@@ -33,12 +33,6 @@ def cache_source(flavour: str) -> str:
     return f"{pin['repo']}/tree/{pin['sha']}"
 
 
-def fasta_source() -> str:
-    """The reference FASTA download declared in PINS.toml."""
-    pin = tomllib.loads((ROOT / "PINS.toml").read_text())["grch38_fasta"]
-    return f"{pin['repo'].rstrip('/')}/{pin['ref']}"
-
-
 def vep_cache(flavour: str) -> str:
     """The corresponding native Ensembl release-116 cache archive."""
     if flavour not in {"ensembl", "merged", "refseq"}:

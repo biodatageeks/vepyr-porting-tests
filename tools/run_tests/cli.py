@@ -61,7 +61,6 @@ def prepare_cache(cases: list[fixtures.Fixture], root: Path, repo: Path) -> Path
             contigs=tuple(contigs),
             fasta=True,
             trim_manifests=True,
-            fast=False,
             verify=False,
             dry_run=False,
         ),

@@ -710,11 +710,11 @@ def test_reproduce_refuses_tampered_command(
         *_bless_argv(test_dir, complete_cache, fasta, tmp_path),
     ]
     for command in (
-        vep.VEP_COMMAND,  # valid-looking, but drops the listed flag
+        vep.vep_command(),  # valid-looking, but drops the listed flag
         "vep --offline --cache --fa /x",  # not the fixed prefix
-        vep.VEP_COMMAND.replace("--offline ", "") + " --check_existing",
-        vep.VEP_COMMAND + " '--check_existing'",  # quoted: not canonical
-        vep.VEP_COMMAND + "  --check_existing",  # extra whitespace
+        vep.vep_command().replace("--offline ", "") + " --check_existing",
+        vep.vep_command() + " '--check_existing'",  # quoted: not canonical
+        vep.vep_command() + "  --check_existing",  # extra whitespace
         vep.vep_command(("--check_existing",)) + " ",  # trailing whitespace
     ):
         _set_flags(test_dir, ["--check_existing"], command)
@@ -807,7 +807,7 @@ def test_check_refuses_typed_flags(
     The image is validly pinned and the command is the fixed one, so the typed
     flag is the only reason for the refusal.
     """
-    _set_vep(test_dir, vep.VEP_COMMAND)
+    _set_vep(test_dir, vep.vep_command())
     base = ["--vep-flag=--check_existing", str(test_dir)]
     for mode in (["--check"], ["--check", "--reproduce", "--vep-cache-dir", "/c"]):
         code, _, err = run([*mode, "--vep-fasta", "/x.fa", *base], capsys)
@@ -880,7 +880,7 @@ def test_everything_mode_mapping_agrees_with_argv_and_readme() -> None:
     assert len(set(flags)) == len(flags), "a VEP flag is mapped twice"
     for row in rows:
         assert row.vep_flag in vep.VEP_ARGV, f"{row.vep_flag} is not in VEP_ARGV"
-        assert row.vep_flag in shlex.split(vep.VEP_COMMAND)
+        assert row.vep_flag in shlex.split(vep.vep_command())
     assert _readme_mapping_rows() == {
         (row.vep_flag, row.vepyr_key, row.vepyr_value) for row in rows
     }
