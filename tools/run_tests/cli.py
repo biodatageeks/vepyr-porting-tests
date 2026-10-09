@@ -360,6 +360,9 @@ def _default_cargo(argv: Sequence[str], env: Mapping[str, str]) -> int:
         config = Path(command[command.index("--config") + 1])
         engine.prepare_cargo(_repo_root(), config, env=merged)
         command.insert(2, "--locked")
+    print(
+        "Building test runner; Cargo output follows, then per-test progress", flush=True
+    )
     completed = subprocess.run(command, env=merged, cwd=_repo_root(), check=False)
     return int(completed.returncode)
 

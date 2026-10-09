@@ -52,7 +52,6 @@ import hashlib
 import json
 import os
 import re
-import shutil
 import subprocess
 import tomllib
 from collections.abc import Callable, Iterable, Iterator, Sequence
@@ -63,6 +62,7 @@ from enum import StrEnum
 from pathlib import Path
 from typing import Final, Protocol
 
+from run_tests.progress import Progress
 from run_tests.verdict import Exit, RunTestsError
 
 __all__ = [
@@ -642,12 +642,14 @@ def provenance_lock(root: Path) -> Iterator[None]:
             fcntl.flock(handle, fcntl.LOCK_UN)
 
 
-def _sha256_file(path: Path) -> str:
+def _sha256_file(path: Path, progress: Progress | None = None) -> str:
     """Hex sha256 of ``path``, streamed in 1 MiB chunks."""
     digest = hashlib.sha256()
     with path.open("rb") as handle:
         while chunk := handle.read(_CHUNK):
             digest.update(chunk)
+            if progress is not None:
+                progress.update(handle.tell())
     return digest.hexdigest()
 
 
@@ -779,7 +781,12 @@ def _bytes_on_disk(flavour_dir: Path, rel_paths: Iterable[str]) -> int:
     return total
 
 
-def verify_flavour(flavour_dir: Path, wanted: Sequence[RemoteFile]) -> list[str]:
+def verify_flavour(
+    flavour_dir: Path,
+    wanted: Sequence[RemoteFile],
+    *,
+    out: Callable[[str], None] | None = None,
+) -> list[str]:
     """Compare every wanted shard's sha256 with the Hub's LFS digest.
 
     Manifests carry no LFS digest (and may have been trimmed), so they are checked
@@ -789,7 +796,11 @@ def verify_flavour(flavour_dir: Path, wanted: Sequence[RemoteFile]) -> list[str]
         Violation lines; empty means verified.
     """
     violations: list[str] = []
-    for remote in wanted:
+    progress = Progress(
+        f"Verifying {flavour_dir.name}", len(wanted), unit="files", out=out
+    )
+    for index, remote in enumerate(wanted):
+        progress.update(index)
         local = flavour_dir / remote.path
         if not local.is_file():
             violations.append(f"missing: {remote.path}")
@@ -814,6 +825,7 @@ def verify_flavour(flavour_dir: Path, wanted: Sequence[RemoteFile]) -> list[str]
                     digest.update(chunk)
             if digest.hexdigest() != remote.git_blob_sha:
                 violations.append(f"git blob mismatch: {remote.path}")
+    progress.update(len(wanted))
     return violations
 
 
@@ -1036,7 +1048,7 @@ def fetch(
         shards_fetched += len((after - before) & shards)
         shards_present += len(after & shards)
         if selection.verify:
-            violations = verify_flavour(flavour_dir, p.wanted)
+            violations = verify_flavour(flavour_dir, p.wanted, out=out)
             if violations:
                 raise RunTestsError(
                     Exit.VERIFY,
@@ -1056,7 +1068,7 @@ def fetch(
             raise RunTestsError(
                 Exit.USAGE, "FASTA requested but no fetcher was wired in"
             )
-        fasta_record = fetch_fasta(root / FASTA_DIR, fasta_pin, fasta_fetcher)
+        fasta_record = fetch_fasta(root / FASTA_DIR, fasta_pin, fasta_fetcher, out=out)
 
     # Read-modify-write under the lock, against the file as it is NOW — another run
     # may have committed its own flavour while this one was downloading.
@@ -1103,7 +1115,7 @@ def fetch(
 # --------------------------------------------------------------------------------------
 
 
-def bsd_sum(path: Path) -> tuple[int, int]:
+def bsd_sum(path: Path, progress: Progress | None = None) -> tuple[int, int]:
     """The BSD ``sum`` checksum Ensembl's ``CHECKSUMS`` use: ``(checksum, KiB blocks)``.
 
     Algorithm as in coreutils ``sum`` (default mode): 16-bit accumulator, rotated right
@@ -1117,10 +1129,12 @@ def bsd_sum(path: Path) -> tuple[int, int]:
             for byte in chunk:
                 checksum = ((checksum >> 1) | ((checksum & 1) << 15)) + byte
                 checksum &= 0xFFFF
+            if progress is not None:
+                progress.update(size)
     return checksum, (size + 1023) // 1024
 
 
-def write_fai(fa: Path) -> Path:
+def write_fai(fa: Path, progress: Progress | None = None) -> Path:
     """Write ``<fa>.fai`` in the htslib format.
 
     Columns: name, length, offset, line bases, line bytes. Pure Python so the tool needs
@@ -1133,7 +1147,11 @@ def write_fai(fa: Path) -> Path:
     length = offset = line_bases = line_bytes = 0
     with fa.open("rb") as handle:
         position = 0
+        next_report = _CHUNK
         for raw in handle:
+            if progress is not None and position >= next_report:
+                progress.update(position)
+                next_report = position + _CHUNK
             if raw.startswith(b">"):
                 if name is not None:
                     lines.append(
@@ -1152,6 +1170,8 @@ def write_fai(fa: Path) -> Path:
     if name is not None:
         lines.append(f"{name}\t{length}\t{offset}\t{line_bases}\t{line_bytes}")
     fai.write_text("\n".join(lines) + "\n", encoding="utf-8")
+    if progress is not None:
+        progress.update(position)
     return fai
 
 
@@ -1159,12 +1179,23 @@ def url_fetcher(url: str, destination: Path) -> None:
     """Stream ``url`` to ``destination`` with :mod:`urllib` (Ensembl FTP over HTTPS)."""
     from urllib.request import urlopen
 
+    progress = Progress("Downloading reference FASTA", None)
     with urlopen(url) as response, destination.open("wb") as handle:
-        shutil.copyfileobj(response, handle, _CHUNK)
+        length = response.headers.get("Content-Length", "")
+        progress.total = int(length) if length.isdigit() else None
+        progress.update(0, force=True)
+        while chunk := response.read(_CHUNK):
+            handle.write(chunk)
+            progress.update(handle.tell())
+    progress.finish()
 
 
 def fetch_fasta(
-    fasta_dir: Path, pin: FastaPin, fetcher: Callable[[str, Path], None]
+    fasta_dir: Path,
+    pin: FastaPin,
+    fetcher: Callable[[str, Path], None],
+    *,
+    out: Callable[[str], None] | None = None,
 ) -> FastaRecord:
     """Fetch the ``.fa.gz`` once, check its BSD sum, gunzip, index, sha256 the ``.fa``.
 
@@ -1184,7 +1215,10 @@ def fetch_fasta(
     fa = fasta_dir / pin.fa_name
     gz = fasta_dir / pin.gz_name
     if fa.is_file() and (fa.with_name(fa.name + ".fai")).is_file():
-        digest = _sha256_file(fa)
+        digest = _sha256_file(
+            fa,
+            Progress("Verifying reference FASTA SHA-256", fa.stat().st_size, out=out),
+        )
         if digest == pin.sha256_fa:
             return FastaRecord(
                 url=pin.url, ensembl_sum=pin.ensembl_sum, sha256_fa=digest
@@ -1202,17 +1236,26 @@ def fetch_fasta(
             part.unlink(missing_ok=True)
             raise
         os.replace(part, gz)
-    checksum, blocks = bsd_sum(gz)
+    checksum, blocks = bsd_sum(
+        gz, Progress("Checking FASTA archive checksum", gz.stat().st_size, out=out)
+    )
     if f"{checksum} {blocks}" != pin.ensembl_sum:
         raise RunTestsError(
             Exit.VERIFY,
             f"{gz}: sum is '{checksum} {blocks}', Ensembl CHECKSUMS says "
             f"'{pin.ensembl_sum}' — remove that file to download it again",
         )
-    with gzip.open(gz, "rb") as source, fa.open("wb") as target:
-        shutil.copyfileobj(source, target, _CHUNK)
-    write_fai(fa)
-    digest = _sha256_file(fa)
+    progress = Progress("Decompressing reference FASTA", gz.stat().st_size, out=out)
+    with gz.open("rb") as compressed, fa.open("wb") as target:
+        with gzip.GzipFile(fileobj=compressed) as source:
+            while chunk := source.read(_CHUNK):
+                target.write(chunk)
+                progress.update(compressed.tell())
+    progress.finish()
+    write_fai(fa, Progress("Indexing reference FASTA", fa.stat().st_size, out=out))
+    digest = _sha256_file(
+        fa, Progress("Verifying reference FASTA SHA-256", fa.stat().st_size, out=out)
+    )
     if digest != pin.sha256_fa:
         raise RunTestsError(
             Exit.VERIFY,

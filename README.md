@@ -59,6 +59,12 @@ not separate field-level assertion evaluators. Multiple configurations also prin
 `run 1/5`, `run 2/5`, etc. Output is flushed immediately to plain lines, including
 when redirected to a log. No extra flag is needed.
 
+Preparation also shows progress: cache verification counts files; FASTA download,
+archive checksum, decompression, indexing and SHA-256 verification count bytes.
+Progress lines are flushed immediately, about once per second as work advances. Downloads
+without a known size show bytes received until complete. Engine setup reports
+its stages, followed by Cargo's build output and the named-test progress bar.
+
 **`--vepyr REF` examples.** `REF` is anything `biodatageeks/vepyr` can dereference:
 
 ```bash

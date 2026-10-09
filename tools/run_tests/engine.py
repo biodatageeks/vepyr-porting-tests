@@ -21,6 +21,7 @@ from dataclasses import dataclass
 from pathlib import Path
 from typing import Any, Final, Protocol
 
+from run_tests.progress import Progress
 from run_tests.verdict import Exit, RunTestsError
 
 __all__ = [
@@ -466,6 +467,8 @@ def resolve(
     """Resolve ``ref``, checkout the ladder, and build the cargo config text."""
     runner: Runner = run or _default_run
     validate_ref(ref)
+    progress = Progress(f"Preparing engine ({ref})", 3, unit="steps")
+    print("engine: resolving vepyr revision and dependencies", flush=True)
     sha = _resolve_sha(api, ref)
     manifest = _read_cargo_toml(api, sha)
     dfbf_entry = _dep_spec(manifest, _DFBF_CRATE, ref=ref)
@@ -481,6 +484,8 @@ def resolve(
             f"--vepyr {ref}: formats crates disagree "
             f"({_FORMATS_CRATES[0]}={fmt_rev} vs {_FORMATS_CRATES[1]}={vcf_rev})",
         )
+    progress.update(1, force=True)
+    print("engine: checking out annotation engine", flush=True)
     dfbf = _checkout_repo(
         name="dfbf",
         git_url=dfbf_url,
@@ -488,6 +493,8 @@ def resolve(
         target=src_root / "datafusion-bio-functions",
         run=runner,
     )
+    progress.update(2, force=True)
+    print("engine: checking out file format dependencies", flush=True)
     formats = _checkout_repo(
         name="formats",
         git_url=fmt_url,
@@ -495,6 +502,7 @@ def resolve(
         target=src_root / "datafusion-bio-formats",
         run=runner,
     )
+    progress.update(3, force=True)
     return EnginePlan(
         ref=ref,
         vepyr_sha=sha,
@@ -596,6 +604,7 @@ def prepare_cargo(
     else:
         cargo("generate-lockfile")
 
+    print("engine: verifying resolved Cargo dependency graph", flush=True)
     result = cargo("metadata", "--locked", "--format-version", "1")
     try:
         metadata = json.loads(result.stdout)
