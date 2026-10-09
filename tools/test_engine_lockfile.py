@@ -33,6 +33,7 @@ from typing import Final
 import pytest
 
 from run_tests import engine
+from run_tests.verdict import Exit, RunTestsError
 
 REPO_ROOT: Final[Path] = Path(__file__).resolve().parents[1]
 LADDER: Final[re.Pattern[str]] = re.compile(r"^datafusion-bio-(?:format|function)-")
@@ -174,3 +175,35 @@ def test_engine_toml_patches_every_formats_crate(tmp_path: Path) -> None:
     )
     for name in names:
         assert re.search(rf"^{re.escape(name)} *= ", text, re.MULTILINE), name
+
+
+def test_patch_header_uses_checkout_git_url(tmp_path: Path) -> None:
+    """``[patch.<url>]`` keys are the checkouts' own manifest URLs, verbatim (#70)."""
+    dfbf_root, fmt_root = tmp_path / "dfbf", tmp_path / "formats"
+    _crate(dfbf_root / "vep", "datafusion-bio-function-vep")
+    (dfbf_root / "Cargo.toml").write_text('[workspace]\nmembers = ["vep"]\n')
+    _crate(fmt_root / "a", "datafusion-bio-format-ensembl-cache")
+    _crate(fmt_root / "b", "datafusion-bio-format-vcf")
+    (fmt_root / "Cargo.toml").write_text('[workspace]\nmembers = ["a", "b"]\n')
+    dfbf_url, fmt_url = "https://example.invalid/dfbf", "ssh://example.invalid/formats"
+    text = engine.engine_toml(
+        dfbf=engine.Checkout(
+            name="dfbf", path=dfbf_root, git_url=dfbf_url, rev="r", head="0" * 40
+        ),
+        formats=engine.Checkout(
+            name="formats", path=fmt_root, git_url=fmt_url, rev="r", head="1" * 40
+        ),
+    )
+    headers = [ln for ln in text.splitlines() if ln.startswith("[patch.")]
+    assert headers == [
+        '[patch."https://example.invalid/dfbf"]',
+        '[patch."ssh://example.invalid/formats"]',
+    ]
+
+
+def test_patch_header_rejects_missing_git_url(tmp_path: Path) -> None:
+    """A checkout without a git URL cannot key a patch table: ``Exit.ENGINE``."""
+    dfbf = engine.Checkout(name="dfbf", path=tmp_path, git_url="", rev="r", head="0")
+    with pytest.raises(RunTestsError) as info:
+        engine.engine_toml(dfbf=dfbf, formats=dfbf)
+    assert info.value.code is Exit.ENGINE

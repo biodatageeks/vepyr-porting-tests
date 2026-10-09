@@ -9,11 +9,16 @@ from __future__ import annotations
 
 import base64
 from pathlib import Path
+from typing import Final
 
 import pytest
 
 from run_tests import engine
 from run_tests.verdict import Exit, RunTestsError
+
+# Manifest URLs as vepyr spells them; the engine no longer hardcodes them (#70).
+_DFBF_GIT: Final[str] = "https://github.com/biodatageeks/datafusion-bio-functions.git"
+_FORMATS_GIT: Final[str] = "https://github.com/biodatageeks/datafusion-bio-formats.git"
 
 
 class _SpyGh:
@@ -41,9 +46,9 @@ name = "vepyr"
 version = "0.0.0"
 
 [dependencies]
-datafusion-bio-function-vep = {{ git = "{engine.DFBF_GIT}", rev = "{"b" * 40}" }}
-datafusion-bio-format-ensembl-cache = {{ git = "{engine.FORMATS_GIT}", tag = "v0" }}
-datafusion-bio-format-vcf = {{ git = "{engine.FORMATS_GIT}", tag = "v0" }}
+datafusion-bio-function-vep = {{ git = "{_DFBF_GIT}", rev = "{"b" * 40}" }}
+datafusion-bio-format-ensembl-cache = {{ git = "{_FORMATS_GIT}", tag = "v0" }}
+datafusion-bio-format-vcf = {{ git = "{_FORMATS_GIT}", tag = "v0" }}
 """
 
 BAD_REFS: list[str] = [

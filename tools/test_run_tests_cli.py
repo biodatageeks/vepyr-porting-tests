@@ -17,6 +17,7 @@ from collections.abc import Callable, Iterator, Mapping, Sequence
 from contextlib import redirect_stderr, redirect_stdout
 from dataclasses import dataclass, field
 from pathlib import Path
+from typing import Final
 
 import pytest
 from test_fetch import PINS_TOML, REVISIONS, TINY_FA, FakeHub, build_hub
@@ -27,6 +28,10 @@ from run_tests.cli import DEFAULT_VEPYR_REF, MISSING_CACHE, main
 from run_tests.fetch import PROVENANCE, Flavour, HeadResolver, RemoteFile, bsd_sum
 from run_tests.summary import HEADER
 from run_tests.verdict import Exit, RunTestsError
+
+# Manifest URLs as vepyr spells them; the engine no longer hardcodes them (#70).
+_DFBF_GIT: Final[str] = "https://github.com/biodatageeks/datafusion-bio-functions.git"
+_FORMATS_GIT: Final[str] = "https://github.com/biodatageeks/datafusion-bio-formats.git"
 
 
 @dataclass(frozen=True, slots=True, kw_only=True)
@@ -423,7 +428,7 @@ class _FakeGh:
 def _tiny_ladder_toml() -> str:
     rev = "b" * 40
     dfbf = (
-        f'datafusion-bio-function-vep = {{ git = "{engine.DFBF_GIT}", '
+        f'datafusion-bio-function-vep = {{ git = "{_DFBF_GIT}", '
         f'rev = "{rev}", features = ["cache-builder"] }}'
     )
     return f"""
@@ -433,8 +438,8 @@ version = "0.0.0"
 
 [dependencies]
 {dfbf}
-datafusion-bio-format-ensembl-cache = {{ git = "{engine.FORMATS_GIT}", tag = "v0.0.0" }}
-datafusion-bio-format-vcf = {{ git = "{engine.FORMATS_GIT}", tag = "v0.0.0" }}
+datafusion-bio-format-ensembl-cache = {{ git = "{_FORMATS_GIT}", tag = "v0.0.0" }}
+datafusion-bio-format-vcf = {{ git = "{_FORMATS_GIT}", tag = "v0.0.0" }}
 """
 
 
