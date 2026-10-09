@@ -14,6 +14,7 @@ import json
 import os
 import re
 import subprocess
+import sys
 import tomllib
 from collections.abc import Callable, Iterator, Mapping, Sequence
 from contextlib import contextmanager
@@ -156,6 +157,19 @@ def _default_run(
 
 
 Runner = Callable[..., subprocess.CompletedProcess[str]]
+
+
+STAGE_PREFIX: Final = "run_tests: "
+
+
+def stage(message: str) -> None:
+    """Print one ``run_tests: <message>`` stage marker to stderr, flushed.
+
+    Markers come from this (parent) process, around the git/cargo subprocesses, so
+    a child's ``capture_output=True`` cannot swallow them; stdout stays reserved for
+    the final summary.
+    """
+    print(f"{STAGE_PREFIX}{message}", file=sys.stderr, flush=True)
 
 
 def default_src_root(environ: Mapping[str, str] | None = None) -> Path:
@@ -465,6 +479,7 @@ def resolve(
     """Resolve ``ref``, checkout the ladder, and build the cargo config text."""
     runner: Runner = run or _default_run
     validate_ref(ref)
+    stage(f"resolving --vepyr {ref} ...")
     sha = _resolve_sha(api, ref)
     manifest = _read_cargo_toml(api, sha)
     dfbf_entry = _dep_spec(manifest, _DFBF_CRATE, ref=ref)
@@ -480,6 +495,7 @@ def resolve(
             f"--vepyr {ref}: formats crates disagree "
             f"({_FORMATS_CRATES[0]}={fmt_rev} vs {_FORMATS_CRATES[1]}={vcf_rev})",
         )
+    stage("materializing engine ladder (datafusion-bio-functions) ...")
     dfbf = _checkout_repo(
         name="dfbf",
         git_url=dfbf_url,
@@ -487,6 +503,7 @@ def resolve(
         target=src_root / "datafusion-bio-functions",
         run=runner,
     )
+    stage("materializing engine ladder (datafusion-bio-formats) ...")
     formats = _checkout_repo(
         name="formats",
         git_url=fmt_url,

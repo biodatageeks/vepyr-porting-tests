@@ -13,10 +13,12 @@ import hashlib
 import io
 import json
 import os
+import subprocess
 from collections.abc import Callable, Iterator, Mapping, Sequence
 from contextlib import redirect_stderr, redirect_stdout
 from dataclasses import dataclass, field
 from pathlib import Path
+from typing import Any
 
 import pytest
 from test_fetch import PINS_TOML, REVISIONS, TINY_FA, FakeHub, build_hub
@@ -832,3 +834,161 @@ def test_unresolvable_vepyr_ref_exits_6(
     assert result.code == int(Exit.ENGINE), result.stderr
     assert "run_tests: error (engine, exit 6):" in result.stderr
     assert "--vepyr no-such-ref: cannot resolve on" in result.stderr
+
+
+# --- Issue #60: stage markers on stderr during a --vepyr run -------------------
+
+_RESOLVING = "run_tests: resolving --vepyr"
+_MATERIALIZING = "run_tests: materializing engine ladder"
+_CARGO_STARTING = "run_tests: cargo test starting"
+_LADDER_REPOS = ("datafusion-bio-functions", "datafusion-bio-formats")
+_CHILD_NOISE = "CHILD-NOISE"
+
+
+def _vepyr_run_with_capsys(
+    harness: Harness,
+    capsys: pytest.CaptureFixture[str],
+    *,
+    gh_api: engine.GhApi,
+    cargo_runner: Callable[[Sequence[str], Mapping[str, str]], int] | None = None,
+) -> tuple[int, str, str]:
+    """Run ``main(--vepyr 0.7.0)`` over a fetched cache with ``capsys`` capturing.
+
+    Unlike :meth:`Harness.run` this does not redirect the streams itself, so the
+    markers are observed exactly where ``capsys`` sees the process's stderr/stdout.
+    """
+    capsys.readouterr()
+    code = main(
+        ["--cache-dir", str(harness.root), "--flavours", "ensembl", "--vepyr", "0.7.0"],
+        lister=harness.hub.lister,
+        downloader=harness.hub.downloader,
+        cargo_runner=cargo_runner or harness.cargo,
+        gh_api=gh_api,
+        head_resolver=fresh_head,
+    )
+    captured = capsys.readouterr()
+    return code, captured.out, captured.err
+
+
+def _fetch_cache(harness: Harness) -> None:
+    """Fetch the synthetic cache while no data-test exists (so nothing runs yet)."""
+    assert harness.run(
+        "--cache-dir",
+        str(harness.root),
+        "--add-contigs",
+        "chr21",
+        "--flavours",
+        "ensembl",
+    ).code == int(Exit.OK)
+
+
+def _marker_lines(stream: str) -> list[str]:
+    """Every ``run_tests: `` stage-marker line of ``stream``, in order."""
+    return [line for line in stream.splitlines() if line.startswith("run_tests: ")]
+
+
+def test_stage_markers_order(
+    harness: Harness,
+    capsys: pytest.CaptureFixture[str],
+    monkeypatch: pytest.MonkeyPatch,
+    tmp_path: Path,
+) -> None:
+    """AC1: resolving < materializing < cargo starting, all on stderr only."""
+    _fetch_cache(harness)
+    _add_data_dir(harness.repo, "pilot")
+    _stub_engine(tmp_path / "src", monkeypatch)
+
+    code, out, err = _vepyr_run_with_capsys(
+        harness, capsys, gh_api=_FakeGh(_tiny_ladder_toml())
+    )
+
+    assert code == int(Exit.OK), err
+    positions = [
+        err.find(marker) for marker in (_RESOLVING, _MATERIALIZING, _CARGO_STARTING)
+    ]
+    assert all(p >= 0 for p in positions), err
+    assert positions == sorted(positions), err
+    for marker in (_RESOLVING, _MATERIALIZING, _CARGO_STARTING):
+        assert marker not in out
+
+
+def test_stage_markers_survive_captured_subprocess(
+    harness: Harness,
+    capsys: pytest.CaptureFixture[str],
+    monkeypatch: pytest.MonkeyPatch,
+    tmp_path: Path,
+) -> None:
+    """AC2: real git via ``engine._default_run``; captured child noise stays hidden."""
+    from test_run_tests_engine import _manifest, _origin
+
+    _fetch_cache(harness)
+    _add_data_dir(harness.repo, "pilot")
+    dfbf, dfbf_rev, _ = _origin(tmp_path, "dfbf")
+    fmt, fmt_rev, _ = _origin(tmp_path, "formats")
+    manifest = _manifest(dfbf_url=dfbf, dfbf_rev=dfbf_rev, fmt_url=fmt, fmt_rev=fmt_rev)
+    monkeypatch.setattr(
+        engine, "default_src_root", lambda environ=None: tmp_path / "src"
+    )
+
+    def noisy_run(
+        argv: Sequence[str], **kwargs: object
+    ) -> subprocess.CompletedProcess[Any]:
+        real = subprocess.run(list(argv), **kwargs)  # type: ignore[call-overload]
+        text = isinstance(real.stdout, str) or isinstance(real.stderr, str)
+        noise: str | bytes = (
+            f"{_CHILD_NOISE}\n" if text else f"{_CHILD_NOISE}\n".encode()
+        )
+        stdout = real.stdout if real.stdout else noise
+        stderr = (real.stderr or noise[:0]) + noise
+        return subprocess.CompletedProcess(real.args, real.returncode, stdout, stderr)
+
+    monkeypatch.setattr(engine, "_default_run", noisy_run)
+
+    code, out, err = _vepyr_run_with_capsys(harness, capsys, gh_api=_FakeGh(manifest))
+
+    assert code == int(Exit.OK), err
+    for marker in (_RESOLVING, _MATERIALIZING, _CARGO_STARTING):
+        assert marker in err, err
+    assert _CHILD_NOISE not in out
+    assert _CHILD_NOISE not in err
+
+
+def test_stage_markers_full_sequence(
+    harness: Harness,
+    capsys: pytest.CaptureFixture[str],
+    monkeypatch: pytest.MonkeyPatch,
+    tmp_path: Path,
+) -> None:
+    """AC4: exact marker sequence; cargo is invoked only after its marker."""
+    _fetch_cache(harness)
+    names = ("pilot", "second")
+    for name in names:
+        _add_data_dir(harness.repo, name)
+    _stub_engine(tmp_path / "src", monkeypatch)
+    order: list[str] = []
+    real_checkout = engine._checkout_repo
+
+    def recording_checkout(**kwargs: object) -> engine.Checkout:
+        order.append(Path(str(kwargs["target"])).name)
+        return real_checkout(**kwargs)
+
+    monkeypatch.setattr(engine, "_checkout_repo", recording_checkout)
+    seen_before_cargo: list[list[str]] = []
+
+    def cargo(argv: Sequence[str], env: Mapping[str, str]) -> int:
+        seen_before_cargo.append(_marker_lines(capsys.readouterr().err))
+        return harness.cargo(argv, env)
+
+    code, out, _ = _vepyr_run_with_capsys(
+        harness, capsys, gh_api=_FakeGh(_tiny_ladder_toml()), cargo_runner=cargo
+    )
+
+    assert code == int(Exit.OK)
+    assert order == list(_LADDER_REPOS)
+    assert len(seen_before_cargo) == 1
+    assert seen_before_cargo[0] == [
+        "run_tests: resolving --vepyr 0.7.0 ...",
+        *(f"run_tests: materializing engine ladder ({repo}) ..." for repo in order),
+        f"run_tests: cargo test starting ({len(names)} target(s)) ...",
+    ]
+    assert f"cargo test ok ({len(names)} target(s))" in out

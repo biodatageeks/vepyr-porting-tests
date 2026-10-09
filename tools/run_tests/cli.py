@@ -406,6 +406,7 @@ def _run_data_tests(
         # packages by itself when `--config` carries the `[patch]` path tables, and
         # bare `-p <crate>` specs were ambiguous whenever the lockfile held the same
         # crate name under two sources.
+        engine.stage(f"cargo test starting ({len(targets)} target(s)) ...")
         code = cargo_runner(argv, env)
     if code == 0:
         return Exit.OK, f"cargo test ok ({len(targets)} target(s))", plan.vepyr_sha
