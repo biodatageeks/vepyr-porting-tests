@@ -67,7 +67,8 @@ for the one the manifest names, and no `test-internals` overlay is applied.
 ### 3. Clone dfbf + formats
 
 `engine._checkout_repo` materialises each of the two repositories under the source
-root (`$RUN_TESTS_SRC`, else `<repo>/.run_tests/src` — see `engine.default_src_root`):
+root (`$RUN_TESTS_SRC`, else `${XDG_CACHE_HOME:-$HOME/.cache}/vepyr-porting-tests/run_tests/src`,
+shared by all checkouts — see `engine.default_src_root` and README "Engine mirror cache"):
 
 - a `--mirror` clone is kept once per repository and re-fetched, so repeated runs do
   not re-download history;
