@@ -355,7 +355,12 @@ def _run_fetch(
 def _default_cargo(argv: Sequence[str], env: Mapping[str, str]) -> int:
     """Run cargo from the repo root (manifests + ``--config``)."""
     merged = {**os.environ, **dict(env)}
-    completed = subprocess.run(list(argv), env=merged, cwd=_repo_root(), check=False)
+    command = list(argv)
+    if "--config" in command:
+        config = Path(command[command.index("--config") + 1])
+        engine.prepare_cargo(_repo_root(), config, env=merged)
+        command.insert(2, "--locked")
+    completed = subprocess.run(command, env=merged, cwd=_repo_root(), check=False)
     return int(completed.returncode)
 
 
@@ -402,10 +407,8 @@ def _run_data_tests(
         if inv.only:
             env[tests.ROOT_ENV] = str(stack.enter_context(tests.only_root(inv.only)))
         stack.enter_context(engine.LockGuard(repo).held())
-        # No `cargo update -p …` pre-step (issue #21): cargo re-locks the patched
-        # packages by itself when `--config` carries the `[patch]` path tables, and
-        # bare `-p <crate>` specs were ambiguous whenever the lockfile held the same
-        # crate name under two sources.
+        # The default runner re-locks fully qualified engine packages, verifies
+        # their resolved paths, then tests with --locked, all inside this guard.
         code = cargo_runner(argv, env)
     if code == 0:
         return Exit.OK, f"cargo test ok ({len(targets)} target(s))", plan.vepyr_sha

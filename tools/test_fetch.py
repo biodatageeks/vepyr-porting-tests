@@ -28,6 +28,7 @@ import pytest
 
 import run_tests.fetch as fetch_cache
 from run_tests.fetch import (
+    CACHE_METADATA,
     ENTITIES,
     MANIFEST,
     PROVENANCE,
@@ -91,7 +92,18 @@ class FakeHub:
                     if rel.endswith(".parquet")
                     else None
                 )
-                files.append(RemoteFile(path=rel, size=len(data), sha256=sha))
+                files.append(
+                    RemoteFile(
+                        path=rel,
+                        size=len(data),
+                        sha256=sha,
+                        git_blob_sha=None
+                        if sha
+                        else hashlib.sha1(
+                            f"blob {len(data)}\0".encode() + data
+                        ).hexdigest(),
+                    )
+                )
         return files
 
     def downloader(
@@ -127,6 +139,8 @@ def build_hub(hub: Path, contigs: Sequence[str] = CONTIGS) -> FakeHub:
                 )
             (entity_dir / MANIFEST).write_text(json.dumps(entries, indent=2) + "\n")
         (hub / flavour.value / "README.md").write_text(f"# {flavour}\n")
+        (hub / flavour.value / "chr_synonyms.txt").write_text("21\tNC_000021.9\n")
+        (hub / flavour.value / "reference_policy.json").write_text("{}\n")
     return FakeHub(root=hub)
 
 
@@ -208,6 +222,7 @@ def test_per_contig_patterns_name_shards_manifests_and_readme() -> None:
         "*/chr22.parquet",
         "*/chrom_manifest.json",
         "README.md",
+        *CACHE_METADATA,
     ]
 
 
@@ -216,10 +231,72 @@ def test_select_remote_matches_like_fnmatch(remote: FakeHub) -> None:
         "biodatageeks/vepyr_116_GRCh38_ensembl", REVISIONS[Flavour.ENSEMBL]
     )
     chosen = select_remote(files, allow_patterns(["chr21"]))
-    assert len(chosen) == 7 + 7 + 1
+    assert len(chosen) == 7 + 7 + 3
     assert all(
-        f.path.endswith(("chr21.parquet", MANIFEST, "README.md")) for f in chosen
+        f.path.endswith(("chr21.parquet", MANIFEST, "README.md", *CACHE_METADATA))
+        for f in chosen
     )
+
+
+@pytest.mark.parametrize("name", CACHE_METADATA)
+def test_partial_download_fetches_and_repairs_metadata(
+    remote: FakeHub, pins: Path, tmp_path: Path, name: str
+) -> None:
+    root = tmp_path / "empty-cache"
+    for attempt in range(2):
+        code, _ = _run(
+            remote,
+            pins,
+            root,
+            contigs=("chr21",),
+            flavours=(Flavour.MERGED,),
+            verify=True,
+        )
+        assert code == Exit.OK
+        local = root / "116_GRCh38_merged" / name
+        assert local.read_bytes() == (remote.root / "merged" / name).read_bytes()
+        if attempt == 0:
+            local.unlink()
+    assert read_provenance(root).runs[-1].added_files == 1
+
+
+@pytest.mark.parametrize("name", CACHE_METADATA)
+def test_missing_remote_metadata_is_incomplete(
+    remote: FakeHub, pins: Path, tmp_path: Path, name: str
+) -> None:
+    (remote.root / "merged" / name).unlink()
+    with pytest.raises(RunTestsError) as caught:
+        _run(
+            remote,
+            pins,
+            tmp_path / "cache",
+            contigs=("chr21",),
+            flavours=(Flavour.MERGED,),
+        )
+    assert caught.value.code == Exit.INCOMPLETE
+    assert name in str(caught.value)
+    assert not remote.calls
+
+
+@pytest.mark.parametrize("name", CACHE_METADATA)
+def test_verify_rejects_corrupted_metadata(
+    remote: FakeHub, pins: Path, tmp_path: Path, name: str
+) -> None:
+    root = tmp_path / "cache"
+    _run(remote, pins, root, contigs=("chr21",), flavours=(Flavour.MERGED,))
+    local = root / "116_GRCh38_merged" / name
+    local.write_bytes(b"x" * local.stat().st_size)
+    with pytest.raises(RunTestsError) as caught:
+        _run(
+            remote,
+            pins,
+            root,
+            contigs=("chr21",),
+            flavours=(Flavour.MERGED,),
+            verify=True,
+        )
+    assert caught.value.code == Exit.VERIFY
+    assert name in str(caught.value)
 
 
 # --- pins -----------------------------------------------------------------------------
@@ -397,8 +474,8 @@ def test_dry_run_lists_files_and_bytes_and_writes_nothing(
     assert code == Exit.OK
     assert not root.exists(), "dry-run must not create the root"
     assert remote.calls == []
-    assert sum(line.startswith("116_GRCh38_ensembl/") for line in out) == 15
-    assert out[-1].startswith("# total: 15 files, ") and out[-1].endswith(
+    assert sum(line.startswith("116_GRCh38_ensembl/") for line in out) == 17
+    assert out[-1].startswith("# total: 17 files, ") and out[-1].endswith(
         "; nothing written"
     )
 
@@ -435,8 +512,8 @@ def test_per_contig_fetch_trims_manifests_and_records_contigs(
     assert record.revision == REVISIONS[Flavour.ENSEMBL]
     assert record.contigs == ["chr21", "chr22"]
     assert record.manifests_trimmed is True
-    assert record.files == 2 * 7 + 7 + 1
-    assert provenance.runs[-1].added_files == 22
+    assert record.files == 2 * 7 + 7 + 3
+    assert provenance.runs[-1].added_files == 24
     assert provenance.runs[-1].refreshed_manifests == 7
     assert provenance.pins_toml_sha256 == hashlib.sha256(pins.read_bytes()).hexdigest()
 
@@ -482,7 +559,7 @@ def test_second_run_adds_nothing_and_appends_a_run(
     runs = read_provenance(root).runs  # type: ignore[union-attr]
     assert len(runs) == 2
     assert runs[1].added_files == 0
-    assert runs[1].skipped_files == 15
+    assert runs[1].skipped_files == 17
 
 
 def test_contig_runs_accumulate_into_a_list_never_all(
@@ -607,8 +684,10 @@ def test_gitattributes_from_the_hub_listing_counts_as_present(
         assert code == Exit.OK
     assert (root / "116_GRCh38_ensembl" / ".gitattributes").is_file()
     record = read_provenance(root).datasets["ensembl"]  # type: ignore[union-attr]
-    assert record.files == 3 * 7 + 7 + 2, "README.md and .gitattributes both counted"
-    assert read_provenance(root).runs[-1].skipped_files == 30  # type: ignore[union-attr]
+    assert record.files == 3 * 7 + 7 + 4, (
+        "metadata, README.md and .gitattributes counted"
+    )
+    assert read_provenance(root).runs[-1].skipped_files == 32  # type: ignore[union-attr]
 
 
 def test_files_and_bytes_describe_the_root_like_contigs_do(
@@ -625,7 +704,7 @@ def test_files_and_bytes_describe_the_root_like_contigs_do(
         if p.is_file() and ".cache" not in p.parts
     ]
     assert record.contigs == ["chr21", "chr22"]
-    assert record.files == len(on_disk) == 2 * 7 + 7 + 1
+    assert record.files == len(on_disk) == 2 * 7 + 7 + 3
     assert record.bytes == sum(p.stat().st_size for p in on_disk)
 
 

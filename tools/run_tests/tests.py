@@ -266,6 +266,15 @@ def precheck_cache(
                 f"Run: ./run_tests --cache-dir <other> --flavours {flavour} "
                 f"and set {CACHE_ENV}=<other>",
             )
+        for name in fetch.CACHE_METADATA:
+            metadata = root / fetch.Flavour(flavour).dir_name / name
+            if not metadata.is_file():
+                raise RunTestsError(
+                    Exit.INCOMPLETE,
+                    f"cache metadata missing at {metadata}. "
+                    f"Run: ./run_tests --cache-dir {root} --flavours {flavour} "
+                    "--add-contigs <required-contigs>",
+                )
     fasta = root / fetch.FASTA_DIR / fasta_name
     fai = Path(str(fasta) + ".fai")
     if not fasta.is_file() or not fai.is_file():

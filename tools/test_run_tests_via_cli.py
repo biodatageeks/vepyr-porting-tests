@@ -130,6 +130,40 @@ def test_body_md5_rule() -> None:
     assert body_md5(vcf) == hashlib.md5(b"A\nB").hexdigest()
 
 
+@pytest.mark.parametrize("body, status", [(GOOD_BODY, "PASS"), (BAD_BODY, "MISMATCH")])
+def test_named_tests_share_one_annotation_but_each_reports_progress(
+    tmp_path: Path, body: bytes, status: str
+) -> None:
+    fixture = _data_test(tmp_path, "fixture")
+    config = fixture / "test.toml"
+    config.write_text(
+        config.read_text()
+        + '\n[[tests]]\nid = "fixture"\n[[tests]]\nid = "second_assertion"\n'
+    )
+    fake = FakeCli(bodies={"fixture": body})
+    out = io.StringIO()
+    report = via_cli.run_dirs(
+        [fixture],
+        build=BUILD,
+        cache_root=tmp_path,
+        fasta=tmp_path / "unused.fa",
+        runner=fake,
+        out=out,
+        err=io.StringIO(),
+    )
+    assert len(fake.calls) == 1
+    assert (report.passed if status == "PASS" else report.mismatched) == [
+        "fixture",
+        "second_assertion",
+    ]
+    lines = out.getvalue().splitlines()
+    for name in ["fixture", "second_assertion"]:
+        assert f"RUN {name}" in lines
+        assert sum(line.startswith(f"{status} {name}") for line in lines) == 1
+    assert any("1/2 tests" in line for line in lines)
+    assert "2/2 tests" in lines[-1]
+
+
 def test_progress_is_flushed_before_runs_and_counts_every_outcome(
     tmp_path: Path,
 ) -> None:
@@ -156,10 +190,10 @@ def test_progress_is_flushed_before_runs_and_counts_every_outcome(
     def observe(argv: Sequence[str]) -> int:
         nonlocal multi_runs
         name = Path(argv[argv.index("--input_file") + 1]).parent.name
-        assert f"| RUN {name}\n" in out.visible
+        assert f"RUN {name}\n" in out.visible
         if name == "multi":
             multi_runs += 1
-            assert f"RUN [multi] run {multi_runs}/2\n" in out.visible
+            assert f"RUN multi | run {multi_runs}/2\n" in out.visible
         return 9 if name == "error" else fake(argv)
 
     report = via_cli.run_dirs(
@@ -178,16 +212,17 @@ def test_progress_is_flushed_before_runs_and_counts_every_outcome(
     assert [name for name, _ in report.skipped] == ["skipped"]
     assert report.code is Exit.ENGINE
     bars = [line for line in out.visible.splitlines() if line.startswith("[")]
-    assert [line.split(" fixtures")[0].split()[-1] for line in bars] == [
+    assert [line.split(" tests")[0].split()[-1] for line in bars] == [
         "0/4",
         "1/4",
         "2/4",
         "3/4",
         "4/4",
+        "4/4",
     ]
     assert (
         bars[-1]
-        == "[####################] 4/4 fixtures | 1 passed, 2 failed, 1 skipped | DONE"
+        == "[####################] 4/4 tests | 1 passed, 2 failed, 1 skipped | DONE"
     )
 
 

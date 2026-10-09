@@ -814,8 +814,7 @@ async fn check_dir(test: &TestDir, cache_root: CacheRoot<'_>) -> Outcome {
     }
     let input = std::fs::read_to_string(test.dir.join(INPUT_NAME))
         .unwrap_or_else(|error| panic!("[{name}] cannot read {INPUT_NAME}: {error}"));
-    if let Some(reason) = &test.skip_reason {
-        cache_root.status(&format!("SKIP {name}: {reason}"));
+    if test.skip_reason.is_some() {
         return Outcome::Skipped;
     }
 
@@ -824,7 +823,8 @@ async fn check_dir(test: &TestDir, cache_root: CacheRoot<'_>) -> Outcome {
     for (index, run) in test.runs.iter().enumerate() {
         if let Some(overrides) = &run.overrides {
             cache_root.status(&format!(
-                "RUN [{name}] run {}/{total}: {overrides}",
+                "RUN {} | run {}/{total}: {overrides}",
+                test.tests.join(", "),
                 index + 1
             ));
         }
@@ -867,12 +867,12 @@ async fn check_dir(test: &TestDir, cache_root: CacheRoot<'_>) -> Outcome {
     }
 }
 
-/// Completed fixtures, not named coverage entries or individual override runs.
+/// Completed named tests; tests sharing a fixture inherit its comparison result.
 fn progress_bar(total: usize, passed: usize, failed: usize, skipped: usize) -> String {
     let done = passed + failed + skipped;
     let filled = if total == 0 { 0 } else { done * 20 / total };
     format!(
-        "[{}{}] {done}/{total} fixtures | {passed} passed, {failed} failed, {skipped} skipped",
+        "[{}{}] {done}/{total} tests | {passed} passed, {failed} failed, {skipped} skipped",
         "#".repeat(filled),
         "-".repeat(20 - filled)
     )
@@ -881,46 +881,59 @@ fn progress_bar(total: usize, passed: usize, failed: usize, skipped: usize) -> S
 /// Load and check every directory under `root`; panic naming the failed ones.
 async fn run_all(root: &Path, cache_root: CacheRoot<'_>) {
     let dirs = test_dirs(root);
+    let loaded: Vec<TestDir> = dirs.iter().map(|dir| TestDir::load(dir)).collect();
+    check_unique_test_ids(&loaded);
+    let tests: usize = loaded.iter().map(|test| test.tests.len()).sum();
+    let runs: usize = loaded.iter().map(|test| test.runs.len()).sum();
     let mut failed = Vec::new();
-    let mut tests = 0;
     let mut passed = 0;
+    let mut failed_tests = 0;
     let mut skipped = 0;
-    let mut skipped_tests = 0;
     let mut skipped_runs = 0;
-    for dir in &dirs {
-        cache_root.status(&format!(
-            "{} | RUN {}",
-            progress_bar(dirs.len(), passed, failed.len(), skipped),
-            dir.file_name()
-                .expect("fixture directory name")
-                .to_string_lossy()
-        ));
-        let test = TestDir::load(dir);
-        tests += test.tests.len();
-        match check_dir(&test, cache_root).await {
-            Outcome::Passed => {
-                passed += 1;
-                cache_root.status(&format!("[{}] ok", test.name));
+    cache_root.status(&progress_bar(tests, passed, failed_tests, skipped));
+    for test in &loaded {
+        for id in &test.tests {
+            cache_root.status(&format!("RUN {id}"));
+        }
+        let outcome = check_dir(test, cache_root).await;
+        let status = match outcome {
+            Outcome::Passed => "PASS",
+            Outcome::Failed => {
+                failed.push(test.name.clone());
+                "FAIL"
             }
-            Outcome::Failed => failed.push(test.name),
             Outcome::Skipped => {
-                skipped += 1;
-                skipped_tests += test.tests.len();
                 skipped_runs += test.runs.len();
+                "SKIP"
             }
+        };
+        for id in &test.tests {
+            match outcome {
+                Outcome::Passed => passed += 1,
+                Outcome::Failed => failed_tests += 1,
+                Outcome::Skipped => skipped += 1,
+            }
+            let reason = if outcome == Outcome::Skipped {
+                format!(": {}", test.skip_reason.as_deref().expect("skip reason"))
+            } else {
+                String::new()
+            };
+            cache_root.status(&format!(
+                "{} | {status} {id}{reason}",
+                progress_bar(tests, passed, failed_tests, skipped)
+            ));
         }
     }
     cache_root.status(&format!(
         "{} | DONE",
-        progress_bar(dirs.len(), passed, failed.len(), skipped)
+        progress_bar(tests, passed, failed_tests, skipped)
     ));
     cache_root.status(&format!(
-        "data_dirs: {} directory(ies) ({tests} named tests) under {}, \
-         {passed} passed, {} failed, {skipped} skipped \
-         ({skipped_tests} named tests, {skipped_runs} runs skipped)",
-        dirs.len(),
+        "data_dirs: {tests} named tests under {}, \
+         {passed} passed, {failed_tests} failed, {skipped} skipped \
+         ({} shared fixtures, {runs} configured runs, {skipped_runs} runs skipped)",
         root.display(),
-        failed.len()
+        dirs.len()
     ));
     assert!(
         failed.is_empty(),

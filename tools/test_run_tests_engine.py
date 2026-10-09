@@ -86,9 +86,9 @@ class _FakeGh:
 
             return {
                 "encoding": "base64",
-                "content": base64.b64encode(
-                    self.manifest[ref].encode("utf-8")
-                ).decode("ascii"),
+                "content": base64.b64encode(self.manifest[ref].encode("utf-8")).decode(
+                    "ascii"
+                ),
             }
         raise engine.GhError(path, "unexpected")
 
@@ -182,3 +182,92 @@ def test_same_rev_reuses_its_tree(ladder: dict[str, Any]) -> None:
     second = engine.resolve("old", api=ladder["api"], src_root=src_root, run=_run)
     assert second.dfbf.path == first.dfbf.path
     assert stamp.read_text(encoding="utf-8") == "kept"
+
+
+def _cargo_graph(tmp_path: Path) -> tuple[Path, dict[str, Any]]:
+    """Selected path packages and an old git lockfile, independent of Cargo caches."""
+    config = tmp_path / "engine.toml"
+    crates = (*_CRATES["dfbf"], *_CRATES["formats"])
+    config.write_text(
+        '[patch."https://example.invalid/engine"]\n'
+        + "".join(
+            f"{name} = {{ path = {json.dumps(str(tmp_path / name))} }}\n"
+            for name in crates
+        )
+    )
+    (tmp_path / "Cargo.lock").write_text(
+        "version = 4\n"
+        + "".join(
+            f'[[package]]\nname = "{name}"\nversion = "0.19.0"\n'
+            'source = "git+https://example.invalid/engine?branch=master#'
+            + "a" * 40
+            + '"\n'
+            for name in crates
+        )
+    )
+    packages = [
+        dict(
+            id=name,
+            name=name,
+            source=None,
+            manifest_path=str(tmp_path / name / "Cargo.toml"),
+        )
+        for name in crates
+    ]
+    return config, {
+        "packages": packages,
+        "resolve": {"nodes": [{"id": p["id"]} for p in packages]},
+    }
+
+
+def test_prepare_cargo_unlocks_qualified_packages_and_checks_locked_graph(
+    tmp_path: Path,
+) -> None:
+    config, graph = _cargo_graph(tmp_path)
+    calls = []
+
+    def cargo(argv: Sequence[str], **kwargs: Any) -> subprocess.CompletedProcess[str]:
+        calls.append(list(argv))
+        assert kwargs["cwd"] == tmp_path
+        return subprocess.CompletedProcess(argv, 0, json.dumps(graph), "")
+
+    engine.prepare_cargo(tmp_path, config, run=cargo)
+    assert [call[1] for call in calls] == ["update", "metadata"]
+    specs = [calls[0][i + 1] for i, arg in enumerate(calls[0]) if arg == "--package"]
+    assert len(specs) == 3
+    assert all(
+        s.startswith("git+https://example.invalid/engine?branch=master#")
+        and s.endswith("@0.19.0")
+        for s in specs
+    )
+    assert "--locked" in calls[1]
+    assert all(call[-2:] == ["--config", str(config)] for call in calls)
+
+
+@pytest.mark.parametrize(
+    "mutation", ["git-source", "wrong-path", "missing", "duplicate", "invalid-json"]
+)
+def test_prepare_cargo_refuses_an_unproven_engine(
+    tmp_path: Path, mutation: str
+) -> None:
+    from run_tests.verdict import Exit, RunTestsError
+
+    config, graph = _cargo_graph(tmp_path)
+    package = graph["packages"][0]
+    if mutation == "git-source":
+        package["source"] = "git+https://example.invalid/old"
+    elif mutation == "wrong-path":
+        package["manifest_path"] = str(tmp_path / "wrong" / "Cargo.toml")
+    elif mutation == "missing":
+        graph["resolve"]["nodes"] = graph["resolve"]["nodes"][1:]
+    elif mutation == "duplicate":
+        graph["packages"].append(dict(package))
+
+    def cargo(argv: Sequence[str], **kwargs: Any) -> subprocess.CompletedProcess[str]:
+        return subprocess.CompletedProcess(
+            argv, 0, "not json" if mutation == "invalid-json" else json.dumps(graph), ""
+        )
+
+    with pytest.raises(RunTestsError) as caught:
+        engine.prepare_cargo(tmp_path, config, run=cargo)
+    assert caught.value.code == Exit.ENGINE

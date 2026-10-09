@@ -38,7 +38,7 @@ export VEPYR_CACHE_ROOT=/mnt/hf-cache
 | `--add-contigs LIST` | Adds the named contigs to `DIR` (not `--contigs`). Default: whole genome |
 | `--flavours LIST` | Default `merged`, the cache used by every committed data fixture. Other flavours remain available explicitly for tooling or external fixtures |
 | `--dry-run` | Lists Hub files and byte totals; writes nothing; does not run tests |
-| `--verify` | Checks every selected shard against the Hub sha256 |
+| `--verify` | Checks selected shard SHA-256s, metadata Git hashes and manifest structure |
 | `--fast` | Sets `HF_XET_HIGH_PERFORMANCE=1` for the download (see below) |
 | `--no-trim-manifests` | Leaves `chrom_manifest.json` naming shards that were not fetched |
 | `--vepyr REF` | Resolves `REF` on biodatageeks/vepyr and path-patches that revision's dfbf/formats ladder. **Optional:** omitted, data-tests run against `master`'s current HEAD; the summary prints the full 40-char resolved sha either way. Pass `REF` whenever a pinned, reproducible run is wanted (CI, bisecting, ledger evidence) |
@@ -51,12 +51,13 @@ export VEPYR_CACHE_ROOT=/mnt/hf-cache
 They all run inside the one generic cargo target, so the `cargo test` invocation
 carries a single `--test data_dirs`.
 
-Both runner modes print a live progress bar and `RUN <fixture>` before annotation,
-followed by the fixture result. The bar counts completed fixtures (including
-failures and skips), with passed/failed/skipped totals; it does not count the named
-coverage entries. Fixtures with multiple configurations also print `run 1/5`,
-`run 2/5`, etc. Output is flushed immediately and uses plain lines so it remains
-readable when redirected to a log. No extra flag is needed.
+Both runner modes print `RUN <test-id>` and a result for every `[[tests]]` entry.
+The live bar counts completed named tests (205 in this suite), with
+passed/failed/skipped totals. Tests sharing a fixture reuse its annotation and
+inherit its complete VCF-body comparison result; the coverage descriptions are
+not separate field-level assertion evaluators. Multiple configurations also print
+`run 1/5`, `run 2/5`, etc. Output is flushed immediately to plain lines, including
+when redirected to a log. No extra flag is needed.
 
 **`--vepyr REF` examples.** `REF` is anything `biodatageeks/vepyr` can dereference:
 
@@ -70,6 +71,13 @@ readable when redirected to a log. No extra flag is needed.
 
 Engine ladder checkouts run with `GIT_LFS_SKIP_SMUDGE=1`: the crates are built from
 Rust source only, so the fetch never depends on unrelated git-lfs-hosted content.
+Before testing, the runner updates the selected engine packages in a temporary
+lockfile state and verifies Cargo resolved them to the selected source checkouts.
+Tests use `--locked`; the checked-in lockfile is restored afterwards.
+
+Partial cache downloads include `chr_synonyms.txt` and `reference_policy.json`,
+required for chromosome aliases and reference handling. Repeating the download
+command repairs older cache directories that lack these files.
 
 Omitting the flag is **not** "no engine": it resolves `biodatageeks/vepyr`'s
 `master` HEAD as it stands at that moment. The summary prints the resolved 40-char

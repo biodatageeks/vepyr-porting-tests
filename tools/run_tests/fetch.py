@@ -66,6 +66,7 @@ from typing import Final, Protocol
 from run_tests.verdict import Exit, RunTestsError
 
 __all__ = [
+    "CACHE_METADATA",
     "CONTIG_NAME",
     "ENTITIES",
     "DatasetPin",
@@ -112,6 +113,8 @@ ENTITIES: Final[tuple[str, ...]] = (
 
 MANIFEST: Final[str] = "chrom_manifest.json"
 README: Final[str] = "README.md"
+CACHE_METADATA: Final[tuple[str, ...]] = ("chr_synonyms.txt", "reference_policy.json")
+"""Root metadata used for chromosome aliases and reference handling."""
 PROVENANCE: Final[str] = "PROVENANCE.json"
 FASTA_DIR: Final[str] = "fasta"
 FASTA_PIN: Final[str] = "grch38_fasta"
@@ -270,6 +273,8 @@ class RemoteFile:
     size: int
     sha256: str | None
     """LFS digest; ``None`` for files stored in git (README, manifests)."""
+    git_blob_sha: str | None = None
+    """Git blob SHA-1 for metadata; trimmed manifests are checked structurally."""
 
 
 class Lister(Protocol):
@@ -367,6 +372,7 @@ def hub_lister(repo_id: str, revision: str) -> list[RemoteFile]:
             path=s.rfilename,
             size=int(s.size or 0),
             sha256=s.lfs.sha256 if s.lfs is not None else None,
+            git_blob_sha=getattr(s, "blob_id", None),
         )
         for s in info.siblings or ()
     ]
@@ -457,12 +463,16 @@ def allow_patterns(contigs: Sequence[str] | None) -> list[str]:
     """The ``allow_patterns`` for one flavour.
 
     Whole genome is ``["*"]``; per-contig is every ``<entity>/<contig>.parquet`` plus
-    every manifest and the README, so the flavour detection in the engine still finds a
-    manifest to read.
+    every manifest, README and cache metadata. Omitting chromosome synonyms breaks
+    RefSeq accession lookup even when the chromosome's Parquet shard is present.
     """
     if contigs is None:
         return ["*"]
-    return [f"*/{c}.parquet" for c in contigs] + [f"*/{MANIFEST}", README]
+    return [f"*/{c}.parquet" for c in contigs] + [
+        f"*/{MANIFEST}",
+        README,
+        *CACHE_METADATA,
+    ]
 
 
 def select_remote(
@@ -797,6 +807,13 @@ def verify_flavour(flavour_dir: Path, wanted: Sequence[RemoteFile]) -> list[str]
                     violations.append(
                         f"manifest {remote.path} names absent shard {entry['dataset']}"
                     )
+        elif remote.git_blob_sha is not None:
+            digest = hashlib.sha1(f"blob {local.stat().st_size}\0".encode())
+            with local.open("rb") as handle:
+                for chunk in iter(lambda: handle.read(_CHUNK), b""):
+                    digest.update(chunk)
+            if digest.hexdigest() != remote.git_blob_sha:
+                violations.append(f"git blob mismatch: {remote.path}")
     return violations
 
 
@@ -852,6 +869,14 @@ def plan(
                     "shards that were never fetched. Pick contigs every entity "
                     "carries (chr1-22, chrX, chrY) or fetch the whole genome",
                 )
+        missing_metadata = sorted(set(CACHE_METADATA) - {f.path for f in wanted})
+        if missing_metadata:
+            raise RunTestsError(
+                Exit.INCOMPLETE,
+                f"{flavour.dir_name}@{pin.revision[:12]} "
+                "lacks required cache metadata: "
+                f"{', '.join(missing_metadata)}",
+            )
         plans.append(Plan(flavour=flavour, pin=pin, patterns=patterns, wanted=wanted))
     return plans
 

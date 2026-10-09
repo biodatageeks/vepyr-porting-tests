@@ -13,6 +13,7 @@ import hashlib
 import io
 import json
 import os
+import subprocess
 from collections.abc import Callable, Iterator, Mapping, Sequence
 from contextlib import redirect_stderr, redirect_stdout
 from dataclasses import dataclass, field
@@ -531,10 +532,40 @@ def test_vepyr_run_invokes_cargo_with_cache_env(
     assert "pilot" not in argv
     assert env[tests.CACHE_ENV] == str(harness.root)
     assert "targets          : pilot" in result.summary
-    # Issue #21: no `cargo update -p <bare crate name>` pre-step — the path
-    # `[patch]` tables re-lock the ladder on their own, and bare specs were
-    # ambiguous whenever one crate name resolved to two sources.
+    # This injected runner sees the test command only. The default runner
+    # separately resolves fully qualified package IDs and verifies the graph.
     assert not [c for c in harness.cargo.calls if c[0][:2] == ["cargo", "update"]]
+
+
+@pytest.mark.parametrize("reject", [False, True])
+def test_default_cargo_verifies_engine_before_locked_test(
+    monkeypatch: pytest.MonkeyPatch, tmp_path: Path, reject: bool
+) -> None:
+    calls = []
+
+    def prepare(root, config, *, env):
+        calls.append("prepare")
+        assert root == tmp_path
+        assert config == tmp_path / "engine.toml"
+        if reject:
+            raise RunTestsError(Exit.ENGINE, "wrong engine")
+
+    def run(argv, **kwargs):
+        calls.append("test")
+        assert argv[:3] == ["cargo", "test", "--locked"]
+        return subprocess.CompletedProcess(argv, 0)
+
+    monkeypatch.setattr(cli, "_repo_root", lambda: tmp_path)
+    monkeypatch.setattr(cli.engine, "prepare_cargo", prepare)
+    monkeypatch.setattr(cli.subprocess, "run", run)
+    argv = ["cargo", "test", "--config", str(tmp_path / "engine.toml")]
+    if reject:
+        with pytest.raises(RunTestsError):
+            cli._default_cargo(argv, {})
+        assert calls == ["prepare"]
+    else:
+        assert cli._default_cargo(argv, {}) == 0
+        assert calls == ["prepare", "test"]
 
 
 def test_cargo_failure_is_exit_1(

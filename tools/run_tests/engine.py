@@ -35,6 +35,7 @@ __all__ = [
     "default_src_root",
     "engine_toml",
     "materialise",
+    "prepare_cargo",
     "resolve",
     "resolve_sha",
     "validate_ref",
@@ -523,6 +524,112 @@ def materialise(
     config_path = report / "engine.toml"
     config_path.write_text(plan.config_text, encoding="utf-8")
     return plan, config_path
+
+
+def prepare_cargo(
+    repo_root: Path,
+    config_path: Path,
+    *,
+    env: Mapping[str, str] | None = None,
+    run: Runner = _default_run,
+) -> None:
+    """Re-lock selected engine packages and verify the resolved graph before tests.
+
+    Call inside ``LockGuard``. A path patch is only a candidate: Cargo can retain
+    an older locked git package. Fully qualified package IDs avoid the ambiguity
+    of bare ``cargo update -p`` names when multiple sources are locked.
+    """
+    try:
+        config = tomllib.loads(config_path.read_text())
+        expected = {
+            name: (Path(entry["path"]) / "Cargo.toml").resolve()
+            for table in config.get("patch", {}).values()
+            for name, entry in table.items()
+        }
+    except (OSError, ValueError, KeyError, TypeError, AttributeError) as exc:
+        raise RunTestsError(
+            Exit.ENGINE, f"invalid engine config {config_path}: {exc}"
+        ) from exc
+    required = {_DFBF_CRATE, *_FORMATS_CRATES}
+    if not required <= expected.keys():
+        raise RunTestsError(Exit.ENGINE, "engine config lacks required path patches")
+
+    def cargo(*args: str) -> subprocess.CompletedProcess[str]:
+        try:
+            result = run(
+                ["cargo", *args, "--config", str(config_path)],
+                cwd=repo_root,
+                env=env,
+                capture_output=True,
+                text=True,
+                check=False,
+                timeout=_TIMEOUT,
+            )
+        except (OSError, subprocess.TimeoutExpired) as exc:
+            raise RunTestsError(
+                Exit.ENGINE, f"engine dependency resolution: {exc}"
+            ) from exc
+        if result.returncode:
+            detail = (result.stderr or result.stdout)[-2000:].strip()
+            raise RunTestsError(
+                Exit.ENGINE,
+                f"engine dependency resolution: {detail}",
+            )
+        return result
+
+    lock = repo_root / "Cargo.lock"
+    if lock.is_file():
+        try:
+            packages = tomllib.loads(lock.read_text()).get("package", [])
+        except (OSError, ValueError) as exc:
+            raise RunTestsError(Exit.ENGINE, f"invalid Cargo.lock: {exc}") from exc
+        specs = sorted(
+            {
+                f"{p['source'].split('#', 1)[0]}#{p['name']}@{p['version']}"
+                for p in packages
+                if p["name"] in expected and isinstance(p.get("source"), str)
+            }
+        )
+        if specs:
+            print("engine: resolving selected dependency revisions", flush=True)
+            cargo("update", *(arg for spec in specs for arg in ("--package", spec)))
+    else:
+        cargo("generate-lockfile")
+
+    result = cargo("metadata", "--locked", "--format-version", "1")
+    try:
+        metadata = json.loads(result.stdout)
+        active = {node["id"] for node in metadata["resolve"]["nodes"]}
+        seen: set[str] = set()
+        for package in metadata["packages"]:
+            name = package["name"]
+            if package["id"] not in active or not (
+                name == _DFBF_CRATE or name.startswith(_FORMATS_PREFIX)
+            ):
+                continue
+            manifest = Path(package["manifest_path"]).resolve()
+            if (
+                name in seen
+                or package.get("source") is not None
+                or expected.get(name) != manifest
+            ):
+                raise RunTestsError(
+                    Exit.ENGINE,
+                    f"resolved engine mismatch: {name} uses {manifest}; "
+                    f"expected {expected.get(name)}. "
+                    "Refusing to test the wrong engine.",
+                )
+            seen.add(name)
+        if not required <= seen:
+            raise RunTestsError(
+                Exit.ENGINE,
+                f"resolved graph lacks engine packages: {sorted(required - seen)}",
+            )
+    except (ValueError, KeyError, TypeError) as exc:
+        raise RunTestsError(
+            Exit.ENGINE, f"unusable Cargo dependency graph: {exc}"
+        ) from exc
+    print(f"engine: verified {len(seen)} selected engine packages", flush=True)
 
 
 class LockGuard:

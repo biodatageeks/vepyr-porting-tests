@@ -8,12 +8,12 @@ terminators kept, exactly the ``tests/data_dirs.rs`` rule) is compared with
 ``[compare] body_md5``.
 
 Body-mismatch contract (#231, relied on by #232): one stdout line per mismatching
-directory, exactly ``MISMATCH <dir-name> expected=<md5> actual=<md5>``, and exit
+named test, exactly ``MISMATCH <test-id> expected=<md5> actual=<md5>``, and exit
 :attr:`Exit.MISMATCH` (8). Any other error (an :class:`UnmappableKey` is
 :attr:`Exit.USAGE`, a failing vepyr build or run is :attr:`Exit.ENGINE`) wins and
 sets the exit code; the ``MISMATCH`` lines of the compared directories are still
-printed. A directory whose every run matched prints ``PASS <dir-name>``.
-An explicit top-level ``skip_reason`` prints ``SKIP <dir-name>: <reason>``
+printed. A directory whose every run matched prints ``PASS <test-id>``.
+An explicit top-level ``skip_reason`` prints ``SKIP <test-id>: <reason>``
 instead of annotating; skipped directories never enter the passed list.
 """
 
@@ -165,7 +165,7 @@ def default_runner(argv: Sequence[str]) -> int:
 
 @dataclass(slots=True)
 class Report:
-    """What :func:`run_dirs` saw, in directory order."""
+    """What :func:`run_dirs` saw, in named-test order."""
 
     passed: list[str] = field(default_factory=list)
     skipped: list[tuple[str, str]] = field(default_factory=list)
@@ -188,18 +188,24 @@ class Report:
         )
 
 
-def _load(dir_: Path) -> tuple[list[dict[str, object]], str, str | None]:
-    """Effective runs, expected body md5 and optional annotation skip reason."""
+def _load(dir_: Path) -> tuple[list[dict[str, object]], str, str | None, list[str]]:
+    """Effective runs, expected body md5, skip reason and named test IDs."""
     try:
         doc = tomllib.loads((dir_ / "test.toml").read_text(encoding="utf-8"))
         vepyr = doc["vepyr"]
         expected = doc["compare"]["body_md5"]
         reason = skip_reason(doc)
+        entries = doc.get("tests")
+        ids = [dir_.name] if entries is None else [entry["id"] for entry in entries]
+        if not ids or any(not isinstance(id_, str) or not id_.strip() for id_ in ids):
+            raise ValueError("tests must contain non-empty test IDs")
+        if len(ids) != len(set(ids)):
+            raise ValueError("duplicate test IDs")
     except (OSError, ValueError, KeyError, TypeError) as exc:
         raise RunTestsError(
             Exit.USAGE, f"[{dir_.name}] test.toml unusable for --via-cli: {exc!r}"
         ) from exc
-    return effective_runs(vepyr, doc.get("vepyr_run", ())), str(expected), reason
+    return effective_runs(vepyr, doc.get("vepyr_run", ())), str(expected), reason, ids
 
 
 @dataclass(frozen=True, slots=True, kw_only=True)
@@ -238,7 +244,11 @@ def _argvs(
 
 
 def _compare_dir(
-    dir_: Path, ctx: _Context, runs: Sequence[dict[str, object]], expected: str
+    dir_: Path,
+    ctx: _Context,
+    runs: Sequence[dict[str, object]],
+    expected: str,
+    ids: Sequence[str],
 ) -> tuple[str, str | None]:
     """Run every run of ``dir_``: ``(expected md5, first mismatching md5 or None)``.
 
@@ -252,7 +262,12 @@ def _compare_dir(
         for index, argv in enumerate(argvs, start=1):
             where = f"[{dir_.name}] run {index}/{len(argvs)}"
             if len(argvs) > 1:
-                print(f"RUN {where}", file=ctx.out, flush=True)
+                for id_ in ids:
+                    print(
+                        f"RUN {id_} | run {index}/{len(argvs)}",
+                        file=ctx.out,
+                        flush=True,
+                    )
             if (code := ctx.runner(argv)) != 0:
                 raise RunTestsError(
                     Exit.ENGINE, f"{where}: vepyr annotate exited {code}"
@@ -268,15 +283,19 @@ def _compare_dir(
 
 
 def _progress(total: int, report: Report, status: str, out: TextIO) -> None:
-    """A line-oriented bar of completed fixtures, also readable in saved logs."""
+    """A line-oriented bar of completed named tests."""
     passed = len(report.passed)
     failed = len(report.mismatched) + len(report.errors)
     skipped = len(report.skipped)
     done = passed + failed + skipped
     filled = done * 20 // total if total else 0
+    if status not in {"START", "DONE"}:
+        print(status, file=out, flush=True)
+        status = ""
+    suffix = f" | {status}" if status else ""
     print(
-        f"[{'#' * filled}{'-' * (20 - filled)}] {done}/{total} fixtures | "
-        f"{passed} passed, {failed} failed, {skipped} skipped | {status}",
+        f"[{'#' * filled}{'-' * (20 - filled)}] {done}/{total} tests | "
+        f"{passed} passed, {failed} failed, {skipped} skipped{suffix}",
         file=out,
         flush=True,
     )
@@ -294,10 +313,9 @@ def run_dirs(
 ) -> Report:
     """Annotate each of ``dirs`` via the vepyr CLI and compare body md5s.
 
-    Prints a live fixture progress bar and the current directory before annotation.
-    Prints ``PASS <dir>`` / ``MISMATCH <dir> expected=<md5> actual=<md5>`` or
-    ``SKIP <dir>: <reason>`` on
-    ``out`` (stdout) and every error on ``err`` (stderr); a directory with an
+    Prints RUN and a progress result for every named test. Tests sharing a fixture
+    reuse its annotation and inherit the complete body comparison result.
+    Every error goes to ``err`` (stderr); a directory with an
     unmappable run is not run at all (each unmappable run is reported). Every
     directory is attempted, whatever happened to the previous ones.
     """
@@ -306,20 +324,30 @@ def run_dirs(
     ctx = _Context(
         build=build, cache_root=cache_root, fasta=fasta, runner=runner, out=out
     )
-    dirs = tuple(dirs)
-    report = Report()
+    cases = []
     for dir_ in dirs:
-        name = dir_.name
-        _progress(len(dirs), report, f"RUN {name}", out)
         try:
-            runs, expected, reason = _load(dir_)
-            if reason is not None:
-                report.skipped.append((name, reason))
-                print(f"SKIP {name}: {reason}", file=out, flush=True)
-                continue
-            expected, mismatch = _compare_dir(dir_, ctx, runs, expected)
+            data = _load(dir_)
+            cases.append((dir_, data[3], data))
         except RunTestsError as exc:
-            report.errors.append((name, exc))
+            cases.append((dir_, [dir_.name], exc))
+    total = sum(len(ids) for _, ids, _ in cases)
+    report = Report()
+    _progress(total, report, "START", out)
+    for dir_, ids, data in cases:
+        for id_ in ids:
+            print(f"RUN {id_}", file=out, flush=True)
+        try:
+            if isinstance(data, RunTestsError):
+                raise data
+            runs, expected, reason, _ = data
+            if reason is not None:
+                for id_ in ids:
+                    report.skipped.append((id_, reason))
+                    _progress(total, report, f"SKIP {id_}: {reason}", out)
+                continue
+            expected, mismatch = _compare_dir(dir_, ctx, runs, expected, ids)
+        except RunTestsError as exc:
             for line in str(exc).splitlines():
                 print(
                     f"run_tests: error ({exc.code.name.lower()}, exit "
@@ -327,16 +355,21 @@ def run_dirs(
                     file=err,
                     flush=True,
                 )
+            for id_ in ids:
+                report.errors.append((id_, exc))
+                _progress(total, report, f"ERROR {id_}", out)
             continue
-        if mismatch is None:
-            report.passed.append(name)
-            print(f"PASS {name}", file=out, flush=True)
-        else:
-            report.mismatched.append(name)
-            print(
-                f"MISMATCH {name} expected={expected} actual={mismatch}",
-                file=out,
-                flush=True,
-            )
-    _progress(len(dirs), report, "DONE", out)
+        for id_ in ids:
+            if mismatch is None:
+                report.passed.append(id_)
+                _progress(total, report, f"PASS {id_}", out)
+            else:
+                report.mismatched.append(id_)
+                _progress(
+                    total,
+                    report,
+                    f"MISMATCH {id_} expected={expected} actual={mismatch}",
+                    out,
+                )
+    _progress(total, report, "DONE", out)
     return report
