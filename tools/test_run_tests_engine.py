@@ -7,8 +7,12 @@ of different revisions shared (and clobbered) one tree.
 
 from __future__ import annotations
 
+import fcntl
 import json
+import os
 import subprocess
+import threading
+import time
 from collections.abc import Sequence
 from pathlib import Path
 from typing import Any, Final
@@ -409,3 +413,107 @@ def test_watched_runner_kills_on_timeout() -> None:
     with pytest.raises(subprocess.TimeoutExpired):
         watched(["git", "-C", "/nonexistent", "fetch"], timeout=5)
     assert procs[0].returncode == -9
+
+
+# --- #262 review fixes ----------------------------------------------------------
+
+
+def test_mirror_timeout_exactly_180_is_git_timeout(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    """A mirror limit equal to the short 180 s still becomes ``GitTimeout`` (exit 6)."""
+    monkeypatch.setenv(engine.GIT_TIMEOUT_ENV, "180")
+    with pytest.raises(engine.GitTimeout) as info:
+        _checkout(_FakeGit(clone_s=600), tmp_path / "dfbf")
+    assert info.value.code == engine.Exit.ENGINE
+    assert "timed out after 180 s" in str(info.value)
+    assert not (tmp_path / "dfbf" / "git").exists()
+
+
+def _gone(pid: int) -> bool:
+    """Is ``pid`` dead (polled briefly: the reparented orphan is reaped async)?"""
+    for _ in range(100):
+        try:
+            os.kill(pid, 0)
+        except ProcessLookupError:
+            return True
+        time.sleep(0.02)
+    return False
+
+
+def _orphan_script(pidfile: Path) -> list[str]:
+    """A child that spawns a long-lived grandchild and records its pid."""
+    return ["/bin/sh", "-c", f"sleep 300 & echo $! > {pidfile}; wait"]
+
+
+def _await_pid(pidfile: Path) -> int:
+    for _ in range(200):
+        if pidfile.is_file() and pidfile.read_text().strip():
+            return int(pidfile.read_text())
+        time.sleep(0.01)
+    raise AssertionError("grandchild never started")
+
+
+def test_watched_runner_kills_grandchildren_on_timeout(tmp_path: Path) -> None:
+    """On timeout the whole process group dies, grandchildren included."""
+    pidfile = tmp_path / "pid"
+    watched = engine.WatchedRunner(poll_every=0.02)
+    with pytest.raises(subprocess.TimeoutExpired):
+        watched(_orphan_script(pidfile), timeout=0.5)
+    assert _gone(_await_pid(pidfile))
+
+
+def test_watched_runner_kills_grandchildren_on_interrupt(tmp_path: Path) -> None:
+    """A ``KeyboardInterrupt`` while waiting also kills and reaps the group."""
+    pidfile = tmp_path / "pid"
+
+    def interrupt(_: float) -> None:
+        _await_pid(pidfile)
+        raise KeyboardInterrupt
+
+    watched = engine.WatchedRunner(sleep=interrupt)
+    with pytest.raises(KeyboardInterrupt):
+        watched(_orphan_script(pidfile), timeout=60)
+    assert _gone(_await_pid(pidfile))
+
+
+def test_relative_xdg_cache_home_ignored(tmp_path: Path) -> None:
+    """A relative ``XDG_CACHE_HOME`` is invalid per the XDG spec: ``~/.cache`` wins."""
+    root = engine.default_src_root(
+        {"XDG_CACHE_HOME": "rel/cache", "HOME": str(tmp_path)}
+    )
+    assert root == tmp_path / ".cache/vepyr-porting-tests/run_tests/src"
+
+
+def test_bad_git_timeout_env_fails_list_with_usage() -> None:
+    """``RUN_TESTS_GIT_TIMEOUT=abc ./run_tests --list`` exits 2, naming the variable."""
+    repo_root = Path(engine.__file__).resolve().parents[2]
+    env = {**os.environ, engine.GIT_TIMEOUT_ENV: "abc"}
+    done = subprocess.run(
+        [str(repo_root / "run_tests"), "--list"],
+        capture_output=True,
+        text=True,
+        env=env,
+        check=False,
+        timeout=120,
+    )
+    assert done.returncode == 2, done.stderr
+    assert engine.GIT_TIMEOUT_ENV in done.stderr
+
+
+def test_mirror_lock_wait_is_announced(
+    tmp_path: Path, capsys: pytest.CaptureFixture[str]
+) -> None:
+    """Blocking on another run's mirror lock prints one stderr line, then proceeds."""
+    mirror = tmp_path / "git"
+    lock = tmp_path / "git.lock"
+    holder = lock.open("a")
+    fcntl.flock(holder, fcntl.LOCK_EX)
+    releaser = threading.Timer(0.2, holder.close)
+    releaser.start()
+    with engine._mirror_lock(mirror):
+        pass
+    releaser.join()
+    err = capsys.readouterr().err
+    assert err.count("waiting for mirror lock") == 1
+    assert "held by another run" in err

@@ -237,8 +237,9 @@ def parse_args(argv: Sequence[str]) -> Invocation:
                 f"--add-contigs: {bad} — names are literal (chr21, chrX, ...), no glob "
                 "characters; an unquoted chr* would select the whole genome",
             )
-    if args.git_timeout is not None:
-        engine.mirror_timeout(args.git_timeout)  # rejects <= 0 / nan / inf (exit 2)
+    # Validate --git-timeout and $RUN_TESTS_GIT_TIMEOUT up front: a bad value is a
+    # usage error (exit 2) for every mode, --list included, not a late engine failure.
+    engine.mirror_timeout(args.git_timeout)
     return Invocation(
         cache_dir=args.cache_dir,
         add_contigs=add_contigs,

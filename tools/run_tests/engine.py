@@ -15,6 +15,7 @@ import json
 import os
 import re
 import shutil
+import signal
 import subprocess
 import sys
 import tempfile
@@ -39,6 +40,7 @@ __all__ = [
     "EnginePlan",
     "GhApi",
     "GhCli",
+    "GitTimeout",
     "LockGuard",
     "WatchedRunner",
     "default_src_root",
@@ -194,7 +196,7 @@ def default_src_root(environ: Mapping[str, str] | None = None) -> Path:
     if raw := env.get(SRC_ENV):
         return Path(raw).expanduser()
     match env.get("XDG_CACHE_HOME"):
-        case str(xdg) if xdg:
+        case str(xdg) if xdg and Path(xdg).is_absolute():  # XDG: relative = unset
             cache = Path(xdg).expanduser()
         case _:
             home = env.get("HOME")
@@ -242,6 +244,7 @@ class Process(Protocol):
     """The slice of :class:`subprocess.Popen` that :class:`WatchedRunner` polls."""
 
     returncode: int | None
+    pid: int
 
     def poll(self) -> int | None: ...
 
@@ -262,6 +265,20 @@ def _tree_bytes(path: Path) -> int:
     return total
 
 
+def _kill_group(proc: Process) -> None:
+    """SIGKILL the process group ``proc`` leads, then reap ``proc``.
+
+    ``proc`` was started with ``start_new_session=True``, so its pgid is its pid and
+    the group holds every grandchild git spawned. Falls back to ``proc.kill()`` when
+    the group is already gone.
+    """
+    try:
+        os.killpg(proc.pid, signal.SIGKILL)
+    except (ProcessLookupError, PermissionError, AttributeError, TypeError):
+        proc.kill()
+    proc.wait()
+
+
 def _watched_path(argv: Sequence[str]) -> Path | None:
     """The directory a mirror git call grows: ``-C <dir>``, else a clone's last arg."""
     if "-C" in argv[:-1]:
@@ -279,8 +296,11 @@ class WatchedRunner:
     link looked like a hang. This runner spawns the child, polls it, and every
     ``interval`` seconds prints ``elapsed`` and the current size of the directory the
     call grows. Clock, sleep, spawn and stream are injectable so tests need no real
-    time or process. On ``timeout`` the child is killed and
-    :class:`subprocess.TimeoutExpired` is raised, exactly like ``subprocess.run``.
+    time or process. The child leads its own session (``start_new_session``), so on
+    ``timeout`` -- or any exception while waiting, ``KeyboardInterrupt`` included --
+    its whole process group (git plus helpers such as ``upload-pack``/``ssh``) is
+    killed and reaped *before* the exception propagates; on a timeout that exception
+    is :class:`subprocess.TimeoutExpired`, exactly like ``subprocess.run``.
     """
 
     spawn: Callable[..., Process] = subprocess.Popen
@@ -312,26 +332,35 @@ class WatchedRunner:
         extra = {"env": kwargs["env"]} if "env" in kwargs else {}
         with tempfile.TemporaryFile(mode="w+", encoding="utf-8") as err:
             proc = self.spawn(
-                list(argv), stdout=subprocess.DEVNULL, stderr=err, text=True, **extra
+                list(argv),
+                stdout=subprocess.DEVNULL,
+                stderr=err,
+                text=True,
+                start_new_session=True,
+                **extra,
             )
-            start = self.clock()
-            beat = start + self.interval
-            while (code := proc.poll()) is None:
-                now = self.clock()
-                if timeout is not None and now - start >= timeout:
-                    proc.kill()
-                    proc.wait()
-                    raise subprocess.TimeoutExpired(list(argv), timeout)
-                if now >= beat:
-                    size = _tree_bytes(watched) if watched is not None else 0
-                    print(
-                        f"run_tests: ... still running after {now - start:.0f} s "
-                        f"({size / 2**20:.1f} MiB in {watched})",
-                        file=out,
-                        flush=True,
-                    )
-                    beat += self.interval
-                self.sleep(self.poll_every)
+            done = False
+            try:
+                start = self.clock()
+                beat = start + self.interval
+                while (code := proc.poll()) is None:
+                    now = self.clock()
+                    if timeout is not None and now - start >= timeout:
+                        raise subprocess.TimeoutExpired(list(argv), timeout)
+                    if now >= beat:
+                        size = _tree_bytes(watched) if watched is not None else 0
+                        print(
+                            f"run_tests: ... still running after {now - start:.0f} s "
+                            f"({size / 2**20:.1f} MiB in {watched})",
+                            file=out,
+                            flush=True,
+                        )
+                        beat += self.interval
+                    self.sleep(self.poll_every)
+                done = True
+            finally:
+                if not done:
+                    _kill_group(proc)
             err.seek(0)
             return subprocess.CompletedProcess(list(argv), code, "", err.read())
 
@@ -375,13 +404,14 @@ def _git(
     *,
     env: Mapping[str, str] | None = None,
     timeout: float = _TIMEOUT,
+    mirror: bool = False,
 ) -> str:
     """Run one git command; ``env`` (if given) is overlaid on ``os.environ``.
 
     Passing ``env=None`` leaves the child environment untouched — no ``env=``
     keyword reaches ``run`` at all — so every existing call site is unaffected.
     ``timeout`` defaults to the short ``_TIMEOUT``; only the mirror network calls
-    pass the longer :func:`mirror_timeout`, and for those a
+    (``mirror=True``) pass :func:`mirror_timeout`, and for those a
     :class:`subprocess.TimeoutExpired` becomes an exit-6 :class:`RunTestsError`
     naming the limit and how to raise it.
     """
@@ -396,7 +426,7 @@ def _git(
             **extra,
         )
     except subprocess.TimeoutExpired as exc:
-        if timeout == _TIMEOUT:
+        if not mirror:
             raise
         raise GitTimeout(
             Exit.ENGINE,
@@ -537,7 +567,15 @@ def _mirror_lock(mirror: Path) -> Iterator[None]:
     mirror.parent.mkdir(parents=True, exist_ok=True)
     lock = mirror.with_name(f"{mirror.name}.lock")
     with lock.open("a") as handle:
-        fcntl.flock(handle, fcntl.LOCK_EX)
+        try:
+            fcntl.flock(handle, fcntl.LOCK_EX | fcntl.LOCK_NB)
+        except BlockingIOError:
+            print(
+                f"run_tests: waiting for mirror lock {lock} held by another run",
+                file=sys.stderr,
+                flush=True,
+            )
+            fcntl.flock(handle, fcntl.LOCK_EX)
         try:
             yield
         finally:
@@ -564,6 +602,7 @@ def _clone_mirror(*, git_url: str, mirror: Path, run: Runner, timeout: float) ->
             run,
             ["git", "clone", "--quiet", "--mirror", git_url, str(tmp)],
             timeout=timeout,
+            mirror=True,
         )
         if tmp.exists():  # a stub runner may report success without a directory
             tmp.rename(mirror)
@@ -600,7 +639,7 @@ def _mirror_sha(
         )
         # A mirror fetch updates every ref, so named branches/tags cannot go stale.
         fetch = [*git, "fetch", "--quiet", "--prune", "--tags", "origin"]
-        _git(net, fetch, timeout=limit)
+        _git(net, fetch, timeout=limit, mirror=True)
         try:
             return _git(run, verify)
         except RunTestsError:
@@ -608,7 +647,12 @@ def _mirror_sha(
         # A sha on no branch (e.g. a PR head) needs an explicit single-rev fetch.
         # Its failure is not fatal by itself: the verify below names the problem.
         with _suppress_non_timeout():
-            _git(net, [*git, "fetch", "--quiet", "origin", rev], timeout=limit)
+            _git(
+                net,
+                [*git, "fetch", "--quiet", "origin", rev],
+                timeout=limit,
+                mirror=True,
+            )
         try:
             return _git(run, verify)
         except RunTestsError as exc:
