@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import hashlib
+import os
 import re
 import shlex
 import shutil
@@ -263,16 +264,16 @@ def test_set_keys_appends_missing_table() -> None:
     assert tomllib.loads(out) == {"name": "x", "compare": {"body_md5": "f" * 32}}
 
 
-def test_set_keys_keeps_property_tables() -> None:
-    """#238: re-blessing a multi-property dir keeps its [[property]] tables."""
+def test_set_keys_keeps_test_tables() -> None:
+    """#238: re-blessing a multi-test dir keeps its [[tests]] tables."""
     text = (
         'name = "x"\n\n[compare]\nbody_md5 = "old"\n\n'
-        '[[property]]\nid = "x"\n\n[[property]]\nid = "y"\nfocus = { kind = "csq" }\n'
+        '[[tests]]\nid = "x"\n\n[[tests]]\nid = "y"\nfocus = { kind = "csq" }\n'
     )
     out = testdir.set_keys(text, {"compare": {"body_md5": "f" * 32}})
     parsed = tomllib.loads(out)
     assert parsed["compare"] == {"body_md5": "f" * 32}
-    assert [p["id"] for p in parsed["property"]] == ["x", "y"]
+    assert [p["id"] for p in parsed["tests"]] == ["x", "y"]
     assert out == text.replace('"old"', '"' + "f" * 32 + '"')
 
 
@@ -286,7 +287,11 @@ def test_wrapper_runs_without_path(test_dir: Path) -> None:
     """./bless --check works with PATH=/nonexistent (issue #32 AC9)."""
     done = subprocess.run(
         [str(REPO / "bless"), "--check", str(test_dir)],
-        env={"PATH": "/nonexistent", "HOME": str(Path.home())},
+        env={
+            "PATH": "/nonexistent",
+            "HOME": str(Path.home()),
+            **{k: v for k, v in os.environ.items() if k.startswith("UV_")},
+        },
         capture_output=True,
         text=True,
     )
@@ -985,7 +990,7 @@ def test_merged_provenance_does_not_reuse_ensembl_receipt(complete_cache):
         'source = "ensembl-archive"\nchecksum = "ensembl-sha"\n'
     )
     prov = ensembl.cache_provenance(complete_cache, merged=True)
-    assert prov.source.endswith("/homo_sapiens_merged/116_GRCh38")
+    assert prov.source.endswith("/homo_sapiens_merged_vep_116_GRCh38.tar.gz")
     assert prov.checksum == "unverified"
 
 
@@ -1032,10 +1037,14 @@ def test_cli_blesses_merged_layout_and_records_merged_provenance(
     assert code == 0, err
     recorded = tomllib.loads(toml.read_text())
     assert recorded["vep"]["command"] == vep.vep_command(("--merged",))
-    assert recorded["vep"]["cache_source"] == (
-        f"local:{complete_cache}/homo_sapiens_merged/116_GRCh38"
+    assert recorded["vep"]["cache_source"].startswith(
+        "https://huggingface.co/datasets/biodatageeks/vepyr_116_GRCh38_merged/tree/"
     )
-    assert recorded["vep"]["cache_checksum"] == "unverified"
+    assert (
+        recorded["vep"]["vep_cache"]
+        == ensembl.cache_provenance(complete_cache, merged=True).source
+    )
+    assert recorded["vep"]["vep_cache_checksum"] == "unverified"
     assert _vep_part(calls[-1]) == [*vep.VEP_ARGV, "--merged"]
     assert run(["--check", "--reproduce", *argv], capsys)[0] == 0
     assert len(calls) == 2

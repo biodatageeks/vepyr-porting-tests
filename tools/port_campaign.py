@@ -21,6 +21,8 @@ from enum import StrEnum
 from pathlib import Path
 from typing import Any
 
+from vep_pin import load_pin
+
 ROOT = Path(__file__).resolve().parent.parent
 MANIFEST = ROOT / "docs/porting/vep1162-merged/cases.json"
 
@@ -233,14 +235,15 @@ def main(argv: Sequence[str] | None = None, runner: Runner = subprocess.run) -> 
         )
         q = json.dumps
         pinned = case["source_links"][0]
-        subject = case["implementation_links"][0]["url"]
+        pin = load_pin()
+        tagged = pinned.replace(pin.upstream_commit, pin.upstream_tag)
         required_contigs = case.get(
             "required_contigs", ["chr" + c.removeprefix("chr") for c in contigs]
         )
         (dest / "test.toml").write_text(
             f"name = {q(name)}\ndescription = {q(case['description'])}\n\n"
-            f"[origin]\nvep_test = {q(pinned)}\nvep_test_pinned = {q(pinned)}\n"
-            f"vep_subject = {q(subject)}\nissue = 226\n\n"
+            f"[[tests]]\nid = {q(name)}\ndescription = {q(case['description'])}\n"
+            f"vep_test = {q(tagged)}\n\n"
             f'[vepyr]\nflavour = "merged"\nrequired_contigs = {q(required_contigs)}\n'
             "everything = true\npreserve_record_layout = true\n"
             "reference_fasta = true\n\n"

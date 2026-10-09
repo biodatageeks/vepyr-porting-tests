@@ -22,9 +22,17 @@ Every data-test compares the output of native VEP 116.2 (the file `expected_outp
 
 ## Test directory model (approved by Marek)
 
-`tests/data/<name>/` contains: `input.vcf` (normalised, as above), `expected_output.vcf` (real VEP 116.2 output; cache 116), `test.toml` (name, description, links to the VEP test at tag `release/116.2` and at commit `2cb0bbe2`, both from `tools/vep_pin.toml`, the VEP command, the vepyr invocation, `body_md5`). One generic cargo test walks the directories. Oracle audit: metadata in `test.toml` + repeatability (`./bless --check` runs VEP again and compares the md5). Hash: md5.
+`tests/data/<name>/` is a shared fixture containing `input.vcf`,
+`expected_output.vcf`, and `test.toml`. Each `[[tests]]` entry has a unique id,
+description and one tagged `vep_test` URL; tests with the same input, oracle and
+runtime configuration share one fixture. The generic runner executes that
+fixture once per run configuration and compares its complete output body.
 
-Extension (#238, option A; owner decided, **Marek's agreement pending**): one directory per distinct (input, oracle) comparison. A directory covering several VEP assertions lists them as `[[property]]` tables (`id` = former directory name, `description`, the links) in place of `[origin]`; `tools/check_unique_dirs` forbids duplicate directories.
+Source fields are URLs: `cache_source` for the pinned vepyr dataset, `vep_cache`
+for the native VEP archive, and `fasta_source` for the reference download.
+Checksums remain separate evidence; a URL does not make an unverified local
+file verified. Per-test issue, ledger and duplicate upstream links are omitted.
+`tools/check_unique_dirs` rejects repeated fixture comparisons.
 
 ## Issue acceptance criteria (reminder)
 

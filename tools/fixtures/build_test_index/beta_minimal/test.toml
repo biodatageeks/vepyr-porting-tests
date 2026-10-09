@@ -4,11 +4,14 @@ description = "Synthetic test without optional keys."
 
 [origin]
 vep_test = "https://example.org/release/t/Beta.t#L3"
-vep_test_pinned = "https://example.org/pinned/t/Beta.t#L3"
-vep_subject = "https://example.org/pinned/modules/Beta.pm#L20"
 
 [vepyr]
 required_contigs = ["chr1"]
 
 [compare]
 body_md5 = "fedcba9876543210fedcba9876543210"
+
+[vep]
+cache_source = "https://example.org/vepyr-cache"
+vep_cache = "https://example.org/vep-cache.tar.gz"
+fasta_source = "https://example.org/reference.fa.gz"

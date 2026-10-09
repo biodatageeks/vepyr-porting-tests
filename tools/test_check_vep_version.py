@@ -52,22 +52,17 @@ PIN: Final[VepPin] = load_pin()
 def toml_text(
     *,
     image: str = PIN.pinned_image,
-    commit: str = PIN.upstream_commit,
     vep_test_ref: str = PIN.upstream_tag,
 ) -> str:
     """A minimal ``test.toml`` with the keys the checker reads."""
     return (
         'name = "x"\n\n[origin]\n'
         f'vep_test = "{UP}/{vep_test_ref}/t/Runner.t#L1-L2"\n'
-        f'vep_test_pinned = "{UP}/{commit}/t/Runner.t#L1-L2"\n'
-        f'vep_subject = "{UP}/{commit}/modules/Bio/EnsEMBL/VEP/Runner.pm#L3"\n\n'
         f'[vep]\nimage = "{image}"\n'
     )
 
 
-LEGACY_TOML: Final[str] = toml_text(
-    image=LEGACY_IMAGE, commit=LEGACY_COMMIT, vep_test_ref="release/116.0"
-)
+LEGACY_TOML: Final[str] = toml_text(image=LEGACY_IMAGE, vep_test_ref="release/116.0")
 
 
 def write_test(root: Path, name: str, text: str) -> Path:
@@ -109,10 +104,10 @@ def test_pinned_repo_passes(repo: Path) -> None:
     assert exit_code(repo) == 0
 
 
-def test_vep_test_at_commit_passes(repo: Path) -> None:
-    """``vep_test`` may name the pinned commit instead of the tag."""
+def test_vep_test_at_commit_rejected(repo: Path) -> None:
+    """The public test link uses the readable release tag only."""
     write_test(repo, "good", toml_text(vep_test_ref=PIN.upstream_commit))
-    assert exit_code(repo) == 0
+    assert exit_code(repo) == 1
 
 
 def test_legacy_digest_fails(repo: Path, capsys: pytest.CaptureFixture[str]) -> None:
@@ -125,7 +120,6 @@ def test_legacy_digest_fails(repo: Path, capsys: pytest.CaptureFixture[str]) -> 
 @pytest.mark.parametrize(
     ("kwargs", "needle"),
     [
-        ({"commit": LEGACY_COMMIT}, "vep_test_pinned"),
         ({"vep_test_ref": "release/116.0"}, "vep_test"),
         ({"vep_test_ref": "master"}, "vep_test"),
         ({"image": "ensemblorg/ensembl-vep:release_116.2"}, "[vep] image"),
@@ -140,31 +134,30 @@ def test_each_key_is_checked(
     assert needle in capsys.readouterr().err
 
 
-def _as_properties(text: str, second_commit: str = PIN.upstream_commit) -> str:
-    """Turn ``toml_text()``'s ``[origin]`` into two ``[[property]]`` tables (#238)."""
+def _as_tests(text: str, second_tag: str = PIN.upstream_tag) -> str:
+    """Turn ``toml_text()``'s ``[origin]`` into two ``[[tests]]`` tables (#238)."""
     head, rest = text.split("[origin]\n", 1)
     links, vep = rest.split("\n[vep]", 1)
-    second = links.replace(PIN.upstream_commit, second_commit)
+    second = links.replace(PIN.upstream_tag, second_tag)
     return (
-        f'{head}[vep]{vep}\n[[property]]\nid = "x"\n{links}\n'
-        f'[[property]]\nid = "y"\n{second}'
+        f'{head}[vep]{vep}\n[[tests]]\nid = "x"\n{links}\n[[tests]]\nid = "y"\n{second}'
     )
 
 
-def test_property_links_pinned_pass(repo: Path) -> None:
-    """#238: a multi-property dir whose every property is pinned passes."""
-    write_test(repo, "good", _as_properties(toml_text()))
+def test_test_links_pinned_pass(repo: Path) -> None:
+    """#238: a multi-test dir whose every test is pinned passes."""
+    write_test(repo, "good", _as_tests(toml_text()))
     assert exit_code(repo) == 0
 
 
-def test_property_link_unpinned_fails(
+def test_test_link_unpinned_fails(
     repo: Path, capsys: pytest.CaptureFixture[str]
 ) -> None:
-    """#238: one ``[[property]]`` at another commit fails, naming its id."""
-    write_test(repo, "good", _as_properties(toml_text(), "f" * 40))
+    """#238: one ``[[tests]]`` at another commit fails, naming its id."""
+    write_test(repo, "good", _as_tests(toml_text(), "f" * 40))
     assert exit_code(repo) == 1
     err = capsys.readouterr().err
-    assert "[[property]] 'y' vep_test_pinned" in err
+    assert "[[tests]] 'y' vep_test" in err
     assert "'x'" not in err
 
 
@@ -189,7 +182,7 @@ def test_seventeenth_entry_fails(
     allow.write_text(allow.read_text() + "good\n", encoding="utf-8")
     assert exit_code(repo) == 1
     err = capsys.readouterr().err
-    assert "has 17 entries" in err
+    assert f"has {cvv.LEGACY_COUNT + 1} entries" in err
     assert "'good' no longer records the legacy image digest" in err
 
 
@@ -210,7 +203,7 @@ def test_unlisted_legacy_dir_fails(
     allow.write_text("".join(f"{n}\n" for n in names[1:]), encoding="utf-8")
     assert exit_code(repo) == 1
     err = capsys.readouterr().err
-    assert "has 15 entries" in err
+    assert f"has {cvv.LEGACY_COUNT - 1} entries" in err
     assert f"tests/data/{names[0]}/test.toml" in err
 
 

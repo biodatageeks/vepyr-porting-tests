@@ -13,9 +13,6 @@ description = "Synthetic fixture exercising the data_dirs loader and body-md5 co
 
 [origin]
 vep_test = "https://github.com/Ensembl/ensembl-vep/blob/release/116.2/t/Runner.t#L244-L292"
-vep_test_pinned = "https://github.com/Ensembl/ensembl-vep/blob/2cb0bbe216bb31c75de8f8000e2da7ff4fb7b451/t/Runner.t#L244-L292"
-vep_subject = "https://github.com/Ensembl/ensembl-vep/blob/2cb0bbe216bb31c75de8f8000e2da7ff4fb7b451/modules/Bio/EnsEMBL/VEP/Runner.pm#L396"
-issue = 80
 
 [input]
 command = "bcftools norm -m -both -o <out.vcf> <in.vcf.gz>"
@@ -25,9 +22,10 @@ bcftools_version = "bcftools 1.23"
 image = "synthetic:not-a-vep-run"
 command = "synthetic: expected_output.vcf is hand-written for the self-test --everything --fasta --vcf"
 date = "2026-09-24"
-cache_source = "synthetic"
-cache_checksum = "unverified"
-fasta_source = "synthetic"
+cache_source = "https://huggingface.co/datasets/biodatageeks/vepyr_116_GRCh38_ensembl/tree/15a048f0585a7a40d2d40cb1c2f7806638ee500b"
+vep_cache = "https://ftp.ensembl.org/pub/release-116/variation/indexed_vep_cache/homo_sapiens_vep_116_GRCh38.tar.gz"
+vep_cache_checksum = "unverified"
+fasta_source = "https://ftp.ensembl.org/pub/release-116/fasta/homo_sapiens/dna/Homo_sapiens.GRCh38.dna.primary_assembly.fa.gz"
 fasta_checksum = "unverified"
 
 [vepyr]

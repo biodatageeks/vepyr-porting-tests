@@ -4,10 +4,6 @@ description = "Synthetic test, with a comma and a \"quoted\" word."
 
 [origin]
 vep_test = "https://example.org/release/t/Alpha.t#L1-L2"
-vep_test_pinned = "https://example.org/pinned/t/Alpha.t#L1-L2"
-vep_subject = "https://example.org/pinned/modules/Alpha.pm#L10"
-ledger = "https://example.org/ledger/Alpha.ledger.toml#L1-L9"
-issue = 1001
 
 [vepyr]
 required_contigs = ["chr21", "chr22"]
@@ -20,3 +16,8 @@ buffer_size = 1
 
 [[vepyr_run]]
 buffer_size = 2
+
+[vep]
+cache_source = "https://example.org/vepyr-cache"
+vep_cache = "https://example.org/vep-cache.tar.gz"
+fasta_source = "https://example.org/reference.fa.gz"

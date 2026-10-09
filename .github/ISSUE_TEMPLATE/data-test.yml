@@ -39,24 +39,10 @@ body:
     attributes:
       label: VEP test link
       description: >-
-        Tag `release/116.2` URL with a line range, plus the commit-pinned URL.
-        Feeds `[origin] vep_test` and `vep_test_pinned`.
+        One `release/116.2` GitHub URL with a line range.
+        Feeds `[[tests]] vep_test`; no duplicate commit or implementation link.
       placeholder: |
         https://github.com/Ensembl/ensembl-vep/blob/release/116.2/t/<File>.t#L10-L40
-        https://github.com/Ensembl/ensembl-vep/blob/<commit>/t/<File>.t#L10-L40
-    validations:
-      required: true
-
-  - type: input
-    id: vep-subject-link
-    attributes:
-      label: VEP subject link
-      description: >-
-        Commit-pinned permalink (`blob/<40-hex commit>/...`, never a branch or tag) to the
-        Perl module or method the VEP test exercises, with a line anchor. Feeds
-        `[origin] vep_subject`; `tests/data_dirs.rs` rejects a `vep_subject` or
-        `vep_test_pinned` that is not pinned to a full commit.
-      placeholder: "https://github.com/Ensembl/ensembl-vep/blob/2cb0bbe216bb31c75de8f8000e2da7ff4fb7b451/modules/Bio/EnsEMBL/VEP/Runner.pm#L396"
     validations:
       required: true
 
@@ -65,9 +51,8 @@ body:
     attributes:
       label: One-sentence description
       description: >-
-        Feeds `description` in `test.toml` (or the `[[property]]` `description` when the
-        test's input and oracle equal an existing directory's: it is then added as a
-        property of that directory, #238).
+        Feeds `[[tests]] description` in the shared fixture's `test.toml`.
+        Reuse a fixture when its input, runtime configuration and oracle match.
       placeholder: "Missense SNVs on chr21 get the same CSQ as VEP 116."
     validations:
       required: true

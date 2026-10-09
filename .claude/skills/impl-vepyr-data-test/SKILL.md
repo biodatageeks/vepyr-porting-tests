@@ -16,9 +16,8 @@ description: Use when implementing, re-blessing, verifying or reviewing a data-t
   - `fields`: only the loader rejects it (`unknown key`); bless accepts it;
   - `flavour = "ensembl"`: owner policy (README: the oracle is always Ensembl; #156). Bless is flavour-blind; the loader (`tests/data_dirs.rs`) refuses any other flavour, and `dt verify` no longer checks it.
   - Schema: `tests/data_dirs.rs` header, README "Porting method".
-- `[origin] ledger` = README short form `"<Stem>.ledger.toml n=<N>"` (e.g. `"Runner.ledger.toml n=16"`); never a URL to a former source repository, even if older rows have one.
 - Extra VEP flags: none. `--check_existing` is the only allowlisted one (`ALLOWED_VEP_FLAGS`, `tools/bless/vep.py`). `--everything` already enables it in VEP 116 (`Config.pm` `@OPTION_SETS`: everything -> af/pubmed -> check_existing), so adding it leaves the body and `body_md5` unchanged. It changes only the `##VEP-command-line` header and `[vep] command`/`extra_flags`. `dt` has no pass-through.
-- One directory per distinct (input, oracle) (#238): before adding a directory run `tools/check_unique_dirs tests/data`; if the new test's input and oracle bodies and config equal an existing directory's, add a `[[property]]` table (id = the would-be slug, `description`, the `[origin]` links) to that directory instead of a new one (README "One directory per distinct comparison"). Never commit a new duplicate.
+- One directory per distinct (input, oracle) (#238): before adding a directory run `tools/check_unique_dirs tests/data`; if the new test's input and oracle bodies and config equal an existing directory's, add a `[[tests]]` table (id = the would-be slug, `description`, one tagged `vep_test` URL) to that directory instead of a new one (README "One directory per distinct comparison"). Never commit a new duplicate.
 - Input: only `tools/normalize_input` (`bcftools norm -m -both`, no `-f`); VEP and vepyr read the same `input.vcf`; oracle is always VEP.
 
 ## Recipe (in order)
@@ -29,7 +28,7 @@ description: Use when implementing, re-blessing, verifying or reviewing a data-t
 3. `dt refcheck <raw> --negative-control` (before blessing).
 4. `dt raw2input --raw <raw> --dir tests/data/<slug>`.
 5. Issue names a fixture: `dt fixture-match --input tests/data/<slug> --fixture <src> --records N`.
-6. Hand-write the non-bless keys of `test.toml` per the Contract. `[origin]`: `issue = N`; `vep_test`, `vep_test_pinned` = the two URLs of the form field "VEP test link"; `vep_subject` (VEP module permalink at the `upstream_commit` of `tools/vep_pin.toml`, `2cb0bbe2`) and `ledger` (`<Stem>.ledger.toml n=<N>`, per the Contract) = the issue body's `[origin] vep_subject:` / `[origin] ledger:` bullets (under "VEP test link"; `data-test.yml` has no field of their own). A required key (`vep_test`, `vep_test_pinned`, `vep_subject`) the issue does not state -> STOP and report which one is missing; never invent it.
+6. Hand-write the non-bless keys of `test.toml`. Each `[[tests]]` has a unique `id`, `description`, and one `vep_test` URL at the release tag from `tools/vep_pin.toml`. Do not add `issue`, `ledger`, `vep_test_pinned`, or `vep_subject` to fixture metadata. Reuse the matching fixture for additional tests. The source fields are HTTP(S) URLs: `cache_source` is the pinned vepyr dataset; `vep_cache` is the native VEP archive; `fasta_source` is the FASTA download. Keep unverified checksums unverified.
 7. `dt bless tests/data/<slug>`.
 8. `dt verify --vepyr REF --reproduce tests/data/<slug>` (background; checks mode, runs `./run_tests --only <copy> --vepyr REF`: cite the `vepyr sha` line of the `./run_tests` summary, never a vepyr version). Also `./check_normalised_input` -> exit 0, and the issue's own cargo AC as `./run_tests --only DIR --vepyr REF` (DIR a scratch copy of the test directory), with `VEPYR_CACHE_ROOT` (the `env vepyr_cache_root` line) and `CARGO_TARGET_DIR` (the `# CARGO_TARGET_DIR` line) from `dt env` set.
 9. `tools/build_test_index` regenerates `tests/INDEX.csv`. The check runs inside `dt verify` (#151): `PASS build_test_index` = `tools/build_test_index --check` exit 0 on the checkout's `tests/INDEX.csv`; `PASS build_test_index-negative` = the same check on a copy without its last row exits 1. Never hand-edit the CSV; on a conflict in it when merging `master` into the branch (merge commit, never a rebase) use the recipe in `AGENTS.md` ("`tests/INDEX.csv` in parallel PRs").
@@ -67,7 +66,7 @@ zsh: always brace, `${REPO}:...`; `$REPO:c`, `:h`, `:t`, `:r` (and `:e :a :A :l 
 
 - vepyr body md5 != VEP: report `VEP:`/`vepyr:` lines; never touch the oracle. Never file or comment upstream (vepyr, dfbf, Ensembl); the owner decides.
 - REF != FASTA.
-- Issue asks for a value outside the Contract (another flag, flavour, `fields`, `everything = false`) or leaves `required_contigs`/`[origin]` values open.
+- Issue asks for a value outside the Contract (another flag, flavour, `fields`, `everything = false`) or leaves `required_contigs`/`vep_test` values open.
 - Issue contradicts code; `dt` exits 2/3 and the cause is not your input.
 
 ## Red flags

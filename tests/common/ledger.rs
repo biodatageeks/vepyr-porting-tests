@@ -11,9 +11,9 @@
 //!   wider “just in case” set, not narrower than the input loci.
 //! - This module only **reads** the field and feeds [`super::cache::requires_shards`].
 //!
-//! The assertion ledger `ledger/assertions.csv` is the source of candidate tests; a
-//! directory names its row in `[origin] ledger` as `"<Stem>.ledger.toml n=<N>"`
-//! (`t/<Stem>.t`, row `n`).
+//! The assertion ledger `ledger/assertions.csv` is the source of candidate tests.
+//! Each named test links to its upstream assertion through `[[tests]] vep_test`;
+//! fixture metadata no longer stores ledger row identifiers.
 
 use super::cache::{Entity, FullCache, requires_shards};
 
