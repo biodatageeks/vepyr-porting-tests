@@ -74,6 +74,8 @@ class Invocation:
     """``--via-cli``: run ``python -m vepyr annotate`` instead of cargo (#231)."""
     old_vepyr_cache: bool = False
     """``--old-vepyr-cache``: consent to run on a cache that is not the newest."""
+    git_timeout: float | None = None
+    """``--git-timeout`` seconds per mirror clone/fetch; ``None``: env or 3600."""
     freshness_report: freshness.FreshnessReport | None = None
     """The freshness guard's report, attached once the guard ran (not parsed)."""
 
@@ -168,6 +170,17 @@ def _parser() -> argparse.ArgumentParser:
         "as-is without a PROVENANCE.json record for the flavour exits 7. With this "
         "flag the run proceeds and the summary records 'old cache: YES (consented)'.",
     )
+    engine_g.add_argument(
+        "--git-timeout",
+        type=float,
+        default=None,
+        metavar="SECONDS",
+        help="seconds allowed for each engine mirror 'git clone --mirror' / 'git "
+        f"fetch' (default: ${engine.GIT_TIMEOUT_ENV}, else "
+        f"{engine.DEFAULT_GIT_TIMEOUT:g}); the flag wins over the variable. Short "
+        "git calls keep 180 s. A heartbeat line is printed to stderr every 30 s "
+        "while a mirror call runs.",
+    )
     run = parser.add_argument_group("Run")
     run.add_argument(
         "--list",
@@ -224,6 +237,8 @@ def parse_args(argv: Sequence[str]) -> Invocation:
                 f"--add-contigs: {bad} — names are literal (chr21, chrX, ...), no glob "
                 "characters; an unquoted chr* would select the whole genome",
             )
+    if args.git_timeout is not None:
+        engine.mirror_timeout(args.git_timeout)  # rejects <= 0 / nan / inf (exit 2)
     return Invocation(
         cache_dir=args.cache_dir,
         add_contigs=add_contigs,
@@ -237,6 +252,7 @@ def parse_args(argv: Sequence[str]) -> Invocation:
         only=tests.only_dirs(args.only),
         via_cli=args.via_cli,
         old_vepyr_cache=args.old_vepyr_cache,
+        git_timeout=args.git_timeout,
     )
 
 
@@ -395,7 +411,9 @@ def _run_data_tests(
     repo = _repo_root()
     pins_toml = repo / "PINS.toml"
     tests.precheck_cache(cache_root, pins_toml=pins_toml)
-    plan, config_path = engine.materialise(inv.vepyr_ref, repo_root=repo, api=gh_api)
+    plan, config_path = engine.materialise(
+        inv.vepyr_ref, repo_root=repo, api=gh_api, git_timeout=inv.git_timeout
+    )
     argv = tests.cargo_argv(targets, config=config_path, exact=bool(inv.only))
     env = {tests.CACHE_ENV: str(cache_root)}
     with ExitStack() as stack:

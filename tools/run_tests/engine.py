@@ -10,31 +10,41 @@ with path ``[patch]`` tables. ``Cargo.lock`` is restored from git around the run
 from __future__ import annotations
 
 import base64
+import fcntl
 import json
 import os
 import re
+import shutil
 import subprocess
+import sys
+import tempfile
+import time
 import tomllib
 from collections.abc import Callable, Iterator, Mapping, Sequence
 from contextlib import contextmanager
 from dataclasses import dataclass
 from pathlib import Path
-from typing import Any, Final, Protocol
+from typing import Any, Final, Protocol, TextIO
 
 from run_tests.verdict import Exit, RunTestsError
 
 __all__ = [
+    "DEFAULT_GIT_TIMEOUT",
     "DFBF_GIT",
     "FORMATS_GIT",
+    "GIT_TIMEOUT_ENV",
+    "SRC_ENV",
     "VEPYR_REPO",
     "Checkout",
     "EnginePlan",
     "GhApi",
     "GhCli",
     "LockGuard",
+    "WatchedRunner",
     "default_src_root",
     "engine_toml",
     "materialise",
+    "mirror_timeout",
     "resolve",
     "resolve_sha",
     "validate_ref",
@@ -55,6 +65,14 @@ _FORMATS_CRATES: Final[tuple[str, ...]] = (
 # rest resolved from git — two copies of one crate name in a single graph.
 _FORMATS_PREFIX: Final[str] = "datafusion-bio-format-"
 _TIMEOUT: Final[int] = 180
+"""Seconds allowed for a *short* subprocess (``gh api``, ``rev-parse``, ...)."""
+DEFAULT_GIT_TIMEOUT: Final[float] = 3600.0
+"""Default seconds allowed for one mirror ``clone --mirror``/``fetch``."""
+GIT_TIMEOUT_ENV: Final[str] = "RUN_TESTS_GIT_TIMEOUT"
+SRC_ENV: Final[str] = "RUN_TESTS_SRC"
+HEARTBEAT_EVERY: Final[float] = 30.0
+"""Seconds between two heartbeat lines while a mirror network call runs (#256)."""
+_POLL_EVERY: Final[float] = 1.0
 # Ladder checkouts need Rust source only. `datafusion-bio-functions` also carries
 # git-lfs-tracked benchmark fixtures (`vep-benchmark/data/golden/cache/**`) that no
 # workspace crate reads; smudging them made a transient LFS download failure abort the
@@ -159,11 +177,163 @@ Runner = Callable[..., subprocess.CompletedProcess[str]]
 
 
 def default_src_root(environ: Mapping[str, str] | None = None) -> Path:
-    """Checkout cache: ``$RUN_TESTS_SRC`` or ``<repo>/.run_tests/src``."""
+    """Shared engine-mirror cache, outside any checkout (#256).
+
+    ``$RUN_TESTS_SRC`` wins when set; otherwise
+    ``${XDG_CACHE_HOME:-$HOME/.cache}/vepyr-porting-tests/run_tests/src``, so every
+    worktree and every run reuses the same bare mirrors and a second run is an
+    incremental ``git fetch`` rather than a fresh ``clone --mirror``.
+
+    Args:
+        environ: Environment to read; ``None`` means :data:`os.environ`.
+
+    Returns:
+        The source root (not created here).
+    """
     env = os.environ if environ is None else environ
-    if raw := env.get("RUN_TESTS_SRC"):
+    if raw := env.get(SRC_ENV):
         return Path(raw).expanduser()
-    return Path(__file__).resolve().parents[2] / ".run_tests" / "src"
+    match env.get("XDG_CACHE_HOME"):
+        case str(xdg) if xdg:
+            cache = Path(xdg).expanduser()
+        case _:
+            home = env.get("HOME")
+            cache = (Path(home) if home else Path.home()) / ".cache"
+    return cache / "vepyr-porting-tests" / "run_tests" / "src"
+
+
+def mirror_timeout(
+    flag: float | None = None, environ: Mapping[str, str] | None = None
+) -> float:
+    """Seconds allowed for one mirror ``clone --mirror`` / ``fetch`` (#256).
+
+    Precedence: ``--git-timeout`` (``flag``), then ``$RUN_TESTS_GIT_TIMEOUT``, then
+    :data:`DEFAULT_GIT_TIMEOUT`. Short calls keep the fixed 180 s ``_TIMEOUT``.
+
+    Args:
+        flag: The ``--git-timeout`` value, or ``None`` when not given.
+        environ: Environment to read; ``None`` means :data:`os.environ`.
+
+    Returns:
+        A positive number of seconds.
+
+    Raises:
+        RunTestsError: With :attr:`Exit.USAGE` for a non-numeric or non-positive value.
+    """
+    if flag is not None:
+        source, raw = "--git-timeout", str(flag)
+    else:
+        environ = os.environ if environ is None else environ
+        if not (raw := environ.get("RUN_TESTS_GIT_TIMEOUT", "").strip()):
+            return DEFAULT_GIT_TIMEOUT
+        source = GIT_TIMEOUT_ENV
+    try:
+        value = float(raw)
+    except ValueError:
+        value = float("nan")
+    if not value > 0 or value == float("inf"):
+        raise RunTestsError(
+            Exit.USAGE, f"{source}={raw!r}: expected a positive number of seconds"
+        )
+    return value
+
+
+class Process(Protocol):
+    """The slice of :class:`subprocess.Popen` that :class:`WatchedRunner` polls."""
+
+    returncode: int | None
+
+    def poll(self) -> int | None: ...
+
+    def kill(self) -> None: ...
+
+    def wait(self, timeout: float | None = None) -> int: ...
+
+
+def _tree_bytes(path: Path) -> int:
+    """Total size of the regular files under ``path`` (0 when it does not exist)."""
+    total = 0
+    for root, _dirs, files in os.walk(path):
+        for name in files:
+            try:
+                total += os.lstat(os.path.join(root, name)).st_size
+            except OSError:
+                continue
+    return total
+
+
+def _watched_path(argv: Sequence[str]) -> Path | None:
+    """The directory a mirror git call grows: ``-C <dir>``, else a clone's last arg."""
+    if "-C" in argv[:-1]:
+        return Path(argv[list(argv).index("-C") + 1])
+    if "clone" in argv:
+        return Path(argv[-1])
+    return None
+
+
+@dataclass(frozen=True, slots=True, kw_only=True)
+class WatchedRunner:
+    """A :data:`Runner` for long mirror calls that prints a heartbeat to stderr (#256).
+
+    ``subprocess.run`` blocks silently, so a 10-minute ``clone --mirror`` on a slow
+    link looked like a hang. This runner spawns the child, polls it, and every
+    ``interval`` seconds prints ``elapsed`` and the current size of the directory the
+    call grows. Clock, sleep, spawn and stream are injectable so tests need no real
+    time or process. On ``timeout`` the child is killed and
+    :class:`subprocess.TimeoutExpired` is raised, exactly like ``subprocess.run``.
+    """
+
+    spawn: Callable[..., Process] = subprocess.Popen
+    clock: Callable[[], float] = time.monotonic
+    sleep: Callable[[float], None] = time.sleep
+    stream: TextIO | None = None
+    interval: float = HEARTBEAT_EVERY
+    poll_every: float = _POLL_EVERY
+
+    def __call__(
+        self, argv: Sequence[str], *, timeout: float | None = None, **kwargs: Any
+    ) -> subprocess.CompletedProcess[str]:
+        """Run ``argv`` to completion (stderr captured, text mode).
+
+        Args:
+            argv: The command line.
+            timeout: Seconds before the child is killed; ``None`` waits forever.
+            **kwargs: ``env`` is forwarded; the ``subprocess.run`` style flags
+                (``capture_output``, ``text``, ``check``) are accepted and ignored.
+
+        Returns:
+            The completed process; ``stdout`` is empty, ``stderr`` holds git's stderr.
+
+        Raises:
+            subprocess.TimeoutExpired: When ``timeout`` elapses first.
+        """
+        out = self.stream if self.stream is not None else sys.stderr
+        watched = _watched_path(argv)
+        extra = {"env": kwargs["env"]} if "env" in kwargs else {}
+        with tempfile.TemporaryFile(mode="w+", encoding="utf-8") as err:
+            proc = self.spawn(
+                list(argv), stdout=subprocess.DEVNULL, stderr=err, text=True, **extra
+            )
+            start = self.clock()
+            beat = start + self.interval
+            while (code := proc.poll()) is None:
+                now = self.clock()
+                if timeout is not None and now - start >= timeout:
+                    proc.kill()
+                    proc.wait()
+                    raise subprocess.TimeoutExpired(list(argv), timeout)
+                if now >= beat:
+                    size = _tree_bytes(watched) if watched is not None else 0
+                    print(
+                        f"run_tests: ... still running after {now - start:.0f} s "
+                        f"({size / 2**20:.1f} MiB in {watched})",
+                        file=out,
+                        flush=True,
+                    )
+                    beat += self.interval
+                self.sleep(self.poll_every)
+            err.seek(0)
+            return subprocess.CompletedProcess(list(argv), code, "", err.read())
 
 
 @dataclass(frozen=True, slots=True, kw_only=True)
@@ -195,23 +365,44 @@ class EnginePlan:
         return f"{v} {d} {f}"
 
 
+class GitTimeout(RunTestsError):
+    """A mirror network call exceeded :func:`mirror_timeout` (exit 6)."""
+
+
 def _git(
-    run: Runner, argv: Sequence[str], *, env: Mapping[str, str] | None = None
+    run: Runner,
+    argv: Sequence[str],
+    *,
+    env: Mapping[str, str] | None = None,
+    timeout: float = _TIMEOUT,
 ) -> str:
     """Run one git command; ``env`` (if given) is overlaid on ``os.environ``.
 
     Passing ``env=None`` leaves the child environment untouched — no ``env=``
     keyword reaches ``run`` at all — so every existing call site is unaffected.
+    ``timeout`` defaults to the short ``_TIMEOUT``; only the mirror network calls
+    pass the longer :func:`mirror_timeout`, and for those a
+    :class:`subprocess.TimeoutExpired` becomes an exit-6 :class:`RunTestsError`
+    naming the limit and how to raise it.
     """
     extra = {} if env is None else {"env": {**os.environ, **env}}
-    completed = run(
-        list(argv),
-        capture_output=True,
-        text=True,
-        timeout=_TIMEOUT,
-        check=False,
-        **extra,
-    )
+    try:
+        completed = run(
+            list(argv),
+            capture_output=True,
+            text=True,
+            timeout=timeout,
+            check=False,
+            **extra,
+        )
+    except subprocess.TimeoutExpired as exc:
+        if timeout == _TIMEOUT:
+            raise
+        raise GitTimeout(
+            Exit.ENGINE,
+            f"git {' '.join(argv[1:4])}…: timed out after {timeout:g} s "
+            f"(raise it with --git-timeout SECONDS or {GIT_TIMEOUT_ENV})",
+        ) from exc
     if completed.returncode != 0:
         err = (completed.stderr or completed.stdout or "git failed").strip()
         raise RunTestsError(Exit.ENGINE, f"git {' '.join(argv[1:4])}…: {err[:300]}")
@@ -335,6 +526,51 @@ def workspace_crate_dirs(checkout: Path) -> dict[str, Path]:
     return out
 
 
+@contextmanager
+def _mirror_lock(mirror: Path) -> Iterator[None]:
+    """Hold an exclusive ``fcntl.flock`` on ``<mirror>.lock`` for the block.
+
+    The mirror cache is shared by every worktree (#256), so two overlapping runs
+    must not clone into, or fetch into, the same bare repo at once. The per-sha
+    trees need no lock: they are immutable once created.
+    """
+    mirror.parent.mkdir(parents=True, exist_ok=True)
+    lock = mirror.with_name(f"{mirror.name}.lock")
+    with lock.open("a") as handle:
+        fcntl.flock(handle, fcntl.LOCK_EX)
+        try:
+            yield
+        finally:
+            fcntl.flock(handle, fcntl.LOCK_UN)
+
+
+def _clone_mirror(*, git_url: str, mirror: Path, run: Runner, timeout: float) -> None:
+    """Clone ``git_url`` atomically: into ``<mirror>.tmp-<pid>``, then rename.
+
+    A clone that fails or times out leaves no ``mirror`` behind, so the next run
+    clones again instead of fetching into a half-written repo. Stale ``.tmp-*``
+    siblings of crashed runs are removed first (safe: the caller holds the lock).
+    """
+    for stale in mirror.parent.glob(f"{mirror.name}.tmp-*"):
+        shutil.rmtree(stale, ignore_errors=True)
+    tmp = mirror.with_name(f"{mirror.name}.tmp-{os.getpid()}")
+    print(
+        f"run_tests: cloning {git_url} mirror into {mirror} (timeout {timeout:g} s)",
+        file=sys.stderr,
+        flush=True,
+    )
+    try:
+        _git(
+            run,
+            ["git", "clone", "--quiet", "--mirror", git_url, str(tmp)],
+            timeout=timeout,
+        )
+        if tmp.exists():  # a stub runner may report success without a directory
+            tmp.rename(mirror)
+    finally:
+        shutil.rmtree(tmp, ignore_errors=True)
+
+
 def _mirror_sha(
     *,
     name: str,
@@ -342,33 +578,54 @@ def _mirror_sha(
     rev: str,
     mirror: Path,
     run: Runner,
+    mirror_run: Runner | None = None,
+    git_timeout: float | None = None,
 ) -> str:
-    """Update the shared bare mirror of ``git_url`` and resolve ``rev`` to a sha."""
-    if not mirror.exists():
-        mirror.parent.mkdir(parents=True, exist_ok=True)
-        _git(run, ["git", "clone", "--quiet", "--mirror", git_url, str(mirror)])
+    """Update the shared bare mirror of ``git_url`` and resolve ``rev`` to a sha.
+
+    Network calls (``clone --mirror`` and both fetches) go through ``mirror_run``
+    (default ``run``) with :func:`mirror_timeout`; ``rev-parse`` keeps ``_TIMEOUT``.
+    """
+    net = run if mirror_run is None else mirror_run
+    limit = mirror_timeout(git_timeout)
     git = ["git", "-C", str(mirror)]
     verify = [*git, "rev-parse", "--verify", "--quiet", f"{rev}^{{commit}}"]
-    # A mirror fetch updates every ref, so named branches/tags cannot go stale.
-    _git(run, [*git, "fetch", "--quiet", "--prune", "--tags", "origin"])
+    with _mirror_lock(mirror):
+        if not mirror.exists():
+            _clone_mirror(git_url=git_url, mirror=mirror, run=net, timeout=limit)
+        print(
+            f"run_tests: fetching {git_url} into mirror {mirror} (timeout {limit:g} s)",
+            file=sys.stderr,
+            flush=True,
+        )
+        # A mirror fetch updates every ref, so named branches/tags cannot go stale.
+        fetch = [*git, "fetch", "--quiet", "--prune", "--tags", "origin"]
+        _git(net, fetch, timeout=limit)
+        try:
+            return _git(run, verify)
+        except RunTestsError:
+            pass
+        # A sha on no branch (e.g. a PR head) needs an explicit single-rev fetch.
+        # Its failure is not fatal by itself: the verify below names the problem.
+        with _suppress_non_timeout():
+            _git(net, [*git, "fetch", "--quiet", "origin", rev], timeout=limit)
+        try:
+            return _git(run, verify)
+        except RunTestsError as exc:
+            raise RunTestsError(
+                Exit.ENGINE, f"{name}: cannot resolve rev {rev!r} in {mirror}: {exc}"
+            ) from exc
+
+
+@contextmanager
+def _suppress_non_timeout() -> Iterator[None]:
+    """Swallow a failed git call, but let a :class:`GitTimeout` propagate."""
     try:
-        return _git(run, verify)
+        yield
+    except GitTimeout:
+        raise
     except RunTestsError:
         pass
-    # A sha on no branch (e.g. a PR head) needs an explicit single-rev fetch.
-    run(
-        [*git, "fetch", "--quiet", "origin", rev],
-        capture_output=True,
-        text=True,
-        timeout=_TIMEOUT,
-        check=False,
-    )
-    try:
-        return _git(run, verify)
-    except RunTestsError as exc:
-        raise RunTestsError(
-            Exit.ENGINE, f"{name}: cannot resolve rev {rev!r} in {mirror}: {exc}"
-        ) from exc
 
 
 def _checkout_repo(
@@ -378,6 +635,8 @@ def _checkout_repo(
     rev: str,
     target: Path,
     run: Runner,
+    mirror_run: Runner | None = None,
+    git_timeout: float | None = None,
 ) -> Checkout:
     """Materialise ``rev`` of ``git_url`` in a worktree keyed by its resolved sha.
 
@@ -386,6 +645,9 @@ def _checkout_repo(
     ``--shared`` from it. Nothing is ever re-checked-out in place, so two runs of
     different revisions — sequential or overlapping — cannot swap files under each
     other's live ``cargo`` build.
+
+    ``mirror_run`` (default ``run``) executes the mirror network calls with
+    :func:`mirror_timeout` (``git_timeout`` = the ``--git-timeout`` flag, if any).
     """
     sha = _mirror_sha(
         name=name,
@@ -393,6 +655,8 @@ def _checkout_repo(
         rev=rev,
         mirror=target / "git",
         run=run,
+        mirror_run=mirror_run,
+        git_timeout=git_timeout,
     )
     tree = target / sha
     fresh = not (tree / ".git").exists()
@@ -461,9 +725,15 @@ def resolve(
     api: GhApi,
     src_root: Path,
     run: Runner | None = None,
+    git_timeout: float | None = None,
 ) -> EnginePlan:
-    """Resolve ``ref``, checkout the ladder, and build the cargo config text."""
+    """Resolve ``ref``, checkout the ladder, and build the cargo config text.
+
+    Without an injected ``run``, mirror clone/fetch go through
+    :class:`WatchedRunner` (heartbeat on stderr); an injected ``run`` serves both.
+    """
     runner: Runner = run or _default_run
+    mirror_runner: Runner = run or WatchedRunner()
     validate_ref(ref)
     sha = _resolve_sha(api, ref)
     manifest = _read_cargo_toml(api, sha)
@@ -486,6 +756,8 @@ def resolve(
         rev=dfbf_rev,
         target=src_root / "datafusion-bio-functions",
         run=runner,
+        mirror_run=mirror_runner,
+        git_timeout=git_timeout,
     )
     formats = _checkout_repo(
         name="formats",
@@ -493,6 +765,8 @@ def resolve(
         rev=fmt_rev,
         target=src_root / "datafusion-bio-formats",
         run=runner,
+        mirror_run=mirror_runner,
+        git_timeout=git_timeout,
     )
     return EnginePlan(
         ref=ref,
@@ -510,13 +784,19 @@ def materialise(
     api: GhApi | None = None,
     src_root: Path | None = None,
     run: Runner | None = None,
+    git_timeout: float | None = None,
 ) -> tuple[EnginePlan, Path]:
-    """Write ``<repo>/.run_tests/engine.toml``; return ``(plan, config_path)``."""
+    """Write ``<repo>/.run_tests/engine.toml``; return ``(plan, config_path)``.
+
+    ``git_timeout`` is ``--git-timeout``; ``None`` falls back to
+    ``$RUN_TESTS_GIT_TIMEOUT``, then 3600 s (see :func:`mirror_timeout`).
+    """
     plan = resolve(
         ref,
         api=api or GhCli(),
         src_root=src_root or default_src_root(),
         run=run,
+        git_timeout=git_timeout,
     )
     report = repo_root / ".run_tests"
     report.mkdir(parents=True, exist_ok=True)

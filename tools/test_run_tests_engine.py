@@ -182,3 +182,230 @@ def test_same_rev_reuses_its_tree(ladder: dict[str, Any]) -> None:
     second = engine.resolve("old", api=ladder["api"], src_root=src_root, run=_run)
     assert second.dfbf.path == first.dfbf.path
     assert stamp.read_text(encoding="utf-8") == "kept"
+
+
+# --- #256: mirror timeout, atomic clone, shared mirror cache, heartbeat ----------
+
+_SHA40: Final[str] = "a" * 40
+_URL: Final[str] = "https://example.invalid/dfbf.git"
+
+
+class _FakeGit:
+    """Fake ``run``: records argv/kwargs; ``clone --mirror`` "takes" ``clone_s``.
+
+    ``clone --mirror`` FIRST creates its destination (the last argv element) with a
+    ``HEAD`` file, THEN raises :class:`subprocess.TimeoutExpired` when the passed
+    ``timeout`` is below ``clone_s`` — like a real git killed half-way. No real
+    sleep happens.
+    """
+
+    def __init__(self, *, clone_s: float = 1.0) -> None:
+        self.clone_s = clone_s
+        self.calls: list[tuple[list[str], dict[str, Any]]] = []
+
+    def __call__(
+        self, argv: Sequence[str], **kwargs: Any
+    ) -> subprocess.CompletedProcess[str]:
+        args = list(argv)
+        self.calls.append((args, kwargs))
+        out = ""
+        if "clone" in args and "--mirror" in args:
+            dest = Path(args[-1])
+            dest.mkdir(parents=True)
+            (dest / "HEAD").write_text("ref: refs/heads/main\n")
+            if kwargs["timeout"] < self.clone_s:
+                raise subprocess.TimeoutExpired(args, kwargs["timeout"])
+        elif "clone" in args:
+            (Path(args[-1]) / ".git").mkdir(parents=True)
+        elif "rev-parse" in args:
+            out = _SHA40
+        return subprocess.CompletedProcess(args, 0, out, "")
+
+    def argvs(self, *words: str) -> list[list[str]]:
+        """Recorded argv lists that contain every one of ``words``."""
+        return [a for a, _ in self.calls if all(w in a for w in words)]
+
+
+def _checkout(fake: _FakeGit, target: Path) -> engine.Checkout:
+    return engine._checkout_repo(
+        name="dfbf", git_url=_URL, rev="main", target=target, run=fake
+    )
+
+
+def test_mirror_clone_default_timeout_exceeds_old_limit(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    """A 600 s clone succeeds under the default mirror timeout (180 s would kill it)."""
+    monkeypatch.delenv(engine.GIT_TIMEOUT_ENV, raising=False)
+    fake = _FakeGit(clone_s=600)
+    checkout = _checkout(fake, tmp_path / "dfbf")
+    assert checkout.head == _SHA40
+    assert (tmp_path / "dfbf" / "git" / "HEAD").is_file()
+    [(_, kwargs)] = [c for c in fake.calls if "--mirror" in c[0]]
+    assert kwargs["timeout"] == engine.DEFAULT_GIT_TIMEOUT > 600 > engine._TIMEOUT
+
+
+def test_mirror_timeout_from_env(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    """``RUN_TESTS_GIT_TIMEOUT=10`` fails the 600 s clone, naming the limit."""
+    monkeypatch.setenv(engine.GIT_TIMEOUT_ENV, "10")
+    with pytest.raises(engine.RunTestsError) as info:
+        _checkout(_FakeGit(clone_s=600), tmp_path / "dfbf")
+    assert "timed out after 10 s" in str(info.value)
+    assert engine.GIT_TIMEOUT_ENV in str(info.value)
+    # The flag wins over the variable.
+    assert engine.mirror_timeout(700.0, {engine.GIT_TIMEOUT_ENV: "10"}) == 700.0
+    with pytest.raises(engine.RunTestsError):
+        engine.mirror_timeout(None, {engine.GIT_TIMEOUT_ENV: "0"})
+
+
+def test_short_calls_keep_short_timeout(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    """``rev-parse`` and ``clone --shared`` keep ``timeout <= 180``."""
+    monkeypatch.delenv(engine.GIT_TIMEOUT_ENV, raising=False)
+    fake = _FakeGit()
+    _checkout(fake, tmp_path / "dfbf")
+    short = [
+        kw["timeout"]
+        for argv, kw in fake.calls
+        if "rev-parse" in argv or "--shared" in argv
+    ]
+    assert len(short) >= 3
+    assert all(t <= 180 for t in short)
+    assert all(
+        kw["timeout"] == engine.DEFAULT_GIT_TIMEOUT
+        for argv, kw in fake.calls
+        if "--mirror" in argv or "fetch" in argv
+    )
+
+
+def test_timed_out_clone_leaves_no_mirror(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    """A clone killed half-way leaves no ``<target>/git`` and no ``.tmp-*`` sibling."""
+    monkeypatch.setenv(engine.GIT_TIMEOUT_ENV, "10")
+    target = tmp_path / "dfbf"
+    fake = _FakeGit(clone_s=600)
+    with pytest.raises((engine.RunTestsError, subprocess.TimeoutExpired)):
+        _checkout(fake, target)
+    assert fake.argvs("--mirror"), "the fake clone never ran"
+    assert not (target / "git").exists()
+    assert not list(target.glob("git.tmp-*"))
+    # A stale temp dir of a killed run is swept by the next run, which then clones.
+    (target / "git.tmp-99999999").mkdir()
+    monkeypatch.delenv(engine.GIT_TIMEOUT_ENV)
+    _checkout(_FakeGit(clone_s=600), target)
+    assert (target / "git" / "HEAD").is_file()
+    assert not list(target.glob("git.tmp-*"))
+
+
+def test_second_run_reuses_mirror(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    """Two runs from two checkouts share one XDG mirror: one clone, then fetches."""
+    monkeypatch.delenv(engine.SRC_ENV, raising=False)
+    monkeypatch.delenv(engine.GIT_TIMEOUT_ENV, raising=False)
+    cache = tmp_path / "xdg"
+    fake = _FakeGit()
+    for checkout_root in (tmp_path / "wt1", tmp_path / "wt2"):
+        checkout_root.mkdir()
+        monkeypatch.chdir(checkout_root)
+        src = engine.default_src_root({"XDG_CACHE_HOME": str(cache)})
+        _checkout(fake, src / "datafusion-bio-functions")
+    mirror = cache / "vepyr-porting-tests/run_tests/src/datafusion-bio-functions/git"
+    assert mirror.is_dir()
+    assert mirror.is_relative_to(cache)
+    assert len(fake.argvs("clone", "--mirror")) == 1
+    assert len(fake.argvs("fetch")) >= 1
+
+
+def test_default_src_root_outside_checkout(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    """XDG cache by default (not under the repo); ``RUN_TESTS_SRC`` wins when set."""
+    repo_root = Path(engine.__file__).resolve().parents[2]
+    monkeypatch.delenv(engine.SRC_ENV, raising=False)
+    monkeypatch.setenv("XDG_CACHE_HOME", str(tmp_path))
+    root = engine.default_src_root()
+    assert root.is_relative_to(tmp_path)
+    assert not root.is_relative_to(repo_root)
+    home = engine.default_src_root({"HOME": str(tmp_path / "home")})
+    assert home == tmp_path / "home/.cache/vepyr-porting-tests/run_tests/src"
+    monkeypatch.setenv(engine.SRC_ENV, str(tmp_path / "explicit"))
+    assert engine.default_src_root() == tmp_path / "explicit"
+
+
+class _FakeProcess:
+    """A child that finishes once the fake clock reaches ``done_at``."""
+
+    def __init__(self, clock: list[float], done_at: float) -> None:
+        self.clock, self.done_at = clock, done_at
+        self.returncode: int | None = None
+
+    def poll(self) -> int | None:
+        if self.clock[0] >= self.done_at:
+            self.returncode = 0
+        return self.returncode
+
+    def kill(self) -> None:
+        self.returncode = -9
+
+    def wait(self, timeout: float | None = None) -> int:
+        return self.returncode or 0
+
+
+def test_mirror_heartbeat_printed(
+    tmp_path: Path,
+    monkeypatch: pytest.MonkeyPatch,
+    capsys: pytest.CaptureFixture[str],
+) -> None:
+    """A 65 s fake clone prints the start line and at least two heartbeats."""
+    monkeypatch.delenv(engine.GIT_TIMEOUT_ENV, raising=False)
+    clock = [0.0]
+
+    def spawn(argv: Sequence[str], **_: Any) -> _FakeProcess:
+        if "--mirror" in argv:
+            Path(argv[-1]).mkdir(parents=True)
+            (Path(argv[-1]) / "HEAD").write_text("x" * 2048)
+            return _FakeProcess(clock, clock[0] + 65)
+        return _FakeProcess(clock, clock[0])
+
+    def sleep(seconds: float) -> None:
+        clock[0] += seconds
+
+    watched = engine.WatchedRunner(spawn=spawn, clock=lambda: clock[0], sleep=sleep)
+    engine._checkout_repo(
+        name="dfbf",
+        git_url=_URL,
+        rev="main",
+        target=tmp_path / "dfbf",
+        run=_FakeGit(),
+        mirror_run=watched,
+    )
+    err = capsys.readouterr().err
+    assert f"run_tests: cloning {_URL} mirror into {tmp_path / 'dfbf' / 'git'}" in err
+    assert "(timeout 3600 s)" in err
+    beats = [ln for ln in err.splitlines() if "still running after" in ln]
+    assert len(beats) >= 2, err
+    assert "still running after 30 s" in beats[0]
+    assert (tmp_path / "dfbf" / "git" / "HEAD").is_file()
+
+
+def test_watched_runner_kills_on_timeout() -> None:
+    """``WatchedRunner`` raises ``TimeoutExpired`` and kills the child at the limit."""
+    clock = [0.0]
+    procs: list[_FakeProcess] = []
+
+    def spawn(argv: Sequence[str], **_: Any) -> _FakeProcess:
+        procs.append(_FakeProcess(clock, 10_000))
+        return procs[-1]
+
+    def sleep(seconds: float) -> None:
+        clock[0] += seconds
+
+    watched = engine.WatchedRunner(spawn=spawn, clock=lambda: clock[0], sleep=sleep)
+    with pytest.raises(subprocess.TimeoutExpired):
+        watched(["git", "-C", "/nonexistent", "fetch"], timeout=5)
+    assert procs[0].returncode == -9

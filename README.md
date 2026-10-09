@@ -45,6 +45,7 @@ export VEPYR_CACHE_ROOT=/mnt/hf-cache
 | `--only DIR` | Repeatable. Runs only the named data-test directories (each holds `test.toml`; may be outside `tests/data`, e.g. a scratch copy): they are copied into a fresh temporary root that `DATA_DIRS_ROOT` names, cargo runs only the exact `data_dirs` test, and the root is deleted afterwards; `tests/data` is never touched. The summary's `targets` line lists exactly these names. A missing directory, one without `test.toml`, or two with the same basename is a usage error (exit 2, `not a data-test directory`). The engine is still `--vepyr REF` (or its default) |
 | `--via-cli` | Annotates each selected data-test (all of `tests/data`, or the `--only` directories, which may be outside `tests/data`) through the user-facing `python -m vepyr annotate` CLI instead of `cargo test --test data_dirs`; it complements the Rust loop, it does not replace it. See "`--via-cli` mode" below |
 | `--old-vepyr-cache` | Consent to a vepyr cache that is not provably the newest (see "Cache freshness guard" below): the run proceeds and the summary records `old cache: YES (consented)` |
+| `--git-timeout SECONDS` | Seconds allowed for each engine mirror `git clone --mirror` / `git fetch` (default `$RUN_TESTS_GIT_TIMEOUT`, else 3600); the flag wins over the variable. See "Engine mirror cache" below |
 
 **"Targets" means data-test directories** — `tests/data/<name>/` holding a
 `test.toml` (see [Porting method](#porting-method)). `--list` prints their names.
@@ -63,6 +64,24 @@ carries a single `--test data_dirs`.
 
 Engine ladder checkouts run with `GIT_LFS_SKIP_SMUDGE=1`: the crates are built from
 Rust source only, so the fetch never depends on unrelated git-lfs-hosted content.
+
+**Engine mirror cache** (#256). The engine repos (`datafusion-bio-functions`,
+`datafusion-bio-formats`) are kept as bare `git clone --mirror` copies in a cache
+shared by every checkout and worktree:
+
+| Variable | Meaning |
+|---|---|
+| `RUN_TESTS_SRC` | Mirror cache root. Wins when set. Default: `${XDG_CACHE_HOME:-$HOME/.cache}/vepyr-porting-tests/run_tests/src` (outside any checkout, so a new worktree only runs an incremental `git fetch`) |
+| `RUN_TESTS_GIT_TIMEOUT` | Seconds per mirror `clone --mirror` / `fetch` (default 3600; `--git-timeout` wins). Short git calls (`rev-parse`, `clone --shared`, `gh api`) keep 180 s. A timeout exits `6` naming the limit |
+
+The first clone goes to `<mirror>.tmp-<pid>` and is renamed into place only on
+success, so a killed or timed-out clone leaves no half mirror (a stale `.tmp-*` is
+removed by the next run). Overlapping runs serialise on an `fcntl.flock` of
+`<mirror>.lock`. While a mirror call runs, stderr shows a start line
+(`run_tests: cloning <url> mirror into <path> (timeout <N> s)`) and a heartbeat every
+30 s with the elapsed time and current mirror size. Mirrors under the old default
+`<checkout>/.run_tests/src` are not migrated; point `RUN_TESTS_SRC` there to keep
+using them, or delete them.
 
 Omitting the flag is **not** "no engine": it resolves `biodatageeks/vepyr`'s
 `master` HEAD as it stands at that moment. The summary prints the resolved 40-char
