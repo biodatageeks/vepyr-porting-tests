@@ -177,14 +177,20 @@ def test_engine_toml_patches_every_formats_crate(tmp_path: Path) -> None:
         assert re.search(rf"^{re.escape(name)} *= ", text, re.MULTILINE), name
 
 
-def test_patch_header_uses_checkout_git_url(tmp_path: Path) -> None:
-    """``[patch.<url>]`` keys are the checkouts' own manifest URLs, verbatim (#70)."""
-    dfbf_root, fmt_root = tmp_path / "dfbf", tmp_path / "formats"
+def _tiny_ladder(root: Path) -> tuple[Path, Path]:
+    """Create minimal dfbf and formats workspaces under ``root``; return both roots."""
+    dfbf_root, fmt_root = root / "dfbf", root / "formats"
     _crate(dfbf_root / "vep", "datafusion-bio-function-vep")
     (dfbf_root / "Cargo.toml").write_text('[workspace]\nmembers = ["vep"]\n')
     _crate(fmt_root / "a", "datafusion-bio-format-ensembl-cache")
     _crate(fmt_root / "b", "datafusion-bio-format-vcf")
     (fmt_root / "Cargo.toml").write_text('[workspace]\nmembers = ["a", "b"]\n')
+    return dfbf_root, fmt_root
+
+
+def test_patch_header_uses_checkout_git_url(tmp_path: Path) -> None:
+    """``[patch.<url>]`` keys are the checkouts' own manifest URLs, verbatim (#70)."""
+    dfbf_root, fmt_root = _tiny_ladder(tmp_path)
     dfbf_url, fmt_url = "https://example.invalid/dfbf", "ssh://example.invalid/formats"
     text = engine.engine_toml(
         dfbf=engine.Checkout(
@@ -201,9 +207,22 @@ def test_patch_header_uses_checkout_git_url(tmp_path: Path) -> None:
     ]
 
 
-def test_patch_header_rejects_missing_git_url(tmp_path: Path) -> None:
-    """A checkout without a git URL cannot key a patch table: ``Exit.ENGINE``."""
-    dfbf = engine.Checkout(name="dfbf", path=tmp_path, git_url="", rev="r", head="0")
+@pytest.mark.parametrize("blank", ["dfbf", "formats"])
+def test_patch_header_rejects_missing_git_url(tmp_path: Path, blank: str) -> None:
+    """A valid ladder whose ``blank`` checkout has no git URL fails ``Exit.ENGINE``."""
+    roots = dict(zip(("dfbf", "formats"), _tiny_ladder(tmp_path), strict=True))
+    checkouts = {
+        name: engine.Checkout(
+            name=name,
+            path=path,
+            git_url="" if name == blank else f"https://example.invalid/{name}",
+            rev="r",
+            head="0" * 40,
+        )
+        for name, path in roots.items()
+    }
     with pytest.raises(RunTestsError) as info:
-        engine.engine_toml(dfbf=dfbf, formats=dfbf)
+        engine.engine_toml(dfbf=checkouts["dfbf"], formats=checkouts["formats"])
     assert info.value.code is Exit.ENGINE
+    assert f"{blank} checkout at" in str(info.value)
+    assert "has no git URL" in str(info.value)
