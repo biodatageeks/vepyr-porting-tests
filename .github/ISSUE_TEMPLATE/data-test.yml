@@ -67,7 +67,7 @@ body:
         everything = true
         preserve_record_layout = true
         reference_fasta = true
-        flavour = "ensembl"
+        flavour = "merged"
     validations:
       required: true
 
@@ -134,7 +134,7 @@ body:
         is documented (e.g. "default `./bless` procedure, see #32"; state any
         extra flags, limited to `ALLOWED_VEP_FLAGS` in `tools/bless/vep.py`). Feeds `[vep]`.
       placeholder: |
-        default ./bless procedure, see #32; extra flags: none
+        ./bless with --vep-flag=--merged and the native merged cache
     validations:
       required: true
 

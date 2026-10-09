@@ -1,5 +1,5 @@
 name = "emit_one_regulatory_overlap_entry_without_duplicate_features_3f2d86"
-description = "Fixture covering 9 tests. Compare the complete output body with expected_output.vcf."
+description = "One comparison covering 10 VEP assertion tests, one [[tests]] each: vepyr's output body must equal native VEP's (expected_output.vcf)."
 
 [vepyr]
 flavour = "merged"
@@ -70,3 +70,8 @@ vep_test = "https://github.com/Ensembl/ensembl-vep/blob/release/116.2/t/OutputFa
 id = "report_the_regulatory_region_consequence_at_the_selected_overlap_bcb46f"
 description = "Report the regulatory-region consequence at the selected overlap."
 vep_test = "https://github.com/Ensembl/ensembl-vep/blob/release/116.2/t/AnnotationSource_Cache_RegFeat.t#L166-L166"
+
+[[tests]]
+id = "output_factory_regulatory_promoter"
+description = "vepyr annotates 21 25734924 C>T, which lies in a promoter of the VEP 116 regulatory build, to the same output body as native VEP 116 --everything, including the RegulatoryFeature regulatory_region_variant entry with BIOTYPE promoter."
+vep_test = "https://github.com/Ensembl/ensembl-vep/blob/release/116.2/t/OutputFactory.t#L1207-L1230"

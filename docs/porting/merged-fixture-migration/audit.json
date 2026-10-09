@@ -1,0 +1,1220 @@
+{
+  "before_commit": "019f7a8a265a07aca61816bc2cdbfe6ae856b094",
+  "native_vep": {
+    "image_tag": "ensemblorg/ensembl-vep:release_116.2",
+    "image_digest": "sha256:5c57abdc40b637cac198370b4c114777fa24de3336141fdf09d2b0c43cd4b8da",
+    "upstream_tag": "release/116.2",
+    "upstream_commit": "2cb0bbe216bb31c75de8f8000e2da7ff4fb7b451",
+    "cache_version": "116"
+  },
+  "generation": "Owner executed the staged ./bless runs with existing native merged cache and FASTA; all 15 exited 0. No expected output was generated with vepyr.",
+  "cache_evidence": "Source URLs identify intended data; local native cache and FASTA checksums remain unverified. No download receipt was fabricated.",
+  "inputs": "All 15 native re-blesses used byte-identical original inputs. Every input body is preserved after grouping; four duplicate directories were removed after matching input body, oracle body and runtime configuration. Equivalent contig headers may differ in the retained directories.",
+  "named_tests": 205,
+  "fixtures": 70,
+  "configured_runs": 74,
+  "skipped_fixtures": 1,
+  "annotation_validation": {
+    "engine": {
+      "vepyr_sha": "af305aff6ab0fab831c49f4de51add6f0cb1b703",
+      "dfbf_sha": "b960112c43a68eef564d117fe49711eb99c089a6",
+      "formats_sha": "72efe677985eca4092e0c20753976dbe45d94032",
+      "resolved_lockfile_sha256": "403e210930177c6429b431d33dee0dd6e58ea3ab9f907b7532ecd1d30f0fb028",
+      "binary_sha256": "4aeee2932a9a38d4117a1bde5fc919f6d7d83ee26b3aaaa9cdab556c06d395a7"
+    },
+    "summary": {
+      "fixtures": 70,
+      "runs": 74,
+      "run_counts": {
+        "PASS": 73,
+        "MISMATCH": 0,
+        "ERROR": 0,
+        "SKIP": 1
+      },
+      "fixture_pass": 69
+    },
+    "scope": "A separate local-cache diagnostic used the production fixture loader, configuration mapping, annotation helper and body comparison with the engine dependencies selected by remote vepyr master. Every generated non-header body was also independently byte-compared to its current oracle. This is not a pinned-Hub ./run_tests result: the existing full cache has no Hub provenance receipt.",
+    "cache_integrity": "SHA-256 fingerprints were recorded for 32 required cache, manifest and FASTA files (7299940919 bytes); file sizes and modification times remained unchanged throughout execution. Fingerprints establish local identity, not upstream authenticity.",
+    "cache_fingerprints_sha256": "e19d2a64e4b1bba5147f477b8222a3a42465f2a8ad0104356bb881e6d0333a84",
+    "named_coverage": "204 named coverage entries belong to passing fixtures; one belongs to the skipped symbolic-deletion fixture. These entries are not separate executable assertions.",
+    "runs": [
+      {
+        "fixture": "align_pheno_values_with_colocated_identifiers_bd5303",
+        "run": "1",
+        "total_runs": "1",
+        "buffer_size": "5000",
+        "status": "PASS",
+        "expected_md5": "4e6fb229c5dc5526e4100f6c92d036de",
+        "actual_md5": "4e6fb229c5dc5526e4100f6c92d036de",
+        "detail": ""
+      },
+      {
+        "fixture": "align_somatic_flags_with_colocated_identifiers_5126b4",
+        "run": "1",
+        "total_runs": "1",
+        "buffer_size": "5000",
+        "status": "PASS",
+        "expected_md5": "53ff9d4c5b679053940e3ed4d79c9e47",
+        "actual_md5": "53ff9d4c5b679053940e3ed4d79c9e47",
+        "detail": ""
+      },
+      {
+        "fixture": "annotate_an_anchored_deletion_as_the_deleted_base_without_its_anchor_2e50dd",
+        "run": "1",
+        "total_runs": "1",
+        "buffer_size": "5000",
+        "status": "PASS",
+        "expected_md5": "112babcbb30898bed613cdf4fa20049c",
+        "actual_md5": "112babcbb30898bed613cdf4fa20049c",
+        "detail": ""
+      },
+      {
+        "fixture": "annotate_an_anchored_insertion_as_the_inserted_sequence_without_its_anchor_b28b04",
+        "run": "1",
+        "total_runs": "1",
+        "buffer_size": "5000",
+        "status": "PASS",
+        "expected_md5": "1c9c532e61935a0b709f264dbaed0744",
+        "actual_md5": "1c9c532e61935a0b709f264dbaed0744",
+        "detail": ""
+      },
+      {
+        "fixture": "attach_a_known_variant_identifier_to_each_source_record_having_a_match_9065b6",
+        "run": "1",
+        "total_runs": "1",
+        "buffer_size": "5000",
+        "status": "PASS",
+        "expected_md5": "05bf31b59c70febbbace9660e9b5288e",
+        "actual_md5": "05bf31b59c70febbbace9660e9b5288e",
+        "detail": ""
+      },
+      {
+        "fixture": "bcsq_info_key_preserved",
+        "run": "1",
+        "total_runs": "1",
+        "buffer_size": "5000",
+        "status": "PASS",
+        "expected_md5": "d0191ee16408aefe865744b90c205937",
+        "actual_md5": "d0191ee16408aefe865744b90c205937",
+        "detail": ""
+      },
+      {
+        "fixture": "continue_to_the_next_snv_after_a_ref_equals_alt_record_431b85",
+        "run": "1",
+        "total_runs": "1",
+        "buffer_size": "5000",
+        "status": "PASS",
+        "expected_md5": "14331c8ab8dc1dc99ebdbe96dc58957f",
+        "actual_md5": "14331c8ab8dc1dc99ebdbe96dc58957f",
+        "detail": ""
+      },
+      {
+        "fixture": "continue_to_the_trailing_snv_after_consecutive_alt_dot_records_1d6dc1",
+        "run": "1",
+        "total_runs": "1",
+        "buffer_size": "5000",
+        "status": "PASS",
+        "expected_md5": "1c9ce512da04c4f6df226f4f429c2a5a",
+        "actual_md5": "1c9ce512da04c4f6df226f4f429c2a5a",
+        "detail": ""
+      },
+      {
+        "fixture": "do_not_reuse_a_known_variant_match_after_moving_one_base_away_70dc4a",
+        "run": "1",
+        "total_runs": "1",
+        "buffer_size": "5000",
+        "status": "PASS",
+        "expected_md5": "58d0c9e942908069e09367c4ce274d37",
+        "actual_md5": "58d0c9e942908069e09367c4ce274d37",
+        "detail": ""
+      },
+      {
+        "fixture": "emit_all_app_missense_transcript_entries_on_one_vcf_row_76ca9a",
+        "run": "1",
+        "total_runs": "1",
+        "buffer_size": "5000",
+        "status": "PASS",
+        "expected_md5": "e4a8977ffa983361a70be47d05515bbb",
+        "actual_md5": "e4a8977ffa983361a70be47d05515bbb",
+        "detail": ""
+      },
+      {
+        "fixture": "emit_an_intergenic_consequence_for_a_snv_with_no_feature_overlap_89a42d",
+        "run": "1",
+        "total_runs": "1",
+        "buffer_size": "5000",
+        "status": "PASS",
+        "expected_md5": "16bf8dea7972ee5abe6e173dbfecb82b",
+        "actual_md5": "16bf8dea7972ee5abe6e173dbfecb82b",
+        "detail": ""
+      },
+      {
+        "fixture": "emit_no_fabricated_csq_when_a_record_has_no_consequences_7e8b29",
+        "run": "1",
+        "total_runs": "1",
+        "buffer_size": "5000",
+        "status": "PASS",
+        "expected_md5": "31868aecf475e158b25cb7cc4f724122",
+        "actual_md5": "31868aecf475e158b25cb7cc4f724122",
+        "detail": ""
+      },
+      {
+        "fixture": "emit_one_regulatory_overlap_entry_without_duplicate_features_3f2d86",
+        "run": "1",
+        "total_runs": "1",
+        "buffer_size": "5000",
+        "status": "PASS",
+        "expected_md5": "6cec87c42c7dead869390e5412009575",
+        "actual_md5": "6cec87c42c7dead869390e5412009575",
+        "detail": ""
+      },
+      {
+        "fixture": "emit_one_vcf_row_per_input_record_despite_multiple_transcript_consequences_97f6df",
+        "run": "1",
+        "total_runs": "1",
+        "buffer_size": "5000",
+        "status": "PASS",
+        "expected_md5": "304395d68257f8cd8c7bf63b31dde4e4",
+        "actual_md5": "304395d68257f8cd8c7bf63b31dde4e4",
+        "detail": ""
+      },
+      {
+        "fixture": "exclude_a_colocated_record_whose_alt_does_not_match_b6697a",
+        "run": "1",
+        "total_runs": "1",
+        "buffer_size": "5000",
+        "status": "PASS",
+        "expected_md5": "7cadf5291d3a29cb748dbd0512fe511b",
+        "actual_md5": "7cadf5291d3a29cb748dbd0512fe511b",
+        "detail": ""
+      },
+      {
+        "fixture": "exclude_a_failed_cache_record_by_default_70fe97",
+        "run": "1",
+        "total_runs": "1",
+        "buffer_size": "5000",
+        "status": "PASS",
+        "expected_md5": "e183a908bc4fa5fba1d3ad3b3b8b884b",
+        "actual_md5": "e183a908bc4fa5fba1d3ad3b3b8b884b",
+        "detail": ""
+      },
+      {
+        "fixture": "exclude_an_insertion_from_a_feature_touching_only_its_left_flank_20ad65",
+        "run": "1",
+        "total_runs": "1",
+        "buffer_size": "5000",
+        "status": "PASS",
+        "expected_md5": "40e77a881c0a8e062e896191c00b9bcc",
+        "actual_md5": "40e77a881c0a8e062e896191c00b9bcc",
+        "detail": ""
+      },
+      {
+        "fixture": "exclude_an_insertion_from_a_feature_touching_only_its_right_flank_b2bd91",
+        "run": "1",
+        "total_runs": "1",
+        "buffer_size": "5000",
+        "status": "PASS",
+        "expected_md5": "27f33b8c7ac08f839ee80a770ed5e363",
+        "actual_md5": "27f33b8c7ac08f839ee80a770ed5e363",
+        "detail": ""
+      },
+      {
+        "fixture": "exclude_an_overlap_one_base_after_a_feature_e91c7a",
+        "run": "1",
+        "total_runs": "1",
+        "buffer_size": "5000",
+        "status": "PASS",
+        "expected_md5": "a33a34ac42a7585c0b613c17ee6979fd",
+        "actual_md5": "a33a34ac42a7585c0b613c17ee6979fd",
+        "detail": ""
+      },
+      {
+        "fixture": "exclude_an_overlap_one_base_before_a_feature_cbe7a1",
+        "run": "1",
+        "total_runs": "1",
+        "buffer_size": "5000",
+        "status": "PASS",
+        "expected_md5": "95d31bdd8530ea4f3d4ad7ef7009435d",
+        "actual_md5": "95d31bdd8530ea4f3d4ad7ef7009435d",
+        "detail": ""
+      },
+      {
+        "fixture": "existing_csq_info_replaced",
+        "run": "1",
+        "total_runs": "1",
+        "buffer_size": "5000",
+        "status": "PASS",
+        "expected_md5": "4bd552e6cc1cea0e0f84c2b29f2a1254",
+        "actual_md5": "4bd552e6cc1cea0e0f84c2b29f2a1254",
+        "detail": ""
+      },
+      {
+        "fixture": "include_a_coordinate_matched_known_record_with_unknown_alleles_eee329",
+        "run": "1",
+        "total_runs": "1",
+        "buffer_size": "5000",
+        "status": "PASS",
+        "expected_md5": "1c0932086f43d0851f16c318bfc36b10",
+        "actual_md5": "1c0932086f43d0851f16c318bfc36b10",
+        "detail": ""
+      },
+      {
+        "fixture": "include_a_snv_strictly_inside_a_feature_span_57cd2a",
+        "run": "1",
+        "total_runs": "1",
+        "buffer_size": "5000",
+        "status": "PASS",
+        "expected_md5": "39f44dd584343fae6f75bfe4e5a0db8e",
+        "actual_md5": "39f44dd584343fae6f75bfe4e5a0db8e",
+        "detail": ""
+      },
+      {
+        "fixture": "include_an_insertion_when_the_feature_spans_both_flanks_135345",
+        "run": "1",
+        "total_runs": "1",
+        "buffer_size": "5000",
+        "status": "PASS",
+        "expected_md5": "badd416a6460b4dc0040eb66bf2277e4",
+        "actual_md5": "badd416a6460b4dc0040eb66bf2277e4",
+        "detail": ""
+      },
+      {
+        "fixture": "include_an_overlap_touching_the_feature_s_first_base_031627",
+        "run": "1",
+        "total_runs": "1",
+        "buffer_size": "5000",
+        "status": "PASS",
+        "expected_md5": "2dc92487eeb3031df8c59a5d1c49fa4c",
+        "actual_md5": "2dc92487eeb3031df8c59a5d1c49fa4c",
+        "detail": ""
+      },
+      {
+        "fixture": "include_an_overlap_touching_the_feature_s_last_base_cfc2ce",
+        "run": "1",
+        "total_runs": "1",
+        "buffer_size": "5000",
+        "status": "PASS",
+        "expected_md5": "0cec3674f740cff0bb339f4c33fcf5cc",
+        "actual_md5": "0cec3674f740cff0bb339f4c33fcf5cc",
+        "detail": ""
+      },
+      {
+        "fixture": "intergenic_variant_single_record",
+        "run": "1",
+        "total_runs": "1",
+        "buffer_size": "5000",
+        "status": "PASS",
+        "expected_md5": "d60ca07cabe0554faf7eae1e3f165f9b",
+        "actual_md5": "d60ca07cabe0554faf7eae1e3f165f9b",
+        "detail": ""
+      },
+      {
+        "fixture": "leave_exon_empty_for_an_intronic_consequence_df45e3",
+        "run": "1",
+        "total_runs": "1",
+        "buffer_size": "5000",
+        "status": "PASS",
+        "expected_md5": "0b39a21f183644aa23479b2445fd256e",
+        "actual_md5": "0b39a21f183644aa23479b2445fd256e",
+        "detail": ""
+      },
+      {
+        "fixture": "look_up_amr_frequency_using_the_reduced_insertion_allele_b47685",
+        "run": "1",
+        "total_runs": "1",
+        "buffer_size": "5000",
+        "status": "PASS",
+        "expected_md5": "076889afe467d004bc3289aeb7ce15e3",
+        "actual_md5": "076889afe467d004bc3289aeb7ce15e3",
+        "detail": ""
+      },
+      {
+        "fixture": "match_a_left_anchored_gcg_insertion_to_existing_variation_b4c85e",
+        "run": "1",
+        "total_runs": "1",
+        "buffer_size": "5000",
+        "status": "PASS",
+        "expected_md5": "4f300a7ab2c2e53171316ec016fe6b7f",
+        "actual_md5": "4f300a7ab2c2e53171316ec016fe6b7f",
+        "detail": ""
+      },
+      {
+        "fixture": "match_an_insertion_after_removing_shared_prefix_and_suffix_9e34ff",
+        "run": "1",
+        "total_runs": "1",
+        "buffer_size": "5000",
+        "status": "PASS",
+        "expected_md5": "1fb49248047618f34a3c51e2c8c045ec",
+        "actual_md5": "1fb49248047618f34a3c51e2c8c045ec",
+        "detail": ""
+      },
+      {
+        "fixture": "of_vcf_multi_transcript_missense_flags",
+        "run": "1",
+        "total_runs": "1",
+        "buffer_size": "5000",
+        "status": "PASS",
+        "expected_md5": "7a5c1217fa6493fc82cf6e1643c5e2a9",
+        "actual_md5": "7a5c1217fa6493fc82cf6e1643c5e2a9",
+        "detail": ""
+      },
+      {
+        "fixture": "of_vcf_one_line_per_record_test_vcf",
+        "run": "1",
+        "total_runs": "1",
+        "buffer_size": "5000",
+        "status": "PASS",
+        "expected_md5": "97019533247b93d0de6df31506b25b92",
+        "actual_md5": "97019533247b93d0de6df31506b25b92",
+        "detail": ""
+      },
+      {
+        "fixture": "output_factory_hgvs_transcript_protein",
+        "run": "1",
+        "total_runs": "1",
+        "buffer_size": "5000",
+        "status": "PASS",
+        "expected_md5": "aa61d843903abcc666384c2436966425",
+        "actual_md5": "aa61d843903abcc666384c2436966425",
+        "detail": ""
+      },
+      {
+        "fixture": "output_factory_mirna_loop",
+        "run": "1",
+        "total_runs": "1",
+        "buffer_size": "5000",
+        "status": "PASS",
+        "expected_md5": "be998860390c0f523626914dca83389e",
+        "actual_md5": "be998860390c0f523626914dca83389e",
+        "detail": ""
+      },
+      {
+        "fixture": "output_factory_motif_feature_tfbs",
+        "run": "1",
+        "total_runs": "1",
+        "buffer_size": "5000",
+        "status": "PASS",
+        "expected_md5": "81021e91fbbfcd516fece4a8d32f272e",
+        "actual_md5": "81021e91fbbfcd516fece4a8d32f272e",
+        "detail": ""
+      },
+      {
+        "fixture": "output_factory_vcf_anchored_deletion",
+        "run": "1",
+        "total_runs": "1",
+        "buffer_size": "5000",
+        "status": "PASS",
+        "expected_md5": "eaa293a9028bde7e06cf13381f115e35",
+        "actual_md5": "eaa293a9028bde7e06cf13381f115e35",
+        "detail": ""
+      },
+      {
+        "fixture": "preserve_bcsq_while_writing_vep_csq_7db026",
+        "run": "1",
+        "total_runs": "1",
+        "buffer_size": "5000",
+        "status": "PASS",
+        "expected_md5": "e0b831666288c59aa64e12689a7bf6b2",
+        "actual_md5": "e0b831666288c59aa64e12689a7bf6b2",
+        "detail": ""
+      },
+      {
+        "fixture": "preserve_the_input_alt_value_during_vcf_annotation_5dcf84",
+        "run": "1",
+        "total_runs": "1",
+        "buffer_size": "5000",
+        "status": "PASS",
+        "expected_md5": "47f6f0723b3a0c398b7e2933233e94fe",
+        "actual_md5": "47f6f0723b3a0c398b7e2933233e94fe",
+        "detail": ""
+      },
+      {
+        "fixture": "preserve_the_ordered_consequence_identities_across_a_multi_gene_input_5ffe76",
+        "run": "1",
+        "total_runs": "1",
+        "buffer_size": "5000",
+        "status": "PASS",
+        "expected_md5": "e59c690d21dcbf7dd7eeabf5ab0697ce",
+        "actual_md5": "e59c690d21dcbf7dd7eeabf5ab0697ce",
+        "detail": ""
+      },
+      {
+        "fixture": "preserve_variant_order_across_chromosome_boundaries_a6946a",
+        "run": "1",
+        "total_runs": "1",
+        "buffer_size": "5000",
+        "status": "PASS",
+        "expected_md5": "e3fc53176f7baa7199d3bdc96a6517c3",
+        "actual_md5": "e3fc53176f7baa7199d3bdc96a6517c3",
+        "detail": ""
+      },
+      {
+        "fixture": "preserve_zero_valued_csq_annotations_instead_of_treating_them_as_missing_0a787d",
+        "run": "1",
+        "total_runs": "1",
+        "buffer_size": "5000",
+        "status": "PASS",
+        "expected_md5": "8ca336860f78a5650f0527fbf2e2b8b4",
+        "actual_md5": "8ca336860f78a5650f0527fbf2e2b8b4",
+        "detail": ""
+      },
+      {
+        "fixture": "recover_a_missing_hgnc_id_from_sibling_transcripts_4d3b3c",
+        "run": "1",
+        "total_runs": "1",
+        "buffer_size": "5000",
+        "status": "PASS",
+        "expected_md5": "37fab4a6056170d19f6710b4667477af",
+        "actual_md5": "37fab4a6056170d19f6710b4667477af",
+        "detail": ""
+      },
+      {
+        "fixture": "replace_an_existing_csq_entry_in_the_first_info_position_4d25e2",
+        "run": "1",
+        "total_runs": "1",
+        "buffer_size": "5000",
+        "status": "PASS",
+        "expected_md5": "49dd64339a356f9c413109aed2e32cda",
+        "actual_md5": "49dd64339a356f9c413109aed2e32cda",
+        "detail": ""
+      },
+      {
+        "fixture": "replace_an_existing_csq_entry_in_the_last_info_position_b2e0f4",
+        "run": "1",
+        "total_runs": "1",
+        "buffer_size": "5000",
+        "status": "PASS",
+        "expected_md5": "49dd64339a356f9c413109aed2e32cda",
+        "actual_md5": "49dd64339a356f9c413109aed2e32cda",
+        "detail": ""
+      },
+      {
+        "fixture": "replace_an_existing_csq_entry_in_the_middle_info_position_6cefe6",
+        "run": "1",
+        "total_runs": "1",
+        "buffer_size": "5000",
+        "status": "PASS",
+        "expected_md5": "49dd64339a356f9c413109aed2e32cda",
+        "actual_md5": "49dd64339a356f9c413109aed2e32cda",
+        "detail": ""
+      },
+      {
+        "fixture": "report_cds_end_nf_in_flags_for_an_incomplete_cds_1a9ec4",
+        "run": "1",
+        "total_runs": "1",
+        "buffer_size": "5000",
+        "status": "PASS",
+        "expected_md5": "57dde4f6bde21ca2bbf79ecb10561857",
+        "actual_md5": "57dde4f6bde21ca2bbf79ecb10561857",
+        "detail": ""
+      },
+      {
+        "fixture": "report_gene_pheno_for_a_gene_with_phenotype_evidence_5dec71",
+        "run": "1",
+        "total_runs": "1",
+        "buffer_size": "5000",
+        "status": "PASS",
+        "expected_md5": "85f173012d6a8bc5e6fbe1786420a00e",
+        "actual_md5": "85f173012d6a8bc5e6fbe1786420a00e",
+        "detail": ""
+      },
+      {
+        "fixture": "report_max_af_across_available_populations_0607b4",
+        "run": "1",
+        "total_runs": "1",
+        "buffer_size": "5000",
+        "status": "PASS",
+        "expected_md5": "db48dd2e0643d834f1cedfb44cf865c6",
+        "actual_md5": "db48dd2e0643d834f1cedfb44cf865c6",
+        "detail": ""
+      },
+      {
+        "fixture": "report_mirna_loop_overlap_for_a_snv_b4969e",
+        "run": "1",
+        "total_runs": "1",
+        "buffer_size": "5000",
+        "status": "PASS",
+        "expected_md5": "94412aa849feec37c78e7df8f87afeea",
+        "actual_md5": "94412aa849feec37c78e7df8f87afeea",
+        "detail": ""
+      },
+      {
+        "fixture": "report_mirna_stem_overlap_for_a_snv_fb5d3d",
+        "run": "1",
+        "total_runs": "1",
+        "buffer_size": "5000",
+        "status": "PASS",
+        "expected_md5": "6b6948755ff63b8a2cae1f98e1f3e9bb",
+        "actual_md5": "6b6948755ff63b8a2cae1f98e1f3e9bb",
+        "detail": ""
+      },
+      {
+        "fixture": "report_mirna_stem_overlap_for_an_insertion_without_duplicate_hairpin_entries_e01afb",
+        "run": "1",
+        "total_runs": "1",
+        "buffer_size": "5000",
+        "status": "PASS",
+        "expected_md5": "f5de6cbfed2279392434b58dd22c3f82",
+        "actual_md5": "f5de6cbfed2279392434b58dd22c3f82",
+        "detail": ""
+      },
+      {
+        "fixture": "report_pubmed_citations_for_a_known_snv_98bbdb",
+        "run": "1",
+        "total_runs": "1",
+        "buffer_size": "5000",
+        "status": "PASS",
+        "expected_md5": "80c73b0432a76f8573f64bdab2360d4e",
+        "actual_md5": "80c73b0432a76f8573f64bdab2360d4e",
+        "detail": ""
+      },
+      {
+        "fixture": "report_the_intronic_consequence_for_the_taaa_insertion_fe6e88",
+        "run": "1",
+        "total_runs": "1",
+        "buffer_size": "5000",
+        "status": "PASS",
+        "expected_md5": "46364ad56f27f3b15bb0a484c3e0f63e",
+        "actual_md5": "46364ad56f27f3b15bb0a484c3e0f63e",
+        "detail": ""
+      },
+      {
+        "fixture": "resolve_a_chr_prefixed_input_against_bare_contig_annotation_data_4248db",
+        "run": "1",
+        "total_runs": "1",
+        "buffer_size": "5000",
+        "status": "PASS",
+        "expected_md5": "2c2d561e6fa5b876147220bd087319cd",
+        "actual_md5": "2c2d561e6fa5b876147220bd087319cd",
+        "detail": ""
+      },
+      {
+        "fixture": "resolve_a_refseq_chromosome_accession_for_existing_variation_lookup_112b9b",
+        "run": "1",
+        "total_runs": "1",
+        "buffer_size": "5000",
+        "status": "PASS",
+        "expected_md5": "edb68e24656fe9d502a797e109473115",
+        "actual_md5": "edb68e24656fe9d502a797e109473115",
+        "detail": ""
+      },
+      {
+        "fixture": "retain_annotation_for_a_snv_at_the_first_base_of_the_next_cache_region_092fc1",
+        "run": "1",
+        "total_runs": "1",
+        "buffer_size": "5000",
+        "status": "PASS",
+        "expected_md5": "a3ee1eefd1ac97479eadc0dc9e745827",
+        "actual_md5": "a3ee1eefd1ac97479eadc0dc9e745827",
+        "detail": ""
+      },
+      {
+        "fixture": "retain_annotation_for_a_snv_at_the_last_base_of_a_cache_region_6d8598",
+        "run": "1",
+        "total_runs": "1",
+        "buffer_size": "5000",
+        "status": "PASS",
+        "expected_md5": "9e407ef35512b6e385ffb4a1a6a89c54",
+        "actual_md5": "9e407ef35512b6e385ffb4a1a6a89c54",
+        "detail": ""
+      },
+      {
+        "fixture": "retain_annotation_for_a_snv_before_the_cache_boundary_7a763e",
+        "run": "1",
+        "total_runs": "1",
+        "buffer_size": "5000",
+        "status": "PASS",
+        "expected_md5": "42e9baa216de1fef17cacf50d07ee0cb",
+        "actual_md5": "42e9baa216de1fef17cacf50d07ee0cb",
+        "detail": ""
+      },
+      {
+        "fixture": "retain_the_annotations_for_an_insertion_crossing_a_cache_region_boundary_295927",
+        "run": "1",
+        "total_runs": "1",
+        "buffer_size": "5000",
+        "status": "PASS",
+        "expected_md5": "93f3bb8132aa0f7b1286616ee765229f",
+        "actual_md5": "93f3bb8132aa0f7b1286616ee765229f",
+        "detail": ""
+      },
+      {
+        "fixture": "retain_the_annotations_for_an_mnv_crossing_a_cache_region_boundary_dff61a",
+        "run": "1",
+        "total_runs": "1",
+        "buffer_size": "5000",
+        "status": "PASS",
+        "expected_md5": "1c36ddf3b1f811ba6d52745bb7d7bf36",
+        "actual_md5": "1c36ddf3b1f811ba6d52745bb7d7bf36",
+        "detail": ""
+      },
+      {
+        "fixture": "retain_the_annotations_for_two_consecutive_snvs_on_opposite_sides_of_a_cache_region_boun_352eb2",
+        "run": "1",
+        "total_runs": "1",
+        "buffer_size": "5000",
+        "status": "PASS",
+        "expected_md5": "cc95ebd1d11592f1fe34b3d3c79d0339",
+        "actual_md5": "cc95ebd1d11592f1fe34b3d3c79d0339",
+        "detail": ""
+      },
+      {
+        "fixture": "runner_buffer_size_invariance",
+        "run": "1",
+        "total_runs": "5",
+        "buffer_size": "1",
+        "status": "PASS",
+        "expected_md5": "ffa45c662f1234b0ad36f84ff740861f",
+        "actual_md5": "ffa45c662f1234b0ad36f84ff740861f",
+        "detail": ""
+      },
+      {
+        "fixture": "runner_buffer_size_invariance",
+        "run": "2",
+        "total_runs": "5",
+        "buffer_size": "2",
+        "status": "PASS",
+        "expected_md5": "ffa45c662f1234b0ad36f84ff740861f",
+        "actual_md5": "ffa45c662f1234b0ad36f84ff740861f",
+        "detail": ""
+      },
+      {
+        "fixture": "runner_buffer_size_invariance",
+        "run": "3",
+        "total_runs": "5",
+        "buffer_size": "3",
+        "status": "PASS",
+        "expected_md5": "ffa45c662f1234b0ad36f84ff740861f",
+        "actual_md5": "ffa45c662f1234b0ad36f84ff740861f",
+        "detail": ""
+      },
+      {
+        "fixture": "runner_buffer_size_invariance",
+        "run": "4",
+        "total_runs": "5",
+        "buffer_size": "5",
+        "status": "PASS",
+        "expected_md5": "ffa45c662f1234b0ad36f84ff740861f",
+        "actual_md5": "ffa45c662f1234b0ad36f84ff740861f",
+        "detail": ""
+      },
+      {
+        "fixture": "runner_buffer_size_invariance",
+        "run": "5",
+        "total_runs": "5",
+        "buffer_size": "5000",
+        "status": "PASS",
+        "expected_md5": "ffa45c662f1234b0ad36f84ff740861f",
+        "actual_md5": "ffa45c662f1234b0ad36f84ff740861f",
+        "detail": ""
+      },
+      {
+        "fixture": "runner_ref_eq_alt_test6",
+        "run": "1",
+        "total_runs": "1",
+        "buffer_size": "5000",
+        "status": "PASS",
+        "expected_md5": "98feb60ad52827ed8f6336dd75cc7bc1",
+        "actual_md5": "98feb60ad52827ed8f6336dd75cc7bc1",
+        "detail": ""
+      },
+      {
+        "fixture": "skip_annotation_of_an_alt_dot_record_by_default_61ac08",
+        "run": "1",
+        "total_runs": "1",
+        "buffer_size": "5000",
+        "status": "PASS",
+        "expected_md5": "d86f96669daebe8c90a89021f44d0eab",
+        "actual_md5": "d86f96669daebe8c90a89021f44d0eab",
+        "detail": ""
+      },
+      {
+        "fixture": "sv_deletion_end_feature_truncation",
+        "run": "1",
+        "total_runs": "1",
+        "buffer_size": "5000",
+        "status": "SKIP",
+        "expected_md5": "ab4d1ffccb1cb2b9bfac5c22297e3ed2",
+        "actual_md5": "",
+        "detail": "Symbolic deletions (<DEL> with END) are not supported by vepyr yet."
+      },
+      {
+        "fixture": "svtype_svlen_info_ignored",
+        "run": "1",
+        "total_runs": "1",
+        "buffer_size": "5000",
+        "status": "PASS",
+        "expected_md5": "797e331345f04d75593c262d6b57cf81",
+        "actual_md5": "797e331345f04d75593c262d6b57cf81",
+        "detail": ""
+      },
+      {
+        "fixture": "treat_a_literal_deletion_as_a_sequence_allele_despite_info_svtype_cce7b4",
+        "run": "1",
+        "total_runs": "1",
+        "buffer_size": "5000",
+        "status": "PASS",
+        "expected_md5": "22cc6f5b7b2a791ef079b4772e03dc59",
+        "actual_md5": "22cc6f5b7b2a791ef079b4772e03dc59",
+        "detail": ""
+      },
+      {
+        "fixture": "treat_a_literal_insertion_as_a_sequence_allele_despite_info_svlen_bbf8ca",
+        "run": "1",
+        "total_runs": "1",
+        "buffer_size": "5000",
+        "status": "PASS",
+        "expected_md5": "8f54f88cbf11adac619a52eb911a4c27",
+        "actual_md5": "8f54f88cbf11adac619a52eb911a4c27",
+        "detail": ""
+      },
+      {
+        "fixture": "use_uppercase_alleles_for_annotation_when_input_bases_are_lowercase_c852bd",
+        "run": "1",
+        "total_runs": "1",
+        "buffer_size": "5000",
+        "status": "PASS",
+        "expected_md5": "d81d73e777b5700e6fe5d7994b085726",
+        "actual_md5": "d81d73e777b5700e6fe5d7994b085726",
+        "detail": ""
+      }
+    ]
+  },
+  "tool_validation": {
+    "rust_loader_runner_tests_passed": 48,
+    "focused_python_tests_passed": 247,
+    "structure_normalization_unique_index_pin_lint_format_checks": "passed"
+  },
+  "migrations": [
+    {
+      "original_fixture": "bcsq_info_key_preserved",
+      "retained_fixture": "bcsq_info_key_preserved",
+      "test_ids": [
+        "bcsq_info_key_preserved"
+      ],
+      "old_body_md5": "6e588f0cedcee663546b16199c0e111a",
+      "new_body_md5": "d0191ee16408aefe865744b90c205937",
+      "body_changed": true,
+      "input_sha256": "74285431ee77e56d0ab6da9110ea8fad12a9830770de142383873c95d69feb34",
+      "output_records": 1,
+      "consequence_entries": 39,
+      "checks": {
+        "input_sha256_preserved": true,
+        "one_output_record_per_input_in_order": true,
+        "merged_csq_layout": true,
+        "original_info_keys_retained_in_order": true
+      },
+      "justification": "BAR and BCSQ remain in order; one separate CSQ key is appended.",
+      "source_links": [
+        {
+          "id": "bcsq_info_key_preserved",
+          "old": "https://github.com/Ensembl/ensembl-vep/blob/release/116.0/t/OutputFactory_VCF.t#L502-L514",
+          "new": "https://github.com/Ensembl/ensembl-vep/blob/release/116.2/t/OutputFactory_VCF.t#L502-L514",
+          "assertion_text_identical": true
+        }
+      ]
+    },
+    {
+      "original_fixture": "existing_csq_info_replaced",
+      "retained_fixture": "existing_csq_info_replaced",
+      "test_ids": [
+        "existing_csq_info_replaced"
+      ],
+      "old_body_md5": "577ee38218641001b6ee7cec7072954f",
+      "new_body_md5": "4bd552e6cc1cea0e0f84c2b29f2a1254",
+      "body_changed": true,
+      "input_sha256": "b4911118a31ef5d0c08ec26640b30eb570c9d0168070da5034d59a5edbd44ba3",
+      "output_records": 3,
+      "consequence_entries": 117,
+      "checks": {
+        "input_sha256_preserved": true,
+        "one_output_record_per_input_in_order": true,
+        "merged_csq_layout": true,
+        "old_csq_replaced_and_new_csq_last": true
+      },
+      "justification": "All three INFO placements replace CSQ=foo and leave the new CSQ last.",
+      "source_links": [
+        {
+          "id": "existing_csq_info_replaced",
+          "old": "https://github.com/Ensembl/ensembl-vep/blob/release/116.0/t/OutputFactory_VCF.t#L453-L491",
+          "new": "https://github.com/Ensembl/ensembl-vep/blob/release/116.2/t/OutputFactory_VCF.t#L453-L491",
+          "assertion_text_identical": true
+        }
+      ]
+    },
+    {
+      "original_fixture": "intergenic_variant_single_record",
+      "retained_fixture": "intergenic_variant_single_record",
+      "test_ids": [
+        "intergenic_variant_single_record"
+      ],
+      "old_body_md5": "0ca5bbe89f75952897e1c6f560ad48c3",
+      "new_body_md5": "d60ca07cabe0554faf7eae1e3f165f9b",
+      "body_changed": true,
+      "input_sha256": "98927b4917bf79637f7dabc99d8522052c96b3cb0c073ed06ba6f399636353c7",
+      "output_records": 1,
+      "consequence_entries": 1,
+      "checks": {
+        "input_sha256_preserved": true,
+        "one_output_record_per_input_in_order": true,
+        "merged_csq_layout": true,
+        "single_intergenic_modifier_without_feature": true
+      },
+      "justification": "One intergenic MODIFIER consequence still has no feature.",
+      "source_links": [
+        {
+          "id": "intergenic_variant_single_record",
+          "old": "https://github.com/Ensembl/ensembl-vep/blob/release/116.0/t/OutputFactory.t#L507-L515",
+          "new": "https://github.com/Ensembl/ensembl-vep/blob/release/116.2/t/OutputFactory.t#L507-L515",
+          "assertion_text_identical": true
+        }
+      ]
+    },
+    {
+      "original_fixture": "of_vcf_multi_transcript_missense_flags",
+      "retained_fixture": "of_vcf_multi_transcript_missense_flags",
+      "test_ids": [
+        "of_vcf_multi_transcript_missense_flags"
+      ],
+      "old_body_md5": "f101b322b79c6c4ee4179f500c87308a",
+      "new_body_md5": "7a5c1217fa6493fc82cf6e1643c5e2a9",
+      "body_changed": true,
+      "input_sha256": "7f641681b1d82f44a2786e236319100e569561ffb790469a50143a4f03e8bfa3",
+      "output_records": 1,
+      "consequence_entries": 64,
+      "checks": {
+        "input_sha256_preserved": true,
+        "one_output_record_per_input_in_order": true,
+        "merged_csq_layout": true,
+        "multiple_app_missense_transcripts": true,
+        "two_expected_incomplete_cds_flags": true
+      },
+      "justification": "Multiple APP missense entries and the two original incomplete-CDS transcript flags remain.",
+      "source_links": [
+        {
+          "id": "of_vcf_multi_transcript_missense_flags",
+          "old": "https://github.com/Ensembl/ensembl-vep/blob/release/116.0/t/OutputFactory_VCF.t#L294-L309",
+          "new": "https://github.com/Ensembl/ensembl-vep/blob/release/116.2/t/OutputFactory_VCF.t#L294-L309",
+          "assertion_text_identical": true
+        }
+      ]
+    },
+    {
+      "original_fixture": "of_vcf_one_line_per_record_test_vcf",
+      "retained_fixture": "of_vcf_one_line_per_record_test_vcf",
+      "test_ids": [
+        "of_vcf_one_line_per_record_test_vcf"
+      ],
+      "old_body_md5": "2fc9ac8a457efbec758afdcdf8eea677",
+      "new_body_md5": "97019533247b93d0de6df31506b25b92",
+      "body_changed": true,
+      "input_sha256": "bd170e4bfef6b77450cb826bfff0dd462fae0f2c5335e168a289c7f684b62b12",
+      "output_records": 132,
+      "consequence_entries": 6239,
+      "checks": {
+        "input_sha256_preserved": true,
+        "one_output_record_per_input_in_order": true,
+        "merged_csq_layout": true,
+        "all_132_records_present": true
+      },
+      "justification": "All 132 records remain one-to-one and in input order.",
+      "source_links": [
+        {
+          "id": "of_vcf_one_line_per_record_test_vcf",
+          "old": "https://github.com/Ensembl/ensembl-vep/blob/release/116.0/t/OutputFactory_VCF.t#L278-L284",
+          "new": "https://github.com/Ensembl/ensembl-vep/blob/release/116.2/t/OutputFactory_VCF.t#L278-L284",
+          "assertion_text_identical": true
+        }
+      ]
+    },
+    {
+      "original_fixture": "output_factory_colocated_merge",
+      "retained_fixture": "align_pheno_values_with_colocated_identifiers_bd5303",
+      "test_ids": [
+        "output_factory_colocated_merge"
+      ],
+      "old_body_md5": "c3bbb793d8540259c2070a8d54e8eb1f",
+      "new_body_md5": "4e6fb229c5dc5526e4100f6c92d036de",
+      "body_changed": true,
+      "input_sha256": "b88bb2e70c6c0e18511b33beb5c9ddfd92e1d64d63306e3d5678081fb59440e1",
+      "output_records": 1,
+      "consequence_entries": 52,
+      "checks": {
+        "input_sha256_preserved": true,
+        "one_output_record_per_input_in_order": true,
+        "merged_csq_layout": true,
+        "both_colocated_identifiers_retained": true
+      },
+      "justification": "Every consequence retains both rs63750066 and CM930033.",
+      "source_links": [
+        {
+          "id": "output_factory_colocated_merge",
+          "old": "https://github.com/Ensembl/ensembl-vep/blob/release/116.0/t/OutputFactory.t#L99-L124",
+          "new": "https://github.com/Ensembl/ensembl-vep/blob/release/116.2/t/OutputFactory.t#L99-L124",
+          "assertion_text_identical": true
+        }
+      ]
+    },
+    {
+      "original_fixture": "output_factory_hgvs_transcript_protein",
+      "retained_fixture": "output_factory_hgvs_transcript_protein",
+      "test_ids": [
+        "output_factory_hgvs_transcript_protein",
+        "runner_consequence_content"
+      ],
+      "old_body_md5": "4e6386018c7f4c1a8e90a0cdbd8969da",
+      "new_body_md5": "aa61d843903abcc666384c2436966425",
+      "body_changed": true,
+      "input_sha256": "1ef6f5722701dd746814836b800734c60547df4fa5c26dc2ec44731eaea802f6",
+      "output_records": 1,
+      "consequence_entries": 39,
+      "checks": {
+        "input_sha256_preserved": true,
+        "one_output_record_per_input_in_order": true,
+        "merged_csq_layout": true,
+        "transcript_and_protein_hgvs_filled": true,
+        "runner_transcript_consequence_present": true
+      },
+      "justification": "Transcript/protein HGVS and the Runner variant transcript consequences remain; the stale 23-default-fields description is corrected to --everything --merged.",
+      "source_links": [
+        {
+          "id": "output_factory_hgvs_transcript_protein",
+          "old": "https://github.com/Ensembl/ensembl-vep/blob/release/116.0/t/OutputFactory.t#L1121-L1135",
+          "new": "https://github.com/Ensembl/ensembl-vep/blob/release/116.2/t/OutputFactory.t#L1121-L1135",
+          "assertion_text_identical": true
+        },
+        {
+          "id": "runner_consequence_content",
+          "old": "https://github.com/Ensembl/ensembl-vep/blob/release/116.0/t/Runner.t#L244-L293",
+          "new": "https://github.com/Ensembl/ensembl-vep/blob/release/116.2/t/Runner.t#L246-L295",
+          "assertion_text_identical": true
+        }
+      ]
+    },
+    {
+      "original_fixture": "output_factory_mirna_loop",
+      "retained_fixture": "output_factory_mirna_loop",
+      "test_ids": [
+        "output_factory_mirna_loop"
+      ],
+      "old_body_md5": "7617e2e8d96f17dfdb796446d9418d23",
+      "new_body_md5": "be998860390c0f523626914dca83389e",
+      "body_changed": true,
+      "input_sha256": "a765dcbae2b139be0e8eec0554800b0324a8c18b14025f74a34898dfc7d74d0d",
+      "output_records": 1,
+      "consequence_entries": 12,
+      "checks": {
+        "input_sha256_preserved": true,
+        "one_output_record_per_input_in_order": true,
+        "merged_csq_layout": true,
+        "named_mirna_loop_present": true
+      },
+      "justification": "ENST00000385060 still reports miRNA_loop.",
+      "source_links": [
+        {
+          "id": "output_factory_mirna_loop",
+          "old": "https://github.com/Ensembl/ensembl-vep/blob/release/116.0/t/OutputFactory.t#L966-L999",
+          "new": "https://github.com/Ensembl/ensembl-vep/blob/release/116.2/t/OutputFactory.t#L966-L999",
+          "assertion_text_identical": true
+        }
+      ]
+    },
+    {
+      "original_fixture": "output_factory_motif_feature_tfbs",
+      "retained_fixture": "output_factory_motif_feature_tfbs",
+      "test_ids": [
+        "output_factory_motif_feature_tfbs"
+      ],
+      "old_body_md5": "958ec7639cf601f223096a18b44195f7",
+      "new_body_md5": "81021e91fbbfcd516fece4a8d32f272e",
+      "body_changed": true,
+      "input_sha256": "528892383d93c02ee215e0573854f888832c3b82ff6f8e89d683be5e72b4cf11",
+      "output_records": 1,
+      "consequence_entries": 137,
+      "checks": {
+        "input_sha256_preserved": true,
+        "one_output_record_per_input_in_order": true,
+        "merged_csq_layout": true,
+        "motif_fields_and_tfbs_consequence_present": true
+      },
+      "justification": "The TF binding-site entry retains motif name, position, information, score change and transcription factors.",
+      "source_links": [
+        {
+          "id": "output_factory_motif_feature_tfbs",
+          "old": "https://github.com/Ensembl/ensembl-vep/blob/release/116.0/t/OutputFactory.t#L1243-L1271",
+          "new": "https://github.com/Ensembl/ensembl-vep/blob/release/116.2/t/OutputFactory.t#L1243-L1271",
+          "assertion_text_identical": true
+        }
+      ]
+    },
+    {
+      "original_fixture": "output_factory_regulatory_promoter",
+      "retained_fixture": "emit_one_regulatory_overlap_entry_without_duplicate_features_3f2d86",
+      "test_ids": [
+        "output_factory_regulatory_promoter"
+      ],
+      "old_body_md5": "9ca346fb59e7fe49e5c5b4a738e96daa",
+      "new_body_md5": "6cec87c42c7dead869390e5412009575",
+      "body_changed": true,
+      "input_sha256": "6e776ce50a91b1a3db68a5c11a066f3f86b09b9734870b454fe393f9ee3466b8",
+      "output_records": 1,
+      "consequence_entries": 137,
+      "checks": {
+        "input_sha256_preserved": true,
+        "one_output_record_per_input_in_order": true,
+        "merged_csq_layout": true,
+        "regulatory_promoter_entry_present": true
+      },
+      "justification": "The RegulatoryFeature promoter still reports regulatory_region_variant.",
+      "source_links": [
+        {
+          "id": "output_factory_regulatory_promoter",
+          "old": "https://github.com/Ensembl/ensembl-vep/blob/release/116.0/t/OutputFactory.t#L1207-L1230",
+          "new": "https://github.com/Ensembl/ensembl-vep/blob/release/116.2/t/OutputFactory.t#L1207-L1230",
+          "assertion_text_identical": true
+        }
+      ]
+    },
+    {
+      "original_fixture": "output_factory_vcf_anchored_deletion",
+      "retained_fixture": "output_factory_vcf_anchored_deletion",
+      "test_ids": [
+        "output_factory_vcf_anchored_deletion"
+      ],
+      "old_body_md5": "fc96ce35bd7ca0309884ff464b3382f0",
+      "new_body_md5": "eaa293a9028bde7e06cf13381f115e35",
+      "body_changed": true,
+      "input_sha256": "2e5613e16ee339edd01936521f07f12db666c7ba996c5e770c6bc22448cef570",
+      "output_records": 1,
+      "consequence_entries": 39,
+      "checks": {
+        "input_sha256_preserved": true,
+        "one_output_record_per_input_in_order": true,
+        "merged_csq_layout": true,
+        "anchored_deletion_uses_deleted_allele": true
+      },
+      "justification": "The GC>G input remains anchored while CSQ reports the deleted allele as -.",
+      "source_links": [
+        {
+          "id": "output_factory_vcf_anchored_deletion",
+          "old": "https://github.com/Ensembl/ensembl-vep/blob/release/116.0/t/OutputFactory_VCF.t#L437-L451",
+          "new": "https://github.com/Ensembl/ensembl-vep/blob/release/116.2/t/OutputFactory_VCF.t#L437-L451",
+          "assertion_text_identical": true
+        }
+      ]
+    },
+    {
+      "original_fixture": "runner_buffer_size_invariance",
+      "retained_fixture": "runner_buffer_size_invariance",
+      "test_ids": [
+        "runner_buffer_size_invariance"
+      ],
+      "old_body_md5": "3f2b0d0bfcfdd96e6ea64808dc3c7287",
+      "new_body_md5": "ffa45c662f1234b0ad36f84ff740861f",
+      "body_changed": true,
+      "input_sha256": "eee6c433c362698775c20b363fee5df620cd04076e7dcb8b170b7dee25ac30ff",
+      "output_records": 8,
+      "consequence_entries": 307,
+      "checks": {
+        "input_sha256_preserved": true,
+        "one_output_record_per_input_in_order": true,
+        "merged_csq_layout": true,
+        "eight_records_five_buffer_settings": true
+      },
+      "justification": "The shared oracle contains all eight ordered records; all five buffer sizes remain configured for differential execution.",
+      "source_links": [
+        {
+          "id": "runner_buffer_size_invariance",
+          "old": "https://github.com/Ensembl/ensembl-vep/blob/release/116.0/t/Runner.t#L514-L529",
+          "new": "https://github.com/Ensembl/ensembl-vep/blob/release/116.2/t/Runner.t#L602-L617",
+          "assertion_text_identical": true
+        }
+      ]
+    },
+    {
+      "original_fixture": "runner_ref_eq_alt_test6",
+      "retained_fixture": "runner_ref_eq_alt_test6",
+      "test_ids": [
+        "runner_ref_eq_alt_test6"
+      ],
+      "old_body_md5": "9b1e9b741653a68d8d91ed501ae2ab5b",
+      "new_body_md5": "98feb60ad52827ed8f6336dd75cc7bc1",
+      "body_changed": true,
+      "input_sha256": "a43938a5fd13e62c29dc1611617e06074b5c5392ccc155f84fb12791eea16110",
+      "output_records": 2,
+      "consequence_entries": 20,
+      "checks": {
+        "input_sha256_preserved": true,
+        "one_output_record_per_input_in_order": true,
+        "merged_csq_layout": true,
+        "ref_equals_alt_does_not_stop_next_record": true
+      },
+      "justification": "The REF==ALT record has no CSQ; the trailing chromosome-22 record is annotated.",
+      "source_links": [
+        {
+          "id": "runner_ref_eq_alt_test6",
+          "old": "https://github.com/Ensembl/ensembl-vep/blob/release/116.0/t/Runner.t#L1134-L1148",
+          "new": "https://github.com/Ensembl/ensembl-vep/blob/release/116.2/t/Runner.t#L1222-L1236",
+          "assertion_text_identical": true
+        }
+      ]
+    },
+    {
+      "original_fixture": "sv_deletion_end_feature_truncation",
+      "retained_fixture": "sv_deletion_end_feature_truncation",
+      "test_ids": [
+        "sv_deletion_end_feature_truncation"
+      ],
+      "old_body_md5": "f29bd6892620838a74b8b7fdcaad8613",
+      "new_body_md5": "ab4d1ffccb1cb2b9bfac5c22297e3ed2",
+      "body_changed": true,
+      "input_sha256": "1ece4585efc3fe0c291cfc164484d6ac32cf3e609bc19b806680b683f580452e",
+      "output_records": 1,
+      "consequence_entries": 39,
+      "checks": {
+        "input_sha256_preserved": true,
+        "one_output_record_per_input_in_order": true,
+        "merged_csq_layout": true,
+        "end_and_feature_truncation_retained": true,
+        "explicit_engine_skip_preserved": true
+      },
+      "justification": "Native merged VEP retains END and feature_truncation; the unsupported symbolic deletion stays explicitly skipped by vepyr.",
+      "source_links": [
+        {
+          "id": "sv_deletion_end_feature_truncation",
+          "old": "https://github.com/Ensembl/ensembl-vep/blob/release/116.0/t/OutputFactory_VCF.t#L563-L577",
+          "new": "https://github.com/Ensembl/ensembl-vep/blob/release/116.2/t/OutputFactory_VCF.t#L563-L577",
+          "assertion_text_identical": true
+        }
+      ]
+    },
+    {
+      "original_fixture": "svtype_svlen_info_ignored",
+      "retained_fixture": "svtype_svlen_info_ignored",
+      "test_ids": [
+        "svtype_svlen_info_ignored"
+      ],
+      "old_body_md5": "1b018db69651fc500c0ec1aca821dcd8",
+      "new_body_md5": "797e331345f04d75593c262d6b57cf81",
+      "body_changed": true,
+      "input_sha256": "1b355fb895237ed14f2edb26bcb6e7c235137d845b83dea67c18c57248dfefd9",
+      "output_records": 4,
+      "consequence_entries": 156,
+      "checks": {
+        "input_sha256_preserved": true,
+        "one_output_record_per_input_in_order": true,
+        "merged_csq_layout": true,
+        "sv_info_does_not_change_literal_indel_csq": true
+      },
+      "justification": "Both literal indels have identical CSQ with and without their SVTYPE/SVLEN INFO keys.",
+      "source_links": [
+        {
+          "id": "svtype_svlen_info_ignored",
+          "old": "https://github.com/Ensembl/ensembl-vep/blob/release/116.0/t/Parser_VCF.t#L154-L200",
+          "new": "https://github.com/Ensembl/ensembl-vep/blob/release/116.2/t/Parser_VCF.t#L154-L200",
+          "assertion_text_identical": true
+        }
+      ]
+    }
+  ]
+}

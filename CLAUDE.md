@@ -27,6 +27,8 @@ Every data-test compares the output of native VEP 116.2 (the file `expected_outp
 description and one tagged `vep_test` URL; tests with the same input, oracle and
 runtime configuration share one fixture. The generic runner executes that
 fixture once per run configuration and compares its complete output body.
+All committed data fixtures use `flavour = "merged"` and a native VEP 116.2
+oracle generated with `--merged`. The runner defaults to fetching only that cache.
 An optional top-level `skip_reason` disables annotation for an unsupported
 feature. It must be a non-empty string; skipped fixtures stay visible in the
 index and runner reports and never count as passing. Remove the key to re-enable.

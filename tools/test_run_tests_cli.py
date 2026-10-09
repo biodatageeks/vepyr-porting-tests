@@ -234,6 +234,32 @@ def test_cache_dir_with_contigs_fetches_writes_provenance_and_summarises(
     assert harness.cargo.calls == []
 
 
+def test_default_fetch_and_freshness_check_use_only_merged(harness: Harness) -> None:
+    queried: list[str] = []
+
+    def head(repo_id: str, ref: str) -> str:
+        queried.append(repo_id)
+        assert repo_id.endswith("_merged"), (
+            "unused cache freshness must not block the suite"
+        )
+        return fresh_head(repo_id, ref)
+
+    result = harness.run(
+        "--cache-dir",
+        str(harness.root),
+        "--add-contigs",
+        "chr21",
+        head_resolver=head,
+    )
+    assert result.code == int(Exit.OK), result.stderr
+    assert queried == ["biodatageeks/vepyr_116_GRCh38_merged"]
+    assert (harness.root / "116_GRCh38_merged/variation/chr21.parquet").is_file()
+    assert not (harness.root / "116_GRCh38_ensembl").exists()
+    assert not (harness.root / "116_GRCh38_refseq").exists()
+    assert set(harness.provenance["datasets"]) == {"merged"}
+    assert cli.parse_args([]).flavours == ("merged",)
+
+
 def test_a_second_run_accumulates_and_the_summary_shows_both_contigs(
     harness: Harness,
 ) -> None:

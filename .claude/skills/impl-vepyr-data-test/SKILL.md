@@ -11,12 +11,12 @@ description: Use when implementing, re-blessing, verifying or reviewing a data-t
 
 ## Contract (origin/master; default branch is `master`, not `main`)
 
-- One mode (#143/#149). `[vepyr]` has `everything = true`, `reference_fasta = true`, `preserve_record_layout = true`, `flavour = "ensembl"`, **no `fields`**; the runner derives the cache entities itself; `required_contigs`, optional `buffer_size` and `[[vepyr_run]]` come from the issue. Who enforces what:
+- One mode (#143/#149). `[vepyr]` has `everything = true`, `reference_fasta = true`, `preserve_record_layout = true`, `flavour = "merged"`, **no `fields`**; the runner derives the cache entities itself; `required_contigs`, optional `buffer_size` and `[[vepyr_run]]` come from the issue. Who enforces what:
   - the 3 keys mapped in `tools/vep_flags.toml`: `./bless` (`require_vepyr_mode`) and the loader reject another value (`unsupported mode`);
   - `fields`: only the loader rejects it (`unknown key`); bless accepts it;
-  - `flavour = "ensembl"`: owner policy (README: the oracle is always Ensembl; #156). Bless is flavour-blind; the loader (`tests/data_dirs.rs`) refuses any other flavour, and `dt verify` no longer checks it.
+  - `flavour = "merged"`: every committed data fixture uses the merged cache. Bless and the loader require the VEP command and runtime cache flavours to agree; `committed_dirs_load` additionally checks the merged-only suite policy.
   - Schema: `tests/data_dirs.rs` header, README "Porting method".
-- Extra VEP flags: none. `--check_existing` is the only allowlisted one (`ALLOWED_VEP_FLAGS`, `tools/bless/vep.py`). `--everything` already enables it in VEP 116 (`Config.pm` `@OPTION_SETS`: everything -> af/pubmed -> check_existing), so adding it leaves the body and `body_md5` unchanged. It changes only the `##VEP-command-line` header and `[vep] command`/`extra_flags`. `dt` has no pass-through.
+- Extra VEP flags: record `extra_flags = ["--merged"]` in `[vep]` and use the native merged cache. `--check_existing` is also allowlisted (`tools/bless/vep.py`); `--everything` already enables it. `dt` has no flag pass-through, so record the flags in the fixture before blessing.
 - One directory per distinct (input, oracle) (#238): before adding a directory run `tools/check_unique_dirs tests/data`; if the new test's input and oracle bodies and config equal an existing directory's, add a `[[tests]]` table (id = the would-be slug, `description`, one tagged `vep_test` URL) to that directory instead of a new one (README "One directory per distinct comparison"). Never commit a new duplicate.
 - Input: only `tools/normalize_input` (`bcftools norm -m -both`, no `-f`); VEP and vepyr read the same `input.vcf`; oracle is always VEP.
 

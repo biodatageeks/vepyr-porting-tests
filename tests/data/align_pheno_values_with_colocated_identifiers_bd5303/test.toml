@@ -1,5 +1,5 @@
 name = "align_pheno_values_with_colocated_identifiers_bd5303"
-description = "Fixture covering 6 tests. Compare the complete output body with expected_output.vcf."
+description = "One comparison covering 7 VEP assertion tests, one [[tests]] each: vepyr's output body must equal native VEP's (expected_output.vcf)."
 
 [vepyr]
 flavour = "merged"
@@ -55,3 +55,8 @@ vep_test = "https://github.com/Ensembl/ensembl-vep/blob/release/116.2/t/Annotati
 id = "report_pheno_on_the_baseline_matched_variant_8942b6"
 description = "Report PHENO on the matched variant using a release-116 witness."
 vep_test = "https://github.com/Ensembl/ensembl-vep/blob/release/116.2/t/AnnotationSource_Cache_Variation.t#L281-L321"
+
+[[tests]]
+id = "output_factory_colocated_merge"
+description = "vepyr annotates 21 25891796 C>T, where the VEP 116 cache holds two co-located variants (rs63750066, CM930033), to the same output body as native VEP 116 --everything."
+vep_test = "https://github.com/Ensembl/ensembl-vep/blob/release/116.2/t/OutputFactory.t#L99-L124"

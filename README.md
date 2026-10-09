@@ -17,7 +17,7 @@ results on real annotation data.
 ```bash
 ./run_tests --help
 ./run_tests --list
-./run_tests --cache-dir /mnt/hf-cache --add-contigs chr21,chrMT
+./run_tests --cache-dir /mnt/hf-cache --add-contigs chr1,chr21,chr22
 ./run_tests --cache-dir /mnt/hf-cache --vepyr 0.7.0
 # or, after a fetch:
 export VEPYR_CACHE_ROOT=/mnt/hf-cache
@@ -36,7 +36,7 @@ export VEPYR_CACHE_ROOT=/mnt/hf-cache
 | `--list` | Lists the data-test directories `tests/data/<name>/` present in the working tree; exit 0 |
 | `--cache-dir DIR` | Downloads the pinned VEP cache 116 shards into `DIR` and writes `PROVENANCE.json`; then runs data-tests when targets exist |
 | `--add-contigs LIST` | Adds the named contigs to `DIR` (not `--contigs`). Default: whole genome |
-| `--flavours LIST` | Default `ensembl,refseq,merged` |
+| `--flavours LIST` | Default `merged`, the cache used by every committed data fixture. Other flavours remain available explicitly for tooling or external fixtures |
 | `--dry-run` | Lists Hub files and byte totals; writes nothing; does not run tests |
 | `--verify` | Checks every selected shard against the Hub sha256 |
 | `--fast` | Sets `HF_XET_HIGH_PERFORMANCE=1` for the download (see below) |
@@ -371,10 +371,8 @@ It requires every `tests/data/*/test.toml` to record the pinned `[vep] image`
 digest and every `[[tests]] vep_test` at the pinned release tag, with no VEP 116.0 literal in the file, and
 `git grep`s the rest of the repo for VEP 116.0 literals (the ledger axis,
 `tests/INDEX.csv`, `docs/porting/**` and the checker's own two files are skipped).
-**Temporary:** the 15 fixtures containing 16 tests blessed with VEP 116.0 before the pin are named in
-`tools/vep_pin_legacy_allowlist.txt` (exactly 15 entries, each still recording the
-116.0 digest; a missing file is an empty list). #237 re-blesses them and deletes the
-list. The `test-index` workflow runs the check and its unit tests
+All committed data fixtures use the pinned VEP image and merged cache;
+the legacy image allowlist has been removed. The `test-index` workflow runs the check and its unit tests
 (`tools/test_check_vep_version.py`).
 
 ## ./check_env (local prerequisites)
@@ -505,12 +503,12 @@ then exits 0 without running anything. For a bless it shows the tag
 image = "ensemblorg/ensembl-vep@sha256:..."   # the digest that ran, never the tag
 command = "vep --offline --cache --dir_cache /opt/vep/.vep ..."  # generated from extra_flags; paths inside the container
 date = "2026-09-23"
-cache_source = "https://huggingface.co/datasets/biodatageeks/vepyr_116_GRCh38_ensembl/tree/15a048f0585a7a40d2d40cb1c2f7806638ee500b"
-vep_cache = "https://ftp.ensembl.org/pub/release-116/variation/indexed_vep_cache/homo_sapiens_vep_116_GRCh38.tar.gz"
-vep_cache_checksum = "sha256:... sum:56036 26996736"
+cache_source = "https://huggingface.co/datasets/biodatageeks/vepyr_116_GRCh38_merged/tree/5b83dd8d249106c6cc3f1c04c522b4bec716cc97"
+vep_cache = "https://ftp.ensembl.org/pub/release-116/variation/indexed_vep_cache/homo_sapiens_merged_vep_116_GRCh38.tar.gz"
+vep_cache_checksum = "unverified"
 fasta_source = "https://ftp.ensembl.org/pub/release-116/fasta/homo_sapiens/dna/Homo_sapiens.GRCh38.dna.primary_assembly.fa.gz"
 fasta_checksum = "sha256:... sum:22450 861294"
-extra_flags = ["--check_existing"]  # only when non-empty; the source of truth; key order is not significant
+extra_flags = ["--merged"]  # the source of truth; key order is not significant
 [compare]
 body_md5 = "..."
 ```
@@ -523,16 +521,20 @@ the declared Ensembl download URL and keeps the checksum `unverified`. These
 URLs identify the intended data; they do not establish that a local file was
 downloaded from that URL. No machine-local paths are stored in source fields.
 
-**From scratch on a plain machine** (Docker, network, about 60 GB free; no
-`vepyr-tests-01`, no existing cache):
+**Create a merged fixture** using Docker, an existing native merged cache
+under `<VEP_CACHE>/homo_sapiens_merged/116_GRCh38`, and the GRCh38 FASTA.
+After normalization, complete `test.toml` using the merged schema below:
 
 ```bash
-git clone https://github.com/biodatageeks/vepyr-porting-tests && cd vepyr-porting-tests
 tools/normalize_input raw.vcf.gz tests/data/my_test        # writes input.vcf + [input]
-./bless --download-vep-cache-to-dir ~/vep116 --download-vep-fasta-to ~/GRCh38.fa tests/data/my_test
+# Complete test.toml, including flavour = "merged" and extra_flags = ["--merged"].
+./bless --vep-cache-dir "$VEP_CACHE" --vep-fasta "$VEP_FASTA" tests/data/my_test
 ./bless --check tests/data/my_test                           # exit 0
-./bless --check --reproduce --vep-cache-dir ~/vep116 --vep-fasta ~/GRCh38.fa tests/data/my_test
+./bless --check --reproduce --vep-cache-dir "$VEP_CACHE" --vep-fasta "$VEP_FASTA" tests/data/my_test
 ```
+
+The native cache downloader currently downloads Ensembl-only data; it does not
+provision the merged cache required by the committed suite.
 
 **Work directory.** Each VEP run copies `input.vcf` into its own `bless-*`
 directory created under `--docker-work-dir PATH`, which is bind-mounted into the
@@ -587,12 +589,15 @@ loader rejects `fields` as an unknown key. The other VEP flags of the fixed comm
 (`--offline`, `--cache`, `--dir_cache`, `--species`, `--cache_version`,
 `--assembly`, input/output names) select the cache and files, not annotation, and
 have no `[vepyr]` counterpart; `flavour` and `required_contigs` pick vepyr's cache.
-`flavour` is `"ensembl"` or `"merged"`. Merged fixtures must record
+Every committed data fixture uses `flavour = "merged"` and records
 `extra_flags = ["--merged"]` in `[vep]`; the recorded VEP command and every
-`[[vepyr_run]]` must use the same cache flavour. RefSeq-only fixtures remain
+`[[vepyr_run]]` must use the same cache flavour. The loader still accepts
+Ensembl-only external and synthetic fixtures; RefSeq-only fixtures remain
 unsupported. For merged oracles, pass `--vep-cache-dir` pointing to the parent
 of `homo_sapiens_merged/116_GRCh38`; merged-cache downloads through `./bless`
-are not implemented. Existing Ensembl fixtures retain their recorded image digest.
+are not implemented. The default `./run_tests` selection fetches and checks
+freshness only for the merged dataset, so unused Ensembl or RefSeq pins cannot
+block the suite.
 Before each run the runner checks that every cache entity vepyr reads in
 `--everything` mode (all seven; `motif` and `regulatory` excepted on `chrMT`) has a
 shard for each `required_contigs` entry.
@@ -608,7 +613,7 @@ Fetch a cache, then point `$VEPYR_CACHE_ROOT` at the same directory (or pass
 `--cache-dir` to `./run_tests` together with `--vepyr`):
 
 ```bash
-./run_tests --cache-dir /mnt/hf-cache --add-contigs chr21,chrMT
+./run_tests --cache-dir /mnt/hf-cache --add-contigs chr1,chr21,chr22
 export VEPYR_CACHE_ROOT=/mnt/hf-cache
 ./run_tests --vepyr 0.7.0
 # helpers type-check (and floating engine deps resolve) with:
@@ -784,7 +789,7 @@ The top-level description describes the shared fixture.
 
 A **run** executes a fixture with one configuration. Without `[[vepyr_run]]`,
 the runner uses `[vepyr]` once. With overrides, it executes once per override;
-there is no additional base run. The 74 fixtures configure 78 runs because
+there is no additional base run. The 70 fixtures configure 74 runs because
 `runner_buffer_size_invariance` supplies five buffer sizes. Named `[[tests]]`
 entries describe coverage and do not create additional runs.
 
@@ -797,7 +802,7 @@ command = "bcftools norm -m -both -o <out.vcf> <in.vcf.gz>"
 bcftools_version = "bcftools 1.23"
 
 [vepyr]
-flavour = "ensembl"
+flavour = "merged"
 required_contigs = ["chr21"]
 everything = true
 preserve_record_layout = true
@@ -808,11 +813,12 @@ reference_fasta = true
 image = "ensemblorg/ensembl-vep@sha256:..."
 command = "vep ..."
 date = "2026-10-09"
-cache_source = "https://huggingface.co/datasets/biodatageeks/vepyr_116_GRCh38_ensembl/tree/<revision>"
-vep_cache = "https://ftp.ensembl.org/pub/release-116/variation/indexed_vep_cache/homo_sapiens_vep_116_GRCh38.tar.gz"
+cache_source = "https://huggingface.co/datasets/biodatageeks/vepyr_116_GRCh38_merged/tree/<revision>"
+vep_cache = "https://ftp.ensembl.org/pub/release-116/variation/indexed_vep_cache/homo_sapiens_merged_vep_116_GRCh38.tar.gz"
 vep_cache_checksum = "unverified"
 fasta_source = "https://ftp.ensembl.org/pub/release-116/fasta/homo_sapiens/dna/Homo_sapiens.GRCh38.dna.primary_assembly.fa.gz"
 fasta_checksum = "unverified"
+extra_flags = ["--merged"]
 
 [compare]
 body_md5 = "..."
@@ -830,8 +836,8 @@ vep_test = "https://github.com/Ensembl/ensembl-vep/blob/release/116.2/t/Runner.t
 
 The loader rejects unknown keys and requires a tagged Ensembl VEP `.t` URL.
 `vep_test_pinned`, `vep_subject`, `ledger`, and `issue` are no longer fixture
-metadata. The software commit and Docker digest remain in `tools/vep_pin.toml`;
-legacy oracles retain the source tag for their original release. The loader also
+metadata. The software commit and Docker digest remain in `tools/vep_pin.toml`.
+All committed source links use that pin's release tag. The loader also
 accepts `[origin]` containing only `vep_test` for external single-test fixtures;
 it cannot be combined with `[[tests]]`. The old `[[property]]` spelling is rejected.
 
@@ -870,9 +876,15 @@ moves every test into its `[[tests]]` list and preserves retained input/oracle
 bytes and all test ids. Add a test to the matching fixture instead of duplicating
 the directory. The merger refuses fixtures with different `skip_reason` values
 (including a skipped fixture paired with an enabled one).
-The committed suite has **74 fixtures and 205 named tests**, with
-no duplicate comparisons. This includes the formerly separate legacy HGVS and
-Runner tests in one fixture; their original oracle has not been re-blessed.
+The committed suite has **70 fixtures and 205 named tests**, with
+no duplicate comparisons. The remaining 15 Ensembl-only fixtures were re-blessed
+with native VEP 116.2 and the merged cache, using byte-identical original inputs.
+Four additional pairs became identical comparisons and were grouped, preserving
+every input body and all named tests. Equivalent contig headers can differ between
+grouped inputs. The five buffer-size configurations are retained. One fixture, one run
+and one named test are explicitly skipped for unsupported symbolic deletion.
+The [migration audit](docs/porting/merged-fixture-migration/audit.json) records
+old/new oracle hashes, retained test ids and property checks for every re-bless.
 
 **What the runner checks**, per directory:
 
@@ -891,7 +903,7 @@ Runner tests in one fixture; their original oracle has not been re-blessed.
 
 `everything`, `preserve_record_layout` and `reference_fasta` must hold the values
 of [One mode: --everything](#one-mode---everything); there is no `fields` key, so
-vepyr emits its full `--everything` CSQ layout, the 80 fields VEP writes.
+vepyr emits its full `--everything` CSQ layout (86 fields for the merged oracles).
 
 `DATA_DIRS_ROOT` overrides the walked directory. `cargo test --test data_dirs
 selftest` runs the same loader and compare on the synthetic fixture

@@ -1559,6 +1559,15 @@ fn committed_dirs_load() {
     let dirs = test_dirs(&root);
     let tests: Vec<TestDir> = dirs.iter().map(|dir| TestDir::load(dir)).collect();
     check_unique_test_ids(&tests);
+    for test in &tests {
+        assert!(
+            test.runs
+                .iter()
+                .all(|run| matches!(run.settings.flavour, Flavour::Merged)),
+            "[{}] committed data fixtures must use the merged cache",
+            test.name
+        );
+    }
     let tests: usize = tests.iter().map(|test| test.tests.len()).sum();
     println!("{} directories, {tests} tests", dirs.len());
     assert!(!dirs.is_empty());

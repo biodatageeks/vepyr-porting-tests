@@ -35,7 +35,7 @@ __all__ = [
     "parse_args",
 ]
 
-DEFAULT_FLAVOURS: Final[str] = "ensembl,refseq,merged"
+DEFAULT_FLAVOURS: Final[str] = "merged"
 DEFAULT_VEPYR_REF: Final[str] = "master"
 """Ref resolved when ``--vepyr`` is omitted: ``biodatageeks/vepyr`` master HEAD."""
 DESCRIPTION: Final[str] = (

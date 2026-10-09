@@ -36,8 +36,7 @@ jobs:
         run: tools/build_test_index --check
 
       # One VEP software pin (#239): every tests/data/*/test.toml and the repo text
-      # must match tools/vep_pin.toml (VEP 116.2, cache 116), except the temporary
-      # allow-list tools/vep_pin_legacy_allowlist.txt that #237 deletes.
+      # must match tools/vep_pin.toml (VEP 116.2, cache 116).
       - name: Unit tests of tools/check_vep_version
         run: uv run --frozen pytest -q tools/test_check_vep_version.py
 
