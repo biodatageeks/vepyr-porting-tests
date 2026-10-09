@@ -49,6 +49,8 @@ from dataclasses import dataclass
 from pathlib import Path
 from typing import Any, Final
 
+from fixture_skip import skip_reason
+
 REPO_ROOT: Final[Path] = Path(__file__).resolve().parent.parent
 DEFAULT_ROOT: Final[Path] = REPO_ROOT / "tests" / "data"
 DEFAULT_OUT: Final[Path] = REPO_ROOT / "tests" / "INDEX.csv"
@@ -143,10 +145,19 @@ def _runs(doc: dict[str, Any], path: Path) -> str:
             raise TestTomlError(f"{path}: key 'vepyr_run' must be an array of tables")
 
 
+def _skip_reason(doc: dict[str, Any], path: Path) -> str:
+    """Retain skipped coverage in the index without implying it passed."""
+    try:
+        return skip_reason(doc) or ""
+    except ValueError as exc:
+        raise TestTomlError(f"{path}: {exc}") from exc
+
+
 COLUMNS: Final[tuple[tuple[str, Extractor], ...]] = (
     ("dir", _str(None, "name")),
     ("id", _str(None, "id")),
     ("description", _str(None, "description")),
+    ("skip_reason", _skip_reason),
     ("vep_test", _str("origin", "vep_test")),
     ("cache_source", _str("vep", "cache_source")),
     ("vep_cache", _str("vep", "vep_cache")),

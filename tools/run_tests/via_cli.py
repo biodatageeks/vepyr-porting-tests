@@ -13,6 +13,8 @@ directory, exactly ``MISMATCH <dir-name> expected=<md5> actual=<md5>``, and exit
 :attr:`Exit.USAGE`, a failing vepyr build or run is :attr:`Exit.ENGINE`) wins and
 sets the exit code; the ``MISMATCH`` lines of the compared directories are still
 printed. A directory whose every run matched prints ``PASS <dir-name>``.
+An explicit top-level ``skip_reason`` prints ``SKIP <dir-name>: <reason>``
+instead of annotating; skipped directories never enter the passed list.
 """
 
 from __future__ import annotations
@@ -27,6 +29,8 @@ from collections.abc import Callable, Iterable, Sequence
 from dataclasses import dataclass, field
 from pathlib import Path
 from typing import Final, TextIO
+
+from fixture_skip import skip_reason
 
 from run_tests.cli_argv import UnmappableKey, annotate_argv, effective_runs
 from run_tests.verdict import Exit, RunTestsError
@@ -164,6 +168,7 @@ class Report:
     """What :func:`run_dirs` saw, in directory order."""
 
     passed: list[str] = field(default_factory=list)
+    skipped: list[tuple[str, str]] = field(default_factory=list)
     mismatched: list[str] = field(default_factory=list)
     errors: list[tuple[str, RunTestsError]] = field(default_factory=list)
 
@@ -179,21 +184,22 @@ class Report:
         """One-line summary detail."""
         return (
             f"via-cli: {len(self.passed)} pass, {len(self.mismatched)} mismatch, "
-            f"{len(self.errors)} error"
+            f"{len(self.errors)} error, {len(self.skipped)} skipped"
         )
 
 
-def _load(dir_: Path) -> tuple[list[dict[str, object]], str]:
-    """``(effective runs, [compare] body_md5)`` of one data-test directory."""
+def _load(dir_: Path) -> tuple[list[dict[str, object]], str, str | None]:
+    """Effective runs, expected body md5 and optional annotation skip reason."""
     try:
         doc = tomllib.loads((dir_ / "test.toml").read_text(encoding="utf-8"))
         vepyr = doc["vepyr"]
         expected = doc["compare"]["body_md5"]
-    except (OSError, tomllib.TOMLDecodeError, KeyError, TypeError) as exc:
+        reason = skip_reason(doc)
+    except (OSError, ValueError, KeyError, TypeError) as exc:
         raise RunTestsError(
             Exit.USAGE, f"[{dir_.name}] test.toml unusable for --via-cli: {exc!r}"
         ) from exc
-    return effective_runs(vepyr, doc.get("vepyr_run", ())), str(expected)
+    return effective_runs(vepyr, doc.get("vepyr_run", ())), str(expected), reason
 
 
 @dataclass(frozen=True, slots=True, kw_only=True)
@@ -230,14 +236,15 @@ def _argvs(
     return argvs
 
 
-def _compare_dir(dir_: Path, ctx: _Context) -> tuple[str, str | None]:
+def _compare_dir(
+    dir_: Path, ctx: _Context, runs: Sequence[dict[str, object]], expected: str
+) -> tuple[str, str | None]:
     """Run every run of ``dir_``: ``(expected md5, first mismatching md5 or None)``.
 
     Raises:
         RunTestsError: exit 2 for an unusable or unmappable ``test.toml``, exit 6
             when vepyr fails or writes no output.
     """
-    runs, expected = _load(dir_)
     with tempfile.TemporaryDirectory(prefix="run_tests-via-cli-") as scratch:
         argvs = _argvs(dir_, runs, ctx, Path(scratch))
         mismatch: str | None = None
@@ -269,7 +276,8 @@ def run_dirs(
 ) -> Report:
     """Annotate each of ``dirs`` via the vepyr CLI and compare body md5s.
 
-    Prints ``PASS <dir>`` / ``MISMATCH <dir> expected=<md5> actual=<md5>`` on
+    Prints ``PASS <dir>`` / ``MISMATCH <dir> expected=<md5> actual=<md5>`` or
+    ``SKIP <dir>: <reason>`` on
     ``out`` (stdout) and every error on ``err`` (stderr); a directory with an
     unmappable run is not run at all (each unmappable run is reported). Every
     directory is attempted, whatever happened to the previous ones.
@@ -281,7 +289,12 @@ def run_dirs(
     for dir_ in dirs:
         name = dir_.name
         try:
-            expected, mismatch = _compare_dir(dir_, ctx)
+            runs, expected, reason = _load(dir_)
+            if reason is not None:
+                report.skipped.append((name, reason))
+                print(f"SKIP {name}: {reason}", file=out)
+                continue
+            expected, mismatch = _compare_dir(dir_, ctx, runs, expected)
         except RunTestsError as exc:
             report.errors.append((name, exc))
             for line in str(exc).splitlines():

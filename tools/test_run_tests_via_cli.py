@@ -130,6 +130,56 @@ def test_body_md5_rule() -> None:
     assert body_md5(vcf) == hashlib.md5(b"A\nB").hexdigest()
 
 
+def test_skip_is_visible_and_removing_it_restores_mismatch(tmp_path: Path) -> None:
+    skipped = _data_test(tmp_path, "skipped")
+    active = _data_test(tmp_path, "active")
+    path = skipped / "test.toml"
+    original = path.read_text()
+    path.write_text('skip_reason = "Unsupported symbolic deletion"\n' + original)
+    fake = FakeCli(bodies={"skipped": BAD_BODY})
+    out = io.StringIO()
+    kwargs = dict(
+        build=BUILD,
+        cache_root=tmp_path,
+        fasta=tmp_path / "absent.fa",
+        runner=fake,
+        out=out,
+    )
+    report = via_cli.run_dirs([skipped, active], **kwargs)
+    assert report.code is Exit.OK
+    assert report.passed == ["active"]
+    assert report.skipped == [("skipped", "Unsupported symbolic deletion")]
+    assert len(fake.calls) == 1
+    assert "SKIP skipped: Unsupported symbolic deletion" in out.getvalue()
+    assert "PASS skipped" not in out.getvalue()
+    assert "1 pass" in report.detail and "1 skipped" in report.detail
+    path.write_text(original)
+    report = via_cli.run_dirs([skipped], **kwargs)
+    assert report.code is Exit.MISMATCH
+    assert report.mismatched == ["skipped"]
+    assert not report.skipped
+
+
+@pytest.mark.parametrize("value", ['""', '"  "', "true", "42", "[]"])
+def test_invalid_skip_is_usage_error(tmp_path: Path, value: str) -> None:
+    directory = _data_test(tmp_path, "invalid")
+    path = directory / "test.toml"
+    path.write_text(f"skip_reason = {value}\n" + path.read_text())
+    fake = FakeCli()
+    err = io.StringIO()
+    report = via_cli.run_dirs(
+        [directory],
+        build=BUILD,
+        cache_root=tmp_path,
+        fasta=tmp_path / "absent.fa",
+        runner=fake,
+        err=err,
+    )
+    assert report.code is Exit.USAGE
+    assert "skip_reason must be a non-empty string" in err.getvalue()
+    assert not fake.calls and not report.passed and not report.skipped
+
+
 def test_a_mismatch_exit_8_and_line(ready: Harness, tmp_path: Path) -> None:
     d = _data_test(tmp_path, "one")
     got = _run(ready, FakeCli(bodies={"one": BAD_BODY}), d)

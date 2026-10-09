@@ -19,7 +19,7 @@
 //!
 //! | table | keys (`?` = optional) |
 //! |---|---|
-//! | top level | `name` (= directory name), `description` |
+//! | top level | `name` (= directory name), `description`, `skip_reason?` |
 //! | `[origin]`? | `vep_test` |
 //! | `[[tests]]`? | `id`, `description`, `vep_test`, `focus?` |
 //! | `[input]` | `command` (the #85 command), `bcftools_version` |
@@ -154,6 +154,7 @@ type Key = (&'static str, Kind, bool);
 const TOP_KEYS: &[Key] = &[
     ("name", Kind::Str, true),
     ("description", Kind::Str, true),
+    ("skip_reason", Kind::Str, false),
     ("origin", Kind::Table, false),
     ("tests", Kind::TableList, false),
     ("input", Kind::Table, true),
@@ -538,6 +539,7 @@ struct Run {
 #[derive(Debug)]
 struct TestDir {
     name: String,
+    skip_reason: Option<String>,
     dir: PathBuf,
     runs: Vec<Run>,
     body_md5: String,
@@ -563,6 +565,14 @@ impl TestDir {
             .unwrap_or_else(|error| panic!("[{name}] {TOML_NAME} does not parse: {error}"));
 
         check_table(&name, "the top level", &doc, TOP_KEYS, false);
+        let skip_reason = doc.get("skip_reason").map(|value| {
+            let reason = value.as_str().expect("checked");
+            assert!(
+                !reason.trim().is_empty(),
+                "[{name}] skip_reason must be a non-empty string"
+            );
+            reason.to_owned()
+        });
         for (key, keys) in [
             ("input", INPUT_KEYS),
             ("vep", VEP_KEYS),
@@ -662,6 +672,7 @@ impl TestDir {
         }
         Self {
             name,
+            skip_reason,
             dir: dir.to_path_buf(),
             runs,
             body_md5,
@@ -767,10 +778,15 @@ impl CacheRoot<'_> {
     }
 }
 
-/// Run every vepyr run of `test` and compare; print the contract messages to stdout.
-///
-/// Returns whether the directory passed.
-async fn check_dir(test: &TestDir, cache_root: CacheRoot<'_>) -> bool {
+#[derive(Debug, PartialEq, Eq)]
+enum Outcome {
+    Passed,
+    Failed,
+    Skipped,
+}
+
+/// Validate fixture files, then skip or compare every configured vepyr run.
+async fn check_dir(test: &TestDir, cache_root: CacheRoot<'_>) -> Outcome {
     let name = &test.name;
     let oracle = std::fs::read(test.dir.join(ORACLE_NAME))
         .unwrap_or_else(|error| panic!("[{name}] cannot read {ORACLE_NAME}: {error}"));
@@ -781,10 +797,14 @@ async fn check_dir(test: &TestDir, cache_root: CacheRoot<'_>) -> bool {
              [compare] body_md5 is {} (re-bless with ./bless)",
             test.body_md5
         );
-        return false;
+        return Outcome::Failed;
     }
     let input = std::fs::read_to_string(test.dir.join(INPUT_NAME))
         .unwrap_or_else(|error| panic!("[{name}] cannot read {INPUT_NAME}: {error}"));
+    if let Some(reason) = &test.skip_reason {
+        println!("SKIP {name}: {reason}");
+        return Outcome::Skipped;
+    }
 
     let total = test.runs.len();
     let mut passed = true;
@@ -824,7 +844,11 @@ async fn check_dir(test: &TestDir, cache_root: CacheRoot<'_>) -> bool {
             passed = false;
         }
     }
-    passed
+    if passed {
+        Outcome::Passed
+    } else {
+        Outcome::Failed
+    }
 }
 
 /// Load and check every directory under `root`; panic naming the failed ones.
@@ -832,17 +856,30 @@ async fn run_all(root: &Path, cache_root: CacheRoot<'_>) {
     let dirs = test_dirs(root);
     let mut failed = Vec::new();
     let mut tests = 0;
+    let mut passed = 0;
+    let mut skipped = 0;
+    let mut skipped_tests = 0;
+    let mut skipped_runs = 0;
     for dir in &dirs {
         let test = TestDir::load(dir);
         tests += test.tests.len();
-        if check_dir(&test, cache_root).await {
-            println!("[{}] ok", test.name);
-        } else {
-            failed.push(test.name);
+        match check_dir(&test, cache_root).await {
+            Outcome::Passed => {
+                passed += 1;
+                println!("[{}] ok", test.name);
+            }
+            Outcome::Failed => failed.push(test.name),
+            Outcome::Skipped => {
+                skipped += 1;
+                skipped_tests += test.tests.len();
+                skipped_runs += test.runs.len();
+            }
         }
     }
     println!(
-        "data_dirs: {} directory(ies) ({tests} tests) under {}, {} failed",
+        "data_dirs: {} directory(ies) ({tests} named tests) under {}, \
+         {passed} passed, {} failed, {skipped} skipped \
+         ({skipped_tests} named tests, {skipped_runs} runs skipped)",
         dirs.len(),
         root.display(),
         failed.len()
@@ -1077,6 +1114,56 @@ fn load_fixture_edited(from: &str, to: &str) -> TestDir {
 /// Load a copy of the self-test fixture with `line` added to its `[vep]` table.
 fn load_fixture_with_vep_line(line: &str) -> TestDir {
     load_fixture_edited("[vep]\n", &format!("[vep]\n{line}\n"))
+}
+
+#[test]
+fn fixture_skip_reason_is_optional() {
+    let fixture =
+        Path::new(env!("CARGO_MANIFEST_DIR")).join("tests/fixtures/data_dirs_selftest/case");
+    assert!(TestDir::load(&fixture).skip_reason.is_none());
+}
+
+#[test]
+#[should_panic(expected = "skip_reason must be a non-empty string")]
+fn blank_skip_reason_is_rejected() {
+    load_fixture_edited("name =", "skip_reason = \"  \"\nname =");
+}
+
+#[test]
+#[should_panic(expected = "skip_reason")]
+fn non_string_skip_reason_is_rejected() {
+    load_fixture_edited("name =", "skip_reason = false\nname =");
+}
+
+#[tokio::test]
+async fn skipped_fixture_never_reads_cache_and_is_not_a_pass() {
+    let fixture =
+        Path::new(env!("CARGO_MANIFEST_DIR")).join("tests/fixtures/data_dirs_selftest/case");
+    let scratch = tempfile::TempDir::new().expect("tempdir");
+    let dir = scratch.path().join("case");
+    std::fs::create_dir(&dir).unwrap();
+    for file in [TOML_NAME, INPUT_NAME, ORACLE_NAME] {
+        std::fs::copy(fixture.join(file), dir.join(file)).unwrap();
+    }
+    let toml = std::fs::read_to_string(dir.join(TOML_NAME)).unwrap();
+    std::fs::write(
+        dir.join(TOML_NAME),
+        format!("skip_reason = \"Unsupported symbolic deletion\"\n{toml}"),
+    )
+    .unwrap();
+    let cache = scratch.path().join("absent-cache");
+    let mut test = TestDir::load(&dir);
+    assert_eq!(
+        check_dir(&test, CacheRoot::At(&cache)).await,
+        Outcome::Skipped
+    );
+    run_all(scratch.path(), CacheRoot::At(&cache)).await;
+    // A skip must not hide a damaged oracle.
+    test.body_md5 = "0".repeat(32);
+    assert_eq!(
+        check_dir(&test, CacheRoot::At(&cache)).await,
+        Outcome::Failed
+    );
 }
 
 #[test]

@@ -23,7 +23,7 @@ SCRIPT: Final[Path] = TOOLS / "build_test_index"
 FIXTURES: Final[Path] = TOOLS / "fixtures" / "build_test_index"
 REPO: Final[Path] = TOOLS.parent
 HEADER: Final[str] = (
-    "dir,id,description,vep_test,cache_source,vep_cache,fasta_source,"
+    "dir,id,description,skip_reason,vep_test,cache_source,vep_cache,fasta_source,"
     "required_contigs,vepyr_runs,body_md5\n"
 )
 
@@ -71,6 +71,26 @@ def test_fixture_rows_and_format(root: Path, tmp_path: Path) -> None:
     assert alpha["vep_cache"].startswith("https://")
     assert alpha["required_contigs"] == "chr21;chr22"
     assert beta["vepyr_runs"] == "0"
+    assert alpha["skip_reason"] == beta["skip_reason"] == ""
+
+
+def test_skip_reason_is_retained(root: Path, tmp_path: Path) -> None:
+    path = root / "alpha_full" / "test.toml"
+    path.write_text(
+        'skip_reason = "Unsupported symbolic deletion"\n' + path.read_text()
+    )
+    out = tmp_path / "i.csv"
+    assert _run("--root", root, "--out", out) == 0
+    rows = list(csv.DictReader(out.read_text().splitlines()))
+    assert len(rows) == 2
+    assert rows[0]["skip_reason"] == "Unsupported symbolic deletion"
+
+
+@pytest.mark.parametrize("value", ['""', '" "', "false"])
+def test_invalid_skip_reason_rejected(root: Path, tmp_path: Path, value: str) -> None:
+    path = root / "alpha_full" / "test.toml"
+    path.write_text(f"skip_reason = {value}\n" + path.read_text())
+    assert _run("--root", root, "--out", tmp_path / "i.csv") == 2
 
 
 def test_rows_sorted_by_directory_name(root: Path, tmp_path: Path) -> None:

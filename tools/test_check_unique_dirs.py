@@ -203,3 +203,32 @@ def test_render_keeps_other_lines_and_comments() -> None:
     for table in ("\n[input]\n", "\n[vep]\n", "\n[vepyr]\n", "\n[compare]\n"):
         section = text.split(table, 1)[1].split("\n[", 1)[0]
         assert table + section in out
+
+
+@pytest.mark.parametrize("other_reason", [None, "Another reason"])
+def test_merge_refuses_conflicting_skip_policy(
+    tmp_path: Path, other_reason: str | None
+) -> None:
+    root = tmp_path / "data"
+    for name, reason in [("a", "Unsupported symbolic deletion"), ("b", other_reason)]:
+        directory = _copy(root, name)
+        path = directory / "test.toml"
+        if reason is not None:
+            path.write_text(f'skip_reason = "{reason}"\n' + path.read_text())
+    before = {p: p.read_bytes() for p in root.rglob("*") if p.is_file()}
+    assert main([str(root)]) == 1  # Still a duplicate comparison.
+    assert merge_main([str(root)]) == 1
+    assert {p: p.read_bytes() for p in root.rglob("*") if p.is_file()} == before
+
+
+def test_merge_preserves_shared_skip_reason(tmp_path: Path) -> None:
+    for name in ["a", "b"]:
+        directory = _copy(tmp_path, name)
+        path = directory / "test.toml"
+        path.write_text(
+            'skip_reason = "Unsupported symbolic deletion"\n' + path.read_text()
+        )
+    assert merge_main([str(tmp_path)]) == 0
+    doc = tomllib.loads((tmp_path / "a" / "test.toml").read_text())
+    assert doc["skip_reason"] == "Unsupported symbolic deletion"
+    assert len(doc["tests"]) == 2

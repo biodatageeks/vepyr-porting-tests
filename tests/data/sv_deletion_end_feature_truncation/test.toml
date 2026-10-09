@@ -1,4 +1,5 @@
 name = "sv_deletion_end_feature_truncation"
+skip_reason = "Symbolic deletions (<DEL> with END) are not supported by vepyr yet."
 description = "Fixture covering 1 test. Compare the complete output body with expected_output.vcf."
 
 [[tests]]

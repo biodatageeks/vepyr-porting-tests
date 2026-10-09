@@ -246,6 +246,9 @@ def merge_group(group: Sequence[Path], *, dry_run: bool = False) -> Path:
     """
     kept, *others = group
     docs = {d: _load(d) for d in group}
+    reasons = [docs[d].get("skip_reason") for d in group]
+    if any(reason != reasons[0] for reason in reasons[1:]):
+        raise MergeError(f"skip_reason differs within the group: {group}")
     md5s = {d: docs[d].get("compare", {}).get("body_md5") for d in group}
     if len(set(md5s.values())) != 1:
         raise MergeError(f"[compare] body_md5 differs within the group: {md5s}")
