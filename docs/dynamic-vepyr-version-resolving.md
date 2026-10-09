@@ -29,29 +29,35 @@ locally, via cargo path `[patch]` tables.
 
 ## The stages
 
-### 1. `gh api commits` — REF → sha
+### 1. `git` mirror — REF → sha
 
 `engine.validate_ref` first rejects anything that is not a plausible git ref
-(charset, length). Then `engine._resolve_sha` calls
+(charset, length, a leading `-`). Then `engine._resolve_sha` keeps a bare mirror of
+the public `https://github.com/biodatageeks/vepyr.git` at `<src root>/vepyr/git`
+(the same `_mirror_sha` the dfbf/formats ladder uses, see stage 3):
 
 ```
-gh api repos/biodatageeks/vepyr/commits/<REF>
+git clone --mirror https://github.com/biodatageeks/vepyr.git <src root>/vepyr/git   # first run only
+git -C <src root>/vepyr/git fetch --prune --tags origin
+git -C <src root>/vepyr/git rev-parse --verify --quiet --end-of-options '<REF>^{commit}'
 ```
 
-and takes `.sha`. GitHub dereferences branches, tags and abbreviated shas for us, so
-one call covers all three forms. The full 40-char result is what the run summary
-prints as `vepyr sha`, and it is the value a ledger entry should quote as evidence.
-A ref that does not resolve exits `6` (engine resolve/checkout failure).
+and, when a literal sha is on no branch or tag (e.g. a PR head), one more
+`git fetch origin <REF>` before the same `rev-parse`. `^{commit}` peels an
+annotated tag to the commit it names, so branches, tags and shas all take this one
+path. The full 40-char result is what the run summary prints as `vepyr sha`, and it
+is the value a ledger entry should quote as evidence. A ref that does not resolve
+exits `6` (engine resolve/checkout failure).
 
-### 2. `gh api contents` — read the engine revision's own pins
+### 2. `git show` — read the engine revision's own pins
 
-`engine._read_cargo_toml` calls
+`engine._read_cargo_toml` reads the manifest from the same mirror:
 
 ```
-gh api repos/biodatageeks/vepyr/contents/Cargo.toml?ref=<sha>
+git -C <src root>/vepyr/git show <sha>:Cargo.toml
 ```
 
-base64-decodes `.content` and parses it with `tomllib`. From
+and parses it with `tomllib`; a missing or unparseable file exits `6`. From
 `[dependencies]` it extracts, via `_dep_spec` / `_git_rev`, the `git = URL` plus the
 `rev` / `tag` / `branch` of:
 
@@ -134,4 +140,5 @@ there.
 - **`Cargo.lock`'s package count is the real transitive closure** of the annotate
   engine plus its ladder — it is large because the ladder is large, not because
   anything spurious is vendored.
-- **`gh` must be authenticated.** Both API stages go through `gh api`.
+- **No `gh`, no credentials.** Both stages are anonymous `git` reads of the
+  public `biodatageeks/vepyr` repository; `gh` plays no part in `./run_tests`.

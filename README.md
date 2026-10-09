@@ -9,6 +9,19 @@ vepyr is a Rust port of Ensembl VEP. Here we land **data-problem** tests
 one curated assertion at a time: each checks that vepyr produces predictable
 results on real annotation data.
 
+## Prerequisites
+
+To run the data-tests (`./run_tests`) you need:
+
+- `git` — resolves `--vepyr REF` and fetches the engine ladder;
+- `uv` — runs the Python tooling (`uv run …`, the `./…` wrappers);
+- a Rust toolchain (`cargo`) — builds and runs the data-tests.
+
+`./run_tests` needs no `gh` and no GitHub credentials: both of its reads of
+biodatageeks/vepyr (REF to sha, and that revision's `Cargo.toml`) are anonymous
+`git` reads of the public repository. `gh`, authenticated, is needed only by the
+maintainer workflow tools `./set_state` and `./pr_status` (and the agent skills).
+
 ## ./run_tests
 
 `./run_tests` is the single entry point for this repository's tooling
