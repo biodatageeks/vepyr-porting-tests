@@ -30,6 +30,11 @@ export VEPYR_CACHE_ROOT=/mnt/hf-cache
 ./run_tests --cache-dir /mnt/hf-cache --via-cli --only tests/data/intergenic_variant_single_record
 ```
 
+During a `--vepyr` run, `./run_tests` prints one stage marker per phase to
+stderr (stdout keeps only the final summary): `run_tests: resolving --vepyr REF ...`,
+then `run_tests: materializing engine ladder (<repo>) ...` once per ladder repo, then
+`run_tests: cargo test starting (<N> target(s)) ...` just before cargo launches.
+
 | Flag | Status in this commit |
 |------|------------------------|
 | `--help` | Exit 0 |
