@@ -1268,6 +1268,7 @@ def test_an_unreachable_hub_endpoint_is_exit_4_not_a_traceback(tmp_path: Path) -
     """F6: httpx.ConnectError is not an OSError; the CLI must still exit 4, not 1."""
     env = {
         **os.environ,
+        "VEPYR_CACHE_ROOT": str(tmp_path / "root"),
         "HF_ENDPOINT": "http://127.0.0.1:9",  # discard port: connection refused
         "HF_HUB_OFFLINE": "0",
         "PYTHONDONTWRITEBYTECODE": "1",
@@ -1278,16 +1279,7 @@ def test_an_unreachable_hub_endpoint_is_exit_4_not_a_traceback(tmp_path: Path) -
             sys.executable,
             "-m",
             "run_tests",
-            "--cache-dir",
-            str(tmp_path / "root"),
-            "--add-contigs",
-            "chr21",
-            "--flavours",
-            "ensembl",
-            "--dry-run",
-            # Consent past the freshness guard (#236), which would otherwise fail
-            # closed with exit 7 on the same unreachable Hub before the lister runs.
-            "--old-vepyr-cache",
+            "0.9.0",
         ],
         env=env,
         capture_output=True,

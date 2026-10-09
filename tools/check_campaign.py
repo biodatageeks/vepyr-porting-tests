@@ -23,7 +23,14 @@ def check_via_cli_result(case: dict[str, Any]) -> None:
     assert len(commands) == 3, case["id"]
     assert all(c["exit"] == 0 for c in commands[:2]), case["id"]
     last = commands[2]
-    assert last["argv"][0] == "./run_tests" and "--via-cli" in last["argv"], case["id"]
+    argv = last["argv"]
+    historical = argv[0] == "./run_tests" and "--via-cli" in argv
+    selected = len(argv) == 6 and argv[1] == "-c" and "run_selection" in argv[2]
+    assert historical or selected, case["id"]
+    if selected:
+        from run_tests.install import validate_target
+
+        validate_target(argv[3])
     assert last["verdict"] == result["status"] == case["status"], case["id"]
     match case["status"]:
         case "PASS":

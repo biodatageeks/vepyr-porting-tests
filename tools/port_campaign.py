@@ -3,7 +3,7 @@
 Only cases with explicit input rows and a qualified focus assertion are run.
 The default batch size is ten. A failing vepyr result never changes the oracle.
 The local VEP cache is used only for the oracle (``./bless``). vepyr is run and
-compared by ``./run_tests --cache-dir <cache> --via-cli --only <dir>`` (#231) on
+compared by the Python ``run_selection()`` entry point on
 a Hub-layout cache; its exit code and ``MISMATCH`` lines decide the verdict.
 The process exits non-zero when any processed case is not ``PASS``.
 """
@@ -15,6 +15,7 @@ import hashlib
 import json
 import re
 import subprocess
+import sys
 from collections.abc import Callable, Sequence
 from dataclasses import dataclass
 from enum import StrEnum
@@ -83,6 +84,8 @@ def only_dir_name(argv: Sequence[str]) -> str | None:
     args = list(argv)
     if "--only" in args and (i := args.index("--only") + 1) < len(args):
         return Path(args[i]).name
+    if len(args) == 6 and args[1] == "-c" and "run_selection" in args[2]:
+        return Path(args[-1]).name
     return None
 
 
@@ -189,6 +192,7 @@ def main(argv: Sequence[str] | None = None, runner: Runner = subprocess.run) -> 
         required=True,
         help="Hub-layout cache root with PROVENANCE.json, passed to ./run_tests",
     )
+    p.add_argument("--vepyr", required=True, help="PyPI version or full vepyr Git SHA")
     p.add_argument("--fasta", type=Path, required=True)
     p.add_argument("--evidence", type=Path, required=True)
     p.add_argument("--limit", type=int, default=10)
@@ -294,11 +298,17 @@ def main(argv: Sequence[str] | None = None, runner: Runner = subprocess.run) -> 
             raise ValueError(f"{name}: witness changed: {expected!r}")
         outcome = run_tests_for(
             [
-                "./run_tests",
-                "--cache-dir",
+                sys.executable,
+                "-c",
+                (
+                    "import sys; from pathlib import Path; "
+                    "sys.path.insert(0, 'tools'); "
+                    "from run_tests.cli import run_selection; "
+                    "raise SystemExit(run_selection(sys.argv[1], [Path(sys.argv[3])], "
+                    "root=Path(sys.argv[2])))"
+                ),
+                args.vepyr,
                 str(args.cache_dir),
-                "--via-cli",
-                "--only",
                 str(dest),
             ],
             evidence / "run_tests.log",

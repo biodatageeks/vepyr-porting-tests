@@ -7,7 +7,7 @@
 # - tools/bless (Python) refuses to bless or reproduce a test.toml whose [vepyr]
 #   disagrees, and tools/test_bless.py -k everything_mode checks that every
 #   vep_flag is in VEP_ARGV and that the README table lists exactly these rows;
-# - tests/data_dirs.rs (Rust) panics on a [vepyr] (or [[vepyr_run]]) value that
+# - tools/run_tests/fixtures.py (Python) refuses on a [vepyr] (or [[vepyr_run]]) value that
 #   differs, and on a [vep] command that lacks a vep_flag.
 #
 # [vepyr] has no `fields` key: vepyr emits its full --everything CSQ layout, as

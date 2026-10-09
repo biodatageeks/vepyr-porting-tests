@@ -887,11 +887,12 @@ def test_everything_mode_mapping_agrees_with_argv_and_readme() -> None:
 
 
 def test_everything_mode_mapping_keys_are_loader_keys() -> None:
-    """Every mapped [vepyr] key is a boolean key of the Rust loader's schema."""
-    source = (REPO / "tests" / "data_dirs.rs").read_text(encoding="utf-8")
+    """Every mapped setting is a boolean in the Python fixture schema."""
+    from run_tests.fixtures import VEPYR_FIELDS
+
     for row in vep.mode_mapping():
-        assert f'("{row.vepyr_key}", Kind::Bool, true)' in source, row.vepyr_key
-    assert '("fields",' not in source, "[vepyr] fields must not be a loader key"
+        assert VEPYR_FIELDS[row.vepyr_key] is bool
+    assert "fields" not in VEPYR_FIELDS
 
 
 def test_everything_mode_malformed_mapping_is_refused(tmp_path: Path) -> None:

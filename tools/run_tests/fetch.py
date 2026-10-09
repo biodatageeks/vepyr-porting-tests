@@ -1,6 +1,6 @@
 """Fetch the pinned VEP cache 116 Parquet files (and the GRCh38 FASTA) into one root.
 
-One root (``./run_tests --cache-dir``), one revision per flavour, one provenance record.
+One cache root (``$VEPYR_CACHE_ROOT``), one revision per flavour, one provenance record.
 This is the only code that writes there.
 
 Layout produced (names are the ones the HuggingFace dataset README uses, so a command
@@ -904,8 +904,9 @@ def _check_revision_on_disk(existing: Provenance | None, p: Plan, root: Path) ->
             f"{p.flavour.dir_name}: revision on disk {record.revision} "
             f"!= PINS {p.pin.revision} "
             f"({p.flavour.pin_name}). One root holds one revision per flavour: fetch "
-            f"the pinned revision into a NEW root (./run_tests --cache-dir <other> "
-            f"--flavours {p.flavour.value} ...) and keep {root} as it is; do not "
+            "the pinned revision into a NEW root (set VEPYR_CACHE_ROOT) "
+            f"and keep {root} "
+            "as it is; do not "
             "delete PROVENANCE.json — that erases the audit trail and disarms this "
             "guard",
         )

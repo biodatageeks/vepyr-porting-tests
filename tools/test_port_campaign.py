@@ -96,7 +96,7 @@ def campaign(
                 shutil.copy(real / "expected_output.vcf", dest / "expected_output.vcf")
                 sha = hashlib.sha256((dest / "input.vcf").read_bytes()).hexdigest()
                 kwargs["stdout"].write(f"Docker input SHA256 {sha}\n")
-            case "run_tests":
+            case _ if len(argv) > 2 and argv[1] == "-c":
                 calls.append(argv)
                 return subprocess.CompletedProcess(argv, exit_code, stdout, "err\n")
             case other:
@@ -105,6 +105,8 @@ def campaign(
 
     code = port_campaign.main(
         [
+            "--vepyr",
+            "0.9.0",
             "--vep-cache",
             str(tmp_path / "vep"),
             "--cache-dir",
@@ -121,15 +123,12 @@ def campaign(
 
 def test_run_tests_nonzero_fails(tmp_path, monkeypatch):
     code, case, calls = campaign(tmp_path, monkeypatch, 1, "")
-    assert calls == [
-        [
-            "./run_tests",
-            "--cache-dir",
-            str(tmp_path / "hub"),
-            "--via-cli",
-            "--only",
-            str(tmp_path / "root/tests/data" / DIR_NAME),
-        ]
+    assert len(calls) == 1
+    assert calls[0][1] == "-c" and "run_selection" in calls[0][2]
+    assert calls[0][3:] == [
+        "0.9.0",
+        str(tmp_path / "hub"),
+        str(tmp_path / "root/tests/data" / DIR_NAME),
     ]
     assert case["status"] != "PASS"
     assert case["result"]["commands"][-1]["exit"] == 1

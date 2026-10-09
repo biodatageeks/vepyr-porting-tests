@@ -11,161 +11,62 @@ results on real annotation data.
 
 ## ./run_tests
 
-`./run_tests` is the single entry point for this repository's tooling
-(`uv` + `tools/run_tests/`).
+Run the 205 named data tests through the vepyr Python CLI:
 
 ```bash
-./run_tests --help
-./run_tests --list
-./run_tests --cache-dir /mnt/hf-cache --add-contigs chr1,chr21,chr22
-./run_tests --cache-dir /mnt/hf-cache --vepyr 0.7.0
-# or, after a fetch:
-export VEPYR_CACHE_ROOT=/mnt/hf-cache
-./run_tests --vepyr 0.7.0
-# omit --vepyr to run against biodatageeks/vepyr master HEAD as it stands now:
-./run_tests
-# run only chosen data-test directories (repeatable; may be scratch copies):
-./run_tests --only tests/data/intergenic_variant_single_record --vepyr master
-# annotate through the user-facing `python -m vepyr annotate` CLI instead of cargo:
-./run_tests --cache-dir /mnt/hf-cache --via-cli --only tests/data/intergenic_variant_single_record
+./run_tests 0.9.0
+./run_tests <full-40-character-git-sha>
 ```
 
-| Flag | Status in this commit |
-|------|------------------------|
-| `--help` | Exit 0 |
-| `--list` | Lists the data-test directories `tests/data/<name>/` present in the working tree; exit 0 |
-| `--cache-dir DIR` | Downloads the pinned VEP cache 116 shards into `DIR` and writes `PROVENANCE.json`; then runs data-tests when targets exist |
-| `--add-contigs LIST` | Adds the named contigs to `DIR` (not `--contigs`). Default: whole genome |
-| `--flavours LIST` | Default `merged`, the cache used by every committed data fixture. Other flavours remain available explicitly for tooling or external fixtures |
-| `--dry-run` | Lists Hub files and byte totals; writes nothing; does not run tests |
-| `--verify` | Checks selected shard SHA-256s, metadata Git hashes and manifest structure |
-| `--fast` | Sets `HF_XET_HIGH_PERFORMANCE=1` for the download (see below) |
-| `--no-trim-manifests` | Leaves `chrom_manifest.json` naming shards that were not fetched |
-| `--vepyr REF` | Resolves `REF` on biodatageeks/vepyr and path-patches that revision's dfbf/formats ladder. **Optional:** omitted, data-tests run against `master`'s current HEAD; the summary prints the full 40-char resolved sha either way. Pass `REF` whenever a pinned, reproducible run is wanted (CI, bisecting, ledger evidence) |
-| `--only DIR` | Repeatable. Runs only the named data-test directories (each holds `test.toml`; may be outside `tests/data`, e.g. a scratch copy): they are copied into a fresh temporary root that `DATA_DIRS_ROOT` names, cargo runs only the exact `data_dirs` test, and the root is deleted afterwards; `tests/data` is never touched. The summary's `targets` line lists exactly these names. A missing directory, one without `test.toml`, or two with the same basename is a usage error (exit 2, `not a data-test directory`). The engine is still `--vepyr REF` (or its default) |
-| `--via-cli` | Annotates each selected data-test (all of `tests/data`, or the `--only` directories, which may be outside `tests/data`) through the user-facing `python -m vepyr annotate` CLI instead of `cargo test --test data_dirs`; it complements the Rust loop, it does not replace it. See "`--via-cli` mode" below |
-| `--old-vepyr-cache` | Consent to a vepyr cache that is not provably the newest (see "Cache freshness guard" below): the run proceeds and the summary records `old cache: YES (consented)` |
+The only argument is the version under test. A release version installs from
+PyPI using wheels only; it never compiles vepyr. A full Git SHA checks out that
+exact commit of `biodatageeks/vepyr` and builds its wheel with `uv build`, using
+vepyr's own dependencies. Git builds require the Rust compiler required by that
+vepyr revision. This repository contains no Rust harness or Cargo dependency pins.
+Both paths install into an isolated environment under the cache root and reuse
+successful installations of the same version or SHA.
 
-**"Targets" means data-test directories** — `tests/data/<name>/` holding a
-`test.toml` (see [Porting method](#porting-method)). `--list` prints their names.
-They all run inside the one generic cargo target, so the `cargo test` invocation
-carries a single `--test data_dirs`.
+The runner fetches the **merged** cache and the full reference FASTA at the
+revisions in `PINS.toml`. Required contigs are derived from enabled fixtures
+(currently `chr1`, `chr21`, `chr22`). Missing shards, manifests, chromosome synonyms
+and reference policy files are downloaded automatically. Preparation prints stage
+progress; downloads, FASTA decompression, hashing and indexing show progress too.
+Git/uv output remains visible while vepyr builds, with a heartbeat during quiet steps.
 
-Both runner modes print `RUN <test-id>` and a result for every `[[tests]]` entry.
-The live bar counts completed named tests (205 in this suite), with
-passed/failed/skipped totals. Tests sharing a fixture reuse its annotation and
-inherit its complete VCF-body comparison result; the coverage descriptions are
-not separate field-level assertion evaluators. Multiple configurations also print
-`run 1/5`, `run 2/5`, etc. Output is flushed immediately to plain lines, including
-when redirected to a log. No extra flag is needed.
-
-Preparation also shows progress: cache verification counts files; FASTA download,
-archive checksum, decompression, indexing and SHA-256 verification count bytes.
-Progress lines are flushed immediately, about once per second as work advances. Downloads
-without a known size show bytes received until complete. Engine setup reports
-its stages, followed by Cargo's build output and the named-test progress bar.
-
-**`--vepyr REF` examples.** `REF` is anything `biodatageeks/vepyr` can dereference:
+The cache defaults to `~/vepyr-test-cache`. To place it elsewhere:
 
 ```bash
-./run_tests --vepyr 0.7.0     # a tag — note there is NO `v` prefix
-./run_tests --vepyr 1f0c3a9   # a commit sha, short…
-./run_tests --vepyr 1f0c3a9e4b7d2c5a8f6013b9d4e27ca5f80b6d31   # …or full 40-char
-./run_tests --vepyr master    # a branch (resolved to its HEAD at run time)
-./run_tests                   # omitted: same as `--vepyr master`, resolved per run
+export VEPYR_CACHE_ROOT=/mnt/vepyr-test-cache
+./run_tests 0.9.0
 ```
 
-Engine ladder checkouts run with `GIT_LFS_SKIP_SMUDGE=1`: the crates are built from
-Rust source only, so the fetch never depends on unrelated git-lfs-hosted content.
-Before testing, the runner updates the selected engine packages in a temporary
-lockfile state and verifies Cargo resolved them to the selected source checkouts.
-Tests use `--locked`; the checked-in lockfile is restored afterwards.
+The pinned cache revision is printed and recorded in `PROVENANCE.json`. A newer
+Hub commit does not silently change the corpus or block a pinned run. Existing
+cache data from a different pinned revision is refused; select a different cache
+root when changing the dataset pin. The FASTA remains full even with contig shards.
 
-Partial cache downloads include `chr_synonyms.txt` and `reference_policy.json`,
-required for chromosome aliases and reference handling. Repeating the download
-command repairs older cache directories that lack these files.
+Each named test prints `RUN`, then `PASS`, `MISMATCH`, `ERROR`, or `SKIP`, alongside
+a simple `completed/205` progress bar. Tests sharing a fixture reuse its annotation
+and receive its whole-body comparison result. These are 205 named coverage entries,
+not 205 independent field-specific comparisons. There are 70 fixtures and 74 run
+configurations; symbolic deletion disables one fixture/run/test explicitly.
 
-Omitting the flag is **not** "no engine": it resolves `biodatageeks/vepyr`'s
-`master` HEAD as it stands at that moment. The summary prints the resolved 40-char
-sha in every case. How that resolution works end to end is documented in
-[docs/dynamic-vepyr-version-resolving.md](docs/dynamic-vepyr-version-resolving.md).
+Non-default buffer sizes use `vepyr annotate --buffer-size N` (vepyr PR #169).
+A release or commit without that option fails those runs visibly; the runner never
+ignores a requested setting. Selecting an older version may expose other genuine
+annotation differences from the stored VEP oracle.
 
-Every real fetch (not `--dry-run`) also downloads the GRCh38 FASTA into
-`DIR/fasta/`, checks it against the `[grch38_fasta]` pin, and writes the `.fai`
-index.
+Runner unit tests are separate and never execute as part of `./run_tests`:
 
-`--fast` needs no Hugging Face login for these public pins: just pass the flag
-(e.g. `./run_tests --cache-dir DIR --add-contigs chr21 --fast`). It only raises
-Xet download concurrency/buffers via `hf_xet` (already pulled in with
-`huggingface-hub`). Use it on a high-bandwidth host with plenty of RAM
-(Hugging Face recommends about 64 GB); on a smaller machine leave it off.
+```bash
+uv run --frozen pytest tools/
+```
 
-Exit codes: `0` ok, `1` data-tests failed, `2` usage (missing cache),
-`3` revision clash vs `PINS.toml`, `4` incomplete selection or missing cache
-pieces, `5` verification failure, `6` engine resolve/checkout failure (with
-`--via-cli` also a failed vepyr build or run), `7` stale cache (see below;
-`--old-vepyr-cache` consents), `8` `--via-cli` body MISMATCH. Every run
-ends with a summary of effective flags, the cache directory, targets, the
-contigs accumulated per flavour, and the `vepyr sha` line naming the exact
-40-char revision the run tested against.
-
-**`--via-cli` mode** (#231). The vepyr CLI is built from `biodatageeks/vepyr` at
-the sha that `--vepyr REF` (default: `master` HEAD) resolves to, once per sha, into
-`<cache root>/.vepyr_cli/<sha>/` (a shallow git fetch of that sha, `uv build --wheel`,
-`uv venv` + `uv pip install`); `BUILD.json` there and the summary detail record the
-vepyr sha and the wheel's sha256. For each directory, `tools/run_tests/cli_argv.py`
-derives the argv from `test.toml` `[vepyr]` and each `[[vepyr_run]]` override:
-`flavour` -> `--dir_cache <root>/116_GRCh38_<flavour>`, `reference_fasta = true` ->
-`--fasta <root>/fasta/<pinned .fa>`, `everything = true` -> `--everything`, plus
-`--cache_version 116 --no_progress`; `preserve_record_layout = true` and
-`buffer_size = 5000` are the CLI's defaults (no flag); `required_contigs` emits no
-flag. A value the CLI cannot express (`buffer_size != 5000`,
-`preserve_record_layout = false`, `everything = false`, `reference_fasta = false`)
-or an unknown key is an `UnmappableKey`: that directory is not run, each such run is
-named on stderr, and the exit code is `2`. At vepyr `af305aff` this applies to 4 of
-the 5 runs of `runner_buffer_size_invariance` (`buffer_size = 1, 2, 3, 5`), which
-therefore cannot run via the CLI; the default cargo path still runs them.
-
-Each output is compared by the same rule as `tests/data_dirs.rs`: md5 of the body
-(every line not starting with `#`, line terminators kept) against
-`[compare] body_md5`. Body-mismatch contract: a directory whose every run matched
-prints `PASS <dir-name>` on stdout; a mismatching one prints exactly
-`MISMATCH <dir-name> expected=<md5> actual=<md5>` on stdout (one line per
-directory, the first mismatching run), and the run exits `8` (`Exit.MISMATCH`).
-Precedence: any other error wins and sets the exit code (`2` unmappable or unusable
-`test.toml`, `6` vepyr build failure or a vepyr run that exits non-zero or writes no
-output, `3`/`4` cache errors, `7` stale cache), while the `MISMATCH` lines of the compared directories
-are still printed. Exit `8` therefore means every selected run was compared and at
-least one mismatched.
-
-**Cache freshness guard.** Whenever a cache root is given (`--cache-dir` or
-`$VEPYR_CACHE_ROOT`), before any download or data-test, `./run_tests` asks the
-Hugging Face Hub, once per flavour selected by `--flavours` (one `dataset_info`
-call, 10 s timeout), which commit the pin's `ref` (`main`) points to now, and
-compares it with the `sha` in `PINS.toml`. The run exits `7` when:
-
-- the Hub HEAD differs from the pinned `sha` (a newer dataset exists);
-- the Hub cannot be reached or the HEAD cannot be resolved (`freshness unknown`);
-- the root is used as-is (no `--cache-dir`, no `--dry-run`) and `PROVENANCE.json`
-  has no record for a selected flavour (freshness cannot be established).
-
-The message names the pinned and HEAD shas. Bump `PINS.toml` deliberately in a
-separate PR, or pass `--old-vepyr-cache` to proceed with the old cache. The guard
-never changes what is fetched and never edits `PINS.toml`. It also applies under
-`--dry-run` and `--only`; `--list` and `--help` do not query the Hub. The summary
-then carries `old cache: no` when the guard passed, or `old cache: YES (consented)`
-when the flag let an old cache through, or
-`old cache: YES (refused; pass --old-vepyr-cache to consent)` on an exit-7 refusal,
-followed by one line per flavour with its
-pinned and HEAD shas. Offline and CI runs must pass `--old-vepyr-cache`
-explicitly.
-
-Without a cache root (`--cache-dir` or `$VEPYR_CACHE_ROOT`), an invocation
-(without `--help` / `--list`) exits 2. With targets present, the cargo run needs
-no `--vepyr`: the ref defaults to `biodatageeks/vepyr`'s `master` HEAD, resolved
-per run and reported as `vepyr sha` in the summary. That default is deliberately
-floating — a run today and a run tomorrow can test different engine code — so
-pin `--vepyr REF` for anything that must be reproducible.
+Exit codes: `0` no failed data tests (explicit skips are counted separately),
+`2` invalid arguments or fixture metadata, `3` cache revision mismatch,
+`4` missing files or download failure, `5` cache verification failure,
+`6` vepyr installation/execution error, `8` an output-body mismatch. An execution
+error takes precedence over a mismatch. No oracle is generated or changed by this command.
 
 ## ./issue_check (pre-work issue gate)
 
@@ -381,7 +282,7 @@ Every data-test oracle is produced by **VEP software 116.2** against **VEP cache
 116** (VEP point releases reuse the release-116 cache; there is no 116.2 cache).
 The pin is defined once, in `tools/vep_pin.toml` (`[vep]` `image_tag`,
 `image_digest`, `upstream_tag`, `upstream_commit`, `cache_version`); `./bless`,
-`tools/check_campaign.py` and the `tests/data_dirs.rs` self-test read it, and no
+`tools/check_campaign.py` and the Python fixture-loader tests read it, and no
 other code spells the digest or the commit (#239).
 
 ```bash
@@ -406,7 +307,7 @@ one `PASS`/`FAIL`/`SKIP <name>: <detail>` line per check and a summary line:
 ```
 
 Checks, each reusing the code of the tool that depends on it: `UV_PROJECT_ENVIRONMENT`
-(set, absolute, outside every git checkout), `tool uv` / `tool cargo` / `tool git` (on
+(set, absolute, outside every git checkout), `tool uv` / `tool git` (on
 `PATH`), `bcftools pin` (`tools/normalize_input`'s own version check; the pin has no
 second copy), `docker daemon` (`./bless`'s probe with a wall-clock limit, default 30 s),
 and with their flags `vepyr cache` (`./run_tests`'s precheck: `PROVENANCE.json`, pinned
@@ -482,7 +383,7 @@ bless writes the list as `[vep] extra_flags` and generates `[vep] command` from 
   canonical command generated from the list (`vep.vep_command`): a command that
   differs, even only in quoting or whitespace, exits 1 naming the file and both
   strings.
-- The Rust loader (`tests/data_dirs.rs`) accepts `extra_flags` as an optional
+- The Python loader (`tools/run_tests/fixtures.py`) accepts `extra_flags` as an optional
   array of strings and checks only its type; the allowlist is enforced by
   `./bless`.
 
@@ -588,13 +489,13 @@ Every data-test runs in exactly one mode: VEP with `--everything` and a referenc
 FASTA on one side, vepyr with the matching `[vepyr]` values on the other. That is
 the configuration the [vepyr CLI docs](https://biodatageeks.org/vepyr/cli/)
 describe as validated against Ensembl VEP. A run without `--everything` is
-unsupported and disabled: `./bless` refuses it, and the Rust loader panics with
+unsupported and disabled: `./bless` refuses it, and the Python loader fails with
 `[<name>] unsupported mode` on a `[vepyr]` (or `[[vepyr_run]]`) value that differs
 from the table below, or on a `[vep] command` that lacks one of its VEP flags (an
 oracle made by the old command).
 
 The mapping has one source of truth, `tools/vep_flags.toml`, read by `./bless`
-(`tools/bless/vep.py`) and by `tests/data_dirs.rs`.
+(`tools/bless/vep.py`) and by `tools/run_tests/fixtures.py`.
 `uv run --frozen pytest tools/test_bless.py -k everything_mode` fails when that
 file, `VEP_ARGV` and this table disagree.
 
@@ -612,13 +513,9 @@ loader rejects `fields` as an unknown key. The other VEP flags of the fixed comm
 have no `[vepyr]` counterpart; `flavour` and `required_contigs` pick vepyr's cache.
 Every committed data fixture uses `flavour = "merged"` and records
 `extra_flags = ["--merged"]` in `[vep]`; the recorded VEP command and every
-`[[vepyr_run]]` must use the same cache flavour. The loader still accepts
-Ensembl-only external and synthetic fixtures; RefSeq-only fixtures remain
-unsupported. For merged oracles, pass `--vep-cache-dir` pointing to the parent
+`[[vepyr_run]]` must use the same cache flavour. The runner requires merged fixtures, including external campaign fixtures. For merged oracles, pass `--vep-cache-dir` pointing to the parent
 of `homo_sapiens_merged/116_GRCh38`; merged-cache downloads through `./bless`
-are not implemented. The default `./run_tests` selection fetches and checks
-freshness only for the merged dataset, so unused Ensembl or RefSeq pins cannot
-block the suite.
+are not implemented. The runner fetches only the pinned merged dataset; unused Ensembl or RefSeq pins cannot block the suite.
 Before each run the runner checks that every cache entity vepyr reads in
 `--everything` mode (all seven; `motif` and `regulatory` excepted on `chrMT`) has a
 shard for each `required_contigs` entry.
@@ -628,23 +525,7 @@ Extra flags stay as described under [./bless](#bless): the allowlist
 remains the mechanism that records them. Neither is part of the vepyr CLI docs;
 they are appended to the `--everything` command, never replace it.
 
-## tests/common (cache + assertion helpers)
-
-Fetch a cache, then point `$VEPYR_CACHE_ROOT` at the same directory (or pass
-`--cache-dir` to `./run_tests` together with `--vepyr`):
-
-```bash
-./run_tests --cache-dir /mnt/hf-cache --add-contigs chr1,chr21,chr22
-export VEPYR_CACHE_ROOT=/mnt/hf-cache
-./run_tests --vepyr 0.7.0
-# helpers type-check (and floating engine deps resolve) with:
-cargo check --tests
-```
-
-Shared modules under `tests/common/`: `cache` / `ledger` (issue #5), plus
-`annotate`, `csq`, and `provenance` for data-problem pilots (issue #14). Data-tests
-live as directories `tests/data/<name>/`, run by `tests/data_dirs.rs` and listed
-by `./run_tests --list`.
+## Data fixtures and validation tools
 
 `tests/INDEX.csv` lists one row per named test. The `dir` column identifies its
 shared fixture; `id` and `description` identify the test inside `[[tests]]`.
@@ -701,8 +582,7 @@ exits 0 only if every directory is OK and at least one was found; 1 on any
 failure, no test found, or `DIR` not a directory; 2 on bad usage. It never
 writes, needs no VEP, cache or bcftools, and reads records with the shared
 `tools/vcf_records.py`. It does not check the `test.toml` schema (the loader),
-the body md5 (`./bless --check`) or REF against the FASTA. It is not part of
-`./run_tests` and no CI workflow runs it (workflows are disabled).
+the body md5 (`./bless --check`) or REF against the FASTA. The Python loader also runs these structural checks before annotation. CI workflows remain disabled.
 
 `tools/fixture_match --input PATH --fixture SRC --records N [--rust-const NAME]
 [--by-pos] [--negative-control]` (issue #171) checks that the first `N` records
@@ -745,42 +625,16 @@ config; `UV_PROJECT_ENVIRONMENT` is checked by `./check_env`.
 
 ### Caveats
 
-**Windows.** `./run_tests` is a bash script (it bootstraps `uv` and then runs
-`tools/run_tests/`), so it needs a POSIX shell: use Git Bash or WSL. `cmd.exe` and
-PowerShell cannot execute it directly.
-
-**Accumulation.** `--add-contigs` only adds shards; it never removes earlier
-ones. `chr21,chr22` then `chr15,chrY` leaves all four on disk. A per-contig
-run checks each `<entity>/chrom_manifest.json` against the shards it requests:
-a manifest that names a shard absent from disk, or misses a requested shard
-that is on disk, is re-fetched from the Hub and trimmed to the shards on disk
-(here all four). Otherwise it is left untouched. Shards on disk that the run
-does not request are not checked, so a shard the Hub manifest itself omits
-(e.g. `exon/GL000009.2.parquet` of a whole-flavour download) stays unlisted and
-forces no Hub call. A requested shard the Hub manifest omits is different: it
-is on disk but never listed, so every run that requests it makes one
-manifests-only Hub call, and the shard stays unusable. An older root whose
-manifests are stale (shards of a later contig, manifests trimmed to the first
-set) is repaired only by rerunning `--add-contigs` with the declared list (the
-list the `requires_shards` panic prints); a narrower rerun, e.g. only an
-already-listed contig, leaves the stale manifests as they are. A whole-genome
-run (no `--add-contigs`) on a root whose `PROVENANCE.json` records
-`manifests_trimmed: true` for a flavour (left by a per-contig run) re-fetches
-that flavour's full manifests from the Hub once and does not trim them, so they
-match the `contigs: "ALL"` it records; later whole-genome runs on that root make
-no such call. For a
-wholly different set, use a fresh `--cache-dir` or clean the directory yourself.
-
-**Illegal / incomplete contig sets.** Every cache entity must get at least one
-requested contig. `motif` and `regulatory` have no `chrMT`, so
-`--add-contigs chrMT` alone is refused (exit 4). Legal minimal examples:
-`chrY`, or `chr21,chrMT` (`chr21` covers the entities that lack `chrMT`).
+The shell entry point and installation locking require a POSIX environment
+(Linux, macOS, or WSL). The full reference FASTA is needed for HGVS annotation.
+The downloaded contig subset must cover all entities needed by the input:
+`motif` and `regulatory` have no `chrMT` shards; a chrMT-only selection is refused.
 
 ## Porting method
 
 A data-test is a **directory**, `tests/data/<name>/`, compared against the real
-output of native Ensembl VEP 116. One generic cargo test, `tests/data_dirs.rs`,
-walks the directories; there is no hand-typed expected table in Rust code.
+output of native Ensembl VEP 116. The Python runner
+walks the directories and invokes the installed vepyr CLI for each configuration.
 
 ```
 tests/data/<name>/
@@ -795,7 +649,7 @@ tests/data/<name>/
 tools/normalize_input raw.vcf.gz tests/data/<name>   # input.vcf + [input]
 ./bless --vep-cache-dir ~/vep116 --vep-fasta ~/GRCh38.fa tests/data/<name>   # oracle + [vep] + [compare]
 # then fill name, description, [[tests]] and [vepyr] by hand
-VEPYR_CACHE_ROOT=/mnt/hf-cache cargo test --test data_dirs
+VEPYR_CACHE_ROOT=/mnt/hf-cache ./run_tests 0.9.0
 ```
 
 VEP and vepyr read the same `input.vcf`, byte for byte. Candidates come from the
@@ -876,15 +730,12 @@ before any TOML table:
 skip_reason = "Symbolic deletions (<DEL> with END) are not supported by vepyr yet."
 ```
 
-The reason must be a non-empty string. Both the default Rust runner and
-`--via-cli` print `SKIP <fixture>: <reason>` and count the fixture separately
-from passes. All its runs and named tests are skipped; the fixture remains in
-`--list` and `tests/INDEX.csv`. Remove `skip_reason` to enable it again, including
-when using `--only`. Cache setup and freshness checks still apply to the invocation.
-Structural and normalization checks still cover skipped fixtures; the Rust
-runner also validates their schema, reads the input and checks oracle integrity
-before skipping annotation. Only `sv_deletion_end_feature_truncation` is
-currently skipped; literal sequence deletion fixtures remain enabled.
+The reason must be a non-empty string. The runner prints `SKIP <test-id>: <reason>`
+for every named test in the fixture, separately from passes. All its runs are skipped;
+the fixture stays in `tests/INDEX.csv`. Schema, input structure and oracle integrity
+are validated before skipping. Normalization checks also include skipped fixtures.
+Only `sv_deletion_end_feature_truncation` is currently skipped; literal sequence
+deletions remain enabled.
 
 ```bash
 tools/check_unique_dirs tests/data
@@ -926,10 +777,10 @@ old/new oracle hashes, retained test ids and property checks for every re-bless.
 of [One mode: --everything](#one-mode---everything); there is no `fields` key, so
 vepyr emits its full `--everything` CSQ layout (86 fields for the merged oracles).
 
-`DATA_DIRS_ROOT` overrides the walked directory. `cargo test --test data_dirs
-selftest` runs the same loader and compare on the synthetic fixture
-`tests/fixtures/data_dirs_selftest/` against a synthetic one-shard cache with a
-synthetic one-contig reference FASTA, with no downloaded data.
+The loader and runner's negative controls run separately with
+`uv run --frozen pytest tools/test_run_tests_cli.py`. Campaign tooling selects its
+new fixture through the Python `run_selection()` function; the public command runs
+the complete suite.
 
 Corpus dataset pins (`PINS.toml`) are documented in
 [docs/dataset-pins.md](docs/dataset-pins.md).
@@ -1066,7 +917,7 @@ passes the resulting `input.vcf` to both engines. `./bless` verifies the SHA-256
 its Docker input copy; the campaign verifies that the normalized file stays
 unchanged before VEP, before vepyr and after vepyr. The expected VCF comes only
 from VEP 116.2. Its body MD5 is recorded in `test.toml`. vepyr is run and compared
-by `./run_tests --cache-dir <cache> --via-cli --only <dir>`; the campaign records
+by the Python runner through `run_selection()` using the campaign's required `--vepyr VERSION_OR_SHA`; the campaign records
 `PASS` on exit 0, `FAIL` on exit 8 with a `MISMATCH <dir> expected=<md5>
 actual=<md5>` line on stdout (that `actual` is the recorded vepyr body MD5), and
 `ERROR` on any other exit. All commands, their exit codes and the `./run_tests`
@@ -1078,12 +929,11 @@ have not completed this input-identity audit. Use a new external evidence direct
 for that pass; prior run evidence is retained.
 
 `--vep-cache` (the native cache used by `./bless` for the oracle) may be a local
-cache. `--cache-dir` is passed to `./run_tests` and must be a Hub-layout cache
-root with `PROVENANCE.json` (populate it with
-`./run_tests --cache-dir <cache> --add-contigs chr21`).
+cache. `--cache-dir` is passed to `run_selection()`; it fetches the required
+merged shards and writes `PROVENANCE.json`, as the full-suite command does.
 
 ```bash
-python tools/port_campaign.py --limit 10 \
+python tools/port_campaign.py --limit 10 --vepyr 0.9.0 \
   --vep-cache /path/to/native-cache-parent \
   --cache-dir /path/to/hub-layout-cache \
   --fasta /path/to/Homo_sapiens.GRCh38.dna.primary_assembly.fa \
@@ -1094,7 +944,7 @@ python tools/check_campaign.py --require-complete --require-normalized
 Primary-property checks select the case's specific field or record property;
 the existing body comparison also checks all incidental fields. A focus pass
 with a body failure remains a failing data test. For runs made through
-`./run_tests --via-cli` the primary property of vepyr's output is not checked:
+`./run_tests VERSION_OR_SHA` the primary property of vepyr's output is not checked:
 the campaign does not keep vepyr's output file, so only the whole-body md5
 verdict and the oracle's own focus witness are recorded, and the status table
 shows the focus as `not checked`.

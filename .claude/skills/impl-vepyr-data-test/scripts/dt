@@ -60,8 +60,7 @@ KEYS: Final[dict[str, str]] = {
     "vep_cache_dir": "complete native VEP release-116 cache",
     "vep_fasta": "GRCh38 primary assembly FASTA (+ .fai), native contig names",
     "docker_shared_root": "directory Docker can bind-mount (.bless-work-* go here)",
-    "vepyr_cache_root": "vepyr cache root (VEPYR_CACHE_ROOT for cargo)",
-    "cargo_target_root": "parent of per-checkout CARGO_TARGET_DIRs",
+    "vepyr_cache_root": "vepyr cache root (VEPYR_CACHE_ROOT)",
     "scratch_root": "optional; scratch copies (empty = system temp)",
     "main_checkout": "the owner's main checkout, never written to (legacy key `repo`)",
 }
@@ -319,7 +318,7 @@ def git_out(cwd: Path, *args: str) -> str | None:
 
 def is_repo_root(d: Path) -> bool:
     """``d`` looks like a vepyr-porting-tests checkout root."""
-    return all((d / p).is_file() for p in ("bless", "tools/normalize_input", "tests/data_dirs.rs"))
+    return all((d / p).is_file() for p in ("bless", "tools/normalize_input", "tools/run_tests/fixtures.py"))
 
 
 def checkout_of(path: Path) -> Path | None:
@@ -608,7 +607,7 @@ def check_mode(repo: Path, d: Path) -> Check:
     elif command:
         tokens = set(shlex.split(command))
         problems += [f"[vep] command lacks {r['vep_flag']}" for r in rows if r["vep_flag"] not in tokens]
-    # tests/data_dirs.rs runs each [[vepyr_run]] (merged over [vepyr]); [vepyr] alone only when there is none.
+    # tools/run_tests/fixtures.py runs each [[vepyr_run]] (merged over [vepyr]); [vepyr] alone only when there is none.
     how = f"[vepyr] + {len(runs)} [[vepyr_run]] override(s)" if runs else "[vepyr] alone"
     return Check("mode", not problems, "; ".join(problems) or
                  f"{len(rows)} tools/vep_flags.toml keys hold in {len(runs) or 1} run(s) ({how}), no fields")
@@ -727,50 +726,37 @@ def creatable_dir(root: Path) -> str | None:
     return None
 
 
-def cargo_target(cfg: Config, repo: Path, *, create: bool = True) -> Path:
-    """Per-checkout CARGO_TARGET_DIR under ``cargo_target_root`` (root created on demand).
-
-    Never shared across worktrees: the test binary embeds the manifest path of the
-    checkout it was built in and looks for ``PINS.toml`` there at run time.
-    """
-    root = cfg.need("cargo_target_root")
-    if create:
-        try:
-            root.mkdir(parents=True, exist_ok=True)
-        except OSError as e:
-            raise DtError(f"cannot create cargo_target_root {root}: {e}") from e
-    tag = hashlib.sha1(str(repo.resolve()).encode()).hexdigest()[:8]
-    return root / f"target-{repo.name}-{tag}"
-
-
-def cargo_env(cfg: Config, repo: Path) -> dict[str, str]:
-    """Environment for ``./run_tests`` of ``repo``: the vepyr cache and a per-checkout target dir."""
-    return os.environ | {"VEPYR_CACHE_ROOT": str(cfg.need("vepyr_cache_root")),
-                         "CARGO_TARGET_DIR": str(cargo_target(cfg, repo))}
+def runner_env(cfg: Config, repo: Path) -> dict[str, str]:
+    """Environment for ``./run_tests`` of ``repo``: the pinned merged vepyr cache."""
+    return os.environ | {"VEPYR_CACHE_ROOT": str(cfg.need("vepyr_cache_root"))}
 
 
 def run_tests_argv(repo: Path, copy: Path, vepyr: str) -> list[str | Path]:
-    """``./run_tests --only <copy> --vepyr REF``: the engine is the run's ``vepyr sha`` summary line."""
-    return [repo / "run_tests", "--only", copy, "--vepyr", vepyr]
+    """Select a scratch fixture through the same Python runner as ./run_tests."""
+    return [sys.executable, "-c",
+            "import sys; from pathlib import Path; "
+            "sys.path.insert(0, str(Path.cwd() / 'tools')); "
+            "from run_tests.cli import run_selection; "
+            "raise SystemExit(run_selection(sys.argv[1], [Path(sys.argv[2])]))",
+            vepyr, copy]
 
 
 def check_runner(cfg: Config, repo: Path, d: Path, vepyr: str) -> list[Check]:
-    """``./run_tests --only`` passes on a scratch copy and fails as designed on a flipped oracle."""
-    runs = max(1, len(vepyr_runs(toml(d))))
+    """The Python data runner passes on a scratch copy and fails as designed on a flipped oracle."""
     with scratch(cfg, "runner") as s:
         pos_copy = copy_test(d, s / "pos")
-        proc = run(run_tests_argv(repo, pos_copy, vepyr), cwd=repo, env=cargo_env(cfg, repo))
-        sha = next((ln for ln in proc.stdout.splitlines() if ln.startswith("vepyr sha")), "vepyr sha: <none>")
+        proc = run(run_tests_argv(repo, pos_copy, vepyr), cwd=repo, env=runner_env(cfg, repo))
+        sha = next((ln for ln in proc.stdout.splitlines() if ln.startswith("vepyr ")), "vepyr: <none>")
         pos = Check("runner", proc.returncode == 0, f"exit {proc.returncode}; {' '.join(sha.split())}")
 
         def flipped() -> Check:
             neg = copy_test(d, s / "neg")
             flip_last_body_letter(neg / "expected_output.vcf")
             set_body_md5(neg, body_md5(neg / "expected_output.vcf"))
-            bad = run(run_tests_argv(repo, neg, vepyr), cwd=repo, env=cargo_env(cfg, repo), quiet=True)
-            blocks = (bad.stdout + bad.stderr).count(f"[{d.name}] body md5 mismatch")
-            return Check("runner-negative", bad.returncode != 0 and blocks == runs,
-                         f"exit {bad.returncode}, {blocks} 'body md5 mismatch' block(s), want {runs}")
+            bad = run(run_tests_argv(repo, neg, vepyr), cwd=repo, env=runner_env(cfg, repo), quiet=True)
+            blocks = sum(line.startswith(f"MISMATCH {d.name} ") for line in bad.stdout.splitlines())
+            return Check("runner-negative", bad.returncode == 8 and blocks == 1,
+                         f"exit {bad.returncode}, {blocks} named-test mismatch(es), want 1")
 
         return [pos, negative("runner-negative", pos, flipped)]
 
@@ -824,8 +810,6 @@ def cmd_env(cfg: Config, _: argparse.Namespace) -> Exit:
         problem: str | None = None
         try:
             match key:
-                case "cargo_target_root":
-                    problem = creatable_dir(v) if v else None
                 case "scratch_root" if v is not None:
                     if repo is None:
                         problem = "not checked: no repository resolved (see env repo)"
@@ -839,7 +823,7 @@ def cmd_env(cfg: Config, _: argparse.Namespace) -> Exit:
                     continue
         except (DtError, ToolError) as e:
             problem = str(e)
-        if problem is not None and key in ("cargo_target_root", "scratch_root", "main_checkout"):
+        if problem is not None and key in ("scratch_root", "main_checkout"):
             config_error = True
         checks.append(Check(f"env {key}", problem is None, f"{detail}: {problem}" if problem else detail))
     print(f"# config file: {cfg.source}")
@@ -883,12 +867,6 @@ def cmd_env(cfg: Config, _: argparse.Namespace) -> Exit:
             case "env upstream", 1:
                 line += " (the branch must not track origin/master; SKILL.md step 0: --no-track)"
         checks.append(Check(name, code == 0, line))
-    if repo is not None and values.get("cargo_target_root"):
-        try:
-            print(f"# CARGO_TARGET_DIR for this checkout: {cargo_target(cfg, repo, create=False)} "
-                  "(delete it at the end)")
-        except DtError as e:
-            print(f"# CARGO_TARGET_DIR unknown: {e}")
     if repo is not None:  # tools, bcftools pin, docker, UV_PROJECT_ENVIRONMENT, caches: the repo's own checks
         tool_check, tool_config_error = check_env_call(repo, values)
         checks.append(tool_check)
@@ -990,9 +968,9 @@ def cmd_verify(cfg: Config, a: argparse.Namespace) -> Exit:
     """The mechanical AC battery for one data-test directory."""
     d = test_dir(a.dir)
     repo, why = resolve_repo(d)
-    if not a.no_cargo and a.vepyr is None:
-        raise DtError("verify: the runner step needs --vepyr REF (the engine ./run_tests --only builds; "
-                      "cite its summary's 'vepyr sha' line), or pass --no-cargo")
+    if not a.no_runner and a.vepyr is None:
+        raise DtError("verify: the runner step needs --vepyr REF (the version or full Git SHA installed by uv; "
+                      "cite its 'vepyr' line), or pass --no-runner")
     checked_scratch_root(cfg, repo)  # refuse a bad scratch_root before any check runs
     if checkout_of(d) != repo:
         raise DtError(f"{d} is not inside the resolved repo {repo} ({why})")
@@ -1005,7 +983,7 @@ def cmd_verify(cfg: Config, a: argparse.Namespace) -> Exit:
     steps.append(lambda: check_bless(cfg, repo, d))
     if a.reproduce:
         steps.append(lambda: check_reproduce(cfg, repo, d))
-    if not a.no_cargo:
+    if not a.no_runner:
         steps.append(lambda: check_runner(cfg, repo, d, a.vepyr))
     checks: list[Check] = []
     for step in steps:
@@ -1090,11 +1068,11 @@ def parser() -> argparse.ArgumentParser:
     s = sub.add_parser("bless", help="./bless with configured cache/FASTA (writes into the cwd checkout)")
     s.add_argument("dir", type=Path)
     s.set_defaults(fn=cmd_bless)
-    s = sub.add_parser("verify", help="mechanical AC battery (incl. one-mode check, ./run_tests --only)")
+    s = sub.add_parser("verify", help="mechanical AC battery (incl. one-mode check, the Python data runner)")
     s.add_argument("dir", type=Path)
-    s.add_argument("--vepyr", metavar="REF", help="vepyr ref for ./run_tests --only (required unless --no-cargo)")
+    s.add_argument("--vepyr", metavar="REF", help="vepyr ref for the Python data runner (required unless --no-runner)")
     s.add_argument("--reproduce", action="store_true", help="also ./bless --check --reproduce (docker)")
-    s.add_argument("--no-cargo", action="store_true", help="skip the cargo runner and its negative control")
+    s.add_argument("--no-runner", action="store_true", help="skip the data runner and its negative control")
     s.set_defaults(fn=cmd_verify)
     s = sub.add_parser("report", help="PR-body file table")
     s.add_argument("dir", type=Path)

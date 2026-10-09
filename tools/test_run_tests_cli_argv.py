@@ -39,6 +39,11 @@ def _flag(argv: list[str], flag: str) -> str:
     return argv[argv.index(flag) + 1]
 
 
+@pytest.mark.parametrize("size", [1, 2, 3, 5])
+def test_buffer_size_flag(size):
+    assert _flag(_argv({**BASE, "buffer_size": size}), "--buffer-size") == str(size)
+
+
 def test_full_argv() -> None:
     assert _argv(BASE) == [
         "annotate",
@@ -87,8 +92,9 @@ def test_required_contigs_emits_no_flag() -> None:
     ("key", "value"),
     [
         ("preserve_record_layout", False),
-        ("buffer_size", 3),
-        ("buffer_size", 1),
+        ("buffer_size", 0),
+        ("buffer_size", -1),
+        ("buffer_size", True),
         ("everything", False),
         ("reference_fasta", False),
         ("everything", 1),
@@ -123,7 +129,7 @@ def test_effective_runs_overrides() -> None:
 
 
 def test_vepyr_run_overrides_map_or_raise() -> None:
-    """The real ``runner_buffer_size_invariance`` table: 4 of 5 runs unmappable."""
+    """All five runs of the buffer-size fixture are expressible."""
     repo = Path(__file__).resolve().parents[1]
     doc = tomllib.loads(
         (repo / "tests/data/runner_buffer_size_invariance/test.toml").read_text()
@@ -135,10 +141,4 @@ def test_vepyr_run_overrides_map_or_raise() -> None:
             outcomes.append("ok")
         except UnmappableKey as exc:
             outcomes.append((exc.key, exc.value))
-    assert outcomes == [
-        ("buffer_size", 1),
-        ("buffer_size", 2),
-        ("buffer_size", 3),
-        ("buffer_size", 5),
-        "ok",
-    ]
+    assert outcomes == ["ok"] * 5

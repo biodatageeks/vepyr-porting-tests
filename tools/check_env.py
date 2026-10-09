@@ -11,7 +11,7 @@ second copy of any rule:
 ``UV_PROJECT_ENVIRONMENT``
     Set, absolute and outside every git checkout (else ``uv``, ``./bless`` and
     the tools create a ``.venv`` inside the checkout).
-``tool uv`` / ``tool cargo`` / ``tool git``
+``tool uv`` / ``tool git``
     On ``PATH``.
 ``bcftools pin``
     ``tools/normalize_input``'s own ``bcftools_versions()`` and
@@ -24,7 +24,7 @@ second copy of any rule:
     (``fetch.Flavour.dir_name``, e.g. ``116_GRCh38_<flavour>``) of every flavour
     recorded in ``PROVENANCE.json`` must exist (owner decision on PR #181),
     and so must the dataset directory of the flavour the data-tests need
-    (``REQUIRED_FLAVOUR``, ``ensembl``: ``dt``'s ``FLAVOUR``), whatever the
+    (``REQUIRED_FLAVOUR``, ``merged``), whatever the
     provenance records (super-review F1 on PR #181).
 ``vep cache`` (with ``--vep-cache-dir``)
     ``bless.ensembl.require_complete_cache``.
@@ -80,9 +80,9 @@ REPO: Final[Path] = Path(__file__).resolve().parent.parent
 NORMALIZE_INPUT: Final[Path] = REPO / "tools" / "normalize_input"
 PINS_TOML: Final[Path] = REPO / "PINS.toml"
 UV_ENV: Final[str] = "UV_PROJECT_ENVIRONMENT"
-TOOLS: Final[tuple[str, ...]] = ("uv", "cargo", "git")
+TOOLS: Final[tuple[str, ...]] = ("uv", "git")
 DEFAULT_DOCKER_TIMEOUT: Final[float] = 30.0
-REQUIRED_FLAVOUR: Final[fetch.Flavour] = fetch.Flavour.ENSEMBL
+REQUIRED_FLAVOUR: Final[fetch.Flavour] = fetch.Flavour.MERGED
 """The flavour every data-test runs on (``dt``: ``FLAVOUR = "ensembl"``)."""
 
 
@@ -255,7 +255,7 @@ def dataset_dirs(root: Path) -> list[Path]:
 def vepyr_cache_check(
     root: Path | None, required: fetch.Flavour = REQUIRED_FLAVOUR
 ) -> Check:
-    """``root`` is a usable ``./run_tests --cache-dir`` product for ``PINS.toml``.
+    """``root`` is a usable ``./run_tests`` cache for ``PINS.toml``.
 
     Args:
         root: The cache root, or ``None`` (check skipped).
@@ -269,14 +269,14 @@ def vepyr_cache_check(
         return Check("vepyr cache", Status.SKIP, "no --vepyr-cache-root")
 
     def probe() -> str:
-        precheck_cache(root, pins_toml=PINS_TOML)
+        precheck_cache(root, pins_toml=PINS_TOML, flavours=(required.value,))
         if not (need := root / required.dir_name).is_dir():
             raise RunTestsError(
                 RunTestsExit.INCOMPLETE,
                 f"dataset directory {need} missing (required: the data-tests "
                 f"run on the {required.value} flavour, whatever "
                 f"{fetch.PROVENANCE} records). "
-                f"Run: ./run_tests --cache-dir {root} [--add-contigs LIST]",
+                f"Run: VEPYR_CACHE_ROOT={root} ./run_tests <version-or-sha>",
             )
         dirs = dataset_dirs(root)
         if missing := [d for d in dirs if not d.is_dir()]:
@@ -284,7 +284,7 @@ def vepyr_cache_check(
                 RunTestsExit.INCOMPLETE,
                 f"dataset directory {', '.join(map(str, missing))} missing "
                 f"(flavour recorded in {root / fetch.PROVENANCE}). "
-                f"Run: ./run_tests --cache-dir {root} [--add-contigs LIST]",
+                f"Run: VEPYR_CACHE_ROOT={root} ./run_tests <version-or-sha>",
             )
         return (
             f"{root} (provenance and revisions match PINS.toml, FASTA present, "
@@ -375,7 +375,7 @@ def parser() -> argparse.ArgumentParser:
         "--vepyr-cache-root",
         type=_absolute,
         metavar="DIR",
-        help="vepyr cache root (a ./run_tests --cache-dir product), "
+        help="vepyr cache root (a ./run_tests cache), "
         "prechecked against PINS.toml",
     )
     p.add_argument(

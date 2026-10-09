@@ -30,26 +30,3 @@ def test_data_targets_is_empty_without_tests_data(tmp_path: Path) -> None:
 def test_data_targets_of_this_repository_excludes_the_selftest_fixture() -> None:
     repo = Path(__file__).resolve().parents[1]
     assert "case" not in tests.data_targets(repo)
-
-
-def test_cargo_argv_runs_the_generic_runner_once_for_all_data_targets() -> None:
-    argv = tests.cargo_argv(["alpha", "zeta"], config=Path("/tmp/patch.toml"))
-    assert argv == [
-        "cargo",
-        "test",
-        "--no-fail-fast",
-        "--config",
-        "/tmp/patch.toml",
-        "--test",
-        "data_dirs",
-    ]
-
-
-def test_cargo_argv_without_data_targets_names_no_test() -> None:
-    assert "--test" not in tests.cargo_argv([])
-
-
-def test_list_table_prints_directory_names() -> None:
-    body = tests.list_table(("alpha", "zeta"))
-    assert "data  alpha\n" in body
-    assert "run_tests: 2 data-problem target(s)" in body

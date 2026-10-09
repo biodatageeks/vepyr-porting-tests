@@ -58,7 +58,7 @@ VEP_COMMAND: Final[str] = shlex.join(VEP_ARGV)
 
 MAPPING_FILE: Final[Path] = Path(__file__).resolve().parents[1] / "vep_flags.toml"
 """``tools/vep_flags.toml``: the VEP flag -> ``[vepyr]`` mapping (#143), also
-read by ``tests/data_dirs.rs``."""
+read by ``tools/run_tests/fixtures.py``."""
 
 
 @dataclass(frozen=True, slots=True, kw_only=True)

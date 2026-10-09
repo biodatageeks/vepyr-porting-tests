@@ -21,7 +21,7 @@ body:
         `expected_output.vcf` (native VEP 116.2 output) and `test.toml`. Each field
         below records the answer for one part of that directory or of the issue;
         the implementer transcribes it (the form writes nothing), and `test.toml`
-        holds only the keys the loader accepts (`tests/data_dirs.rs`, README
+        holds only the keys the loader accepts (`tools/run_tests/fixtures.py`, README
         *Porting method*). All fields are required.
 
   - type: input
@@ -163,6 +163,6 @@ body:
         State what the command returns on the current master; a criterion that already passes on master gates nothing, unless it is labelled a regression guard.
       placeholder: |
         1. `./check_normalised_input` exits 0.
-        2. `DATA_DIRS_ROOT=<scratch dir holding only tests/data/<slug>/> VEPYR_CACHE_ROOT=<cache> cargo test --test data_dirs data_dirs -- --nocapture` exits 0 (there is no per-directory filter; the runner walks every directory under `DATA_DIRS_ROOT`).
+        2. `VEPYR_CACHE_ROOT=<cache> ./run_tests <version-or-full-sha>` reports the new named test as PASS (the runner executes the whole data suite).
     validations:
       required: true

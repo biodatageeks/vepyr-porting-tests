@@ -21,7 +21,7 @@ testpaths = ["tools"]
 pythonpath = ["tools"]
 addopts = "-q"
 markers = [
-    "integration: needs a real cargo/gh/network (opt in with RUN_TESTS_INTEGRATION=1)",
+    "integration: needs a real gh/network (opt in with RUN_TESTS_INTEGRATION=1)",
 ]
 
 [tool.ruff.lint]

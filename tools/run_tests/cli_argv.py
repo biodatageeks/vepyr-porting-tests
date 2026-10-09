@@ -1,28 +1,7 @@
-"""``test.toml`` ``[vepyr]`` -> ``vepyr annotate`` argv: the one mapping (#231).
+"""Strict mapping of fixture settings to the public vepyr annotate CLI.
 
-The Rust loader (``tests/data_dirs.rs``) maps ``[vepyr]`` by hand onto
-``AnnotateVcfConfig``. ``./run_tests --via-cli`` instead drives the user-facing
-``python -m vepyr annotate`` command line, and this module is the only place that
-translates a data-test's settings into that argv. It is pure: no I/O, no
-subprocess, so every key is unit-tested (``tools/test_run_tests_cli_argv.py``).
-
-Mapping (vepyr CLI checked at ``biodatageeks/vepyr`` af305aff):
-
-========================== ==================================================
-``[vepyr]`` key            ``vepyr annotate`` argv
-========================== ==================================================
-``flavour``                ``--dir_cache <root>/116_GRCh38_<flavour>``
-``everything = true``      the everything flag (always on in the CLI)
-``reference_fasta = true`` ``--fasta <root>/fasta/<pinned fa>`` (required)
-``preserve_record_layout`` ``true`` = CLI default, no flag
-``buffer_size``            ``5000`` = CLI default, no flag
-``required_contigs``       no flag (a cache precondition, not a setting)
-========================== ==================================================
-
-Anything else (``everything = false``, ``reference_fasta = false``,
-``preserve_record_layout = false``, ``buffer_size != 5000``, an unknown flavour or
-an unknown key) raises :class:`UnmappableKey`: the CLI cannot express it, and the
-value is never silently dropped.
+Non-default buffer sizes use --buffer-size (vepyr PR #169). Releases without
+that option fail that run explicitly; the setting is never silently ignored.
 """
 
 from __future__ import annotations
@@ -44,7 +23,7 @@ __all__ = [
 ]
 
 CLI_BUFFER_SIZE: Final[int] = 5000
-"""``vepyr.annotate(buffer_size=...)`` default; the CLI has no flag to change it."""
+"""API and CLI buffer-size default when the option is omitted."""
 CACHE_VERSION: Final[str] = "116"
 FLAVOURS: Final[frozenset[str]] = frozenset({"ensembl", "refseq", "merged"})
 VEPYR_KEYS: Final[frozenset[str]] = frozenset(
@@ -57,7 +36,7 @@ VEPYR_KEYS: Final[frozenset[str]] = frozenset(
         "buffer_size",
     }
 )
-"""The ``[vepyr]`` keys of the ``tests/data_dirs.rs`` schema."""
+"""The supported ``[vepyr]`` settings."""
 
 
 @dataclass
@@ -132,7 +111,7 @@ def annotate_argv(
         settings: One run's effective ``[vepyr]`` settings (:func:`effective_runs`).
         input_vcf: The data-test's normalised ``input.vcf``.
         output_vcf: Where vepyr writes its VCF.
-        cache_root: The ``./run_tests --cache-dir`` root (Hub layout).
+        cache_root: The cache root (Hub layout).
         fasta: The reference FASTA under ``cache_root``.
 
     Returns:
@@ -149,8 +128,10 @@ def annotate_argv(
     _require(settings, "everything", True)
     _require(settings, "reference_fasta", True)
     _require(settings, "preserve_record_layout", True)
-    _require(settings, "buffer_size", CLI_BUFFER_SIZE)
-    return [
+    size = settings.get("buffer_size", CLI_BUFFER_SIZE)
+    if type(size) is not int or size <= 0:
+        raise UnmappableKey("buffer_size", size, "must be a positive integer")
+    argv = [
         "annotate",
         "--input_file",
         str(input_vcf),
@@ -165,3 +146,6 @@ def annotate_argv(
         "--everything",
         "--no_progress",
     ]
+    if size != CLI_BUFFER_SIZE:
+        argv += ["--buffer-size", str(size)]
+    return argv
