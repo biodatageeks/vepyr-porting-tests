@@ -1,8 +1,8 @@
 """``./run_tests --only DIR``: chosen data-test directories on a scratch root (#168).
 
-Cargo and GitHub are faked as in :mod:`test_run_tests_cli` (no network, no real
-``cargo``): the fake runner records argv and env and, while it runs, what the
-``$DATA_DIRS_ROOT`` it was given holds.
+Cargo is faked and vepyr is a local git origin as in :mod:`test_run_tests_cli`
+(no network, no real ``cargo``): the fake runner records argv and env and, while
+it runs, what the ``$DATA_DIRS_ROOT`` it was given holds.
 """
 
 from __future__ import annotations
@@ -17,9 +17,8 @@ import pytest
 from test_run_tests_cli import (
     Harness,
     Outcome,
-    _FakeGh,
+    _fake_vepyr,
     _stub_engine,
-    _tiny_ladder_toml,
 )
 from test_run_tests_cli import harness as harness  # re-exported pytest fixture
 
@@ -94,7 +93,7 @@ def _run(h: Harness, spy: RootSpy, *argv: str) -> Outcome:
     """``./run_tests --flavours ensembl --vepyr 0.7.0 <argv>`` with ``spy`` as cargo."""
     return replace(h, cargo=spy).run(  # type: ignore[arg-type]
         "--flavours", "ensembl", "--vepyr", "0.7.0", *argv,
-        gh_api=_FakeGh(_tiny_ladder_toml()),
+        vepyr_git=_fake_vepyr(h).url,
     )
 
 
@@ -138,7 +137,7 @@ def test_only_name_filter_absent_without_only(ready: Harness) -> None:
 
     result = replace(ready, cargo=cargo).run(  # type: ignore[arg-type]
         "--flavours", "ensembl", "--vepyr", "0.7.0",
-        gh_api=_FakeGh(_tiny_ladder_toml()),
+        vepyr_git=_fake_vepyr(ready).url,
     )
     assert result.code == int(Exit.OK), result.stderr
     assert "--exact" not in log[0]

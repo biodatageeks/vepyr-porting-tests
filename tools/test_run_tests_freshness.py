@@ -1,7 +1,7 @@
 """The vepyr cache freshness guard of ``./run_tests`` (issue #236).
 
 The Hub HEAD is injected through ``head_resolver`` (never the network), on top of the
-synthetic Hub, fake cargo and fake GitHub of :mod:`test_run_tests_cli`.
+synthetic Hub, fake cargo and local vepyr git origin of :mod:`test_run_tests_cli`.
 """
 
 from __future__ import annotations
@@ -19,9 +19,8 @@ from test_fetch import REVISIONS
 from test_run_tests_cli import (
     Harness,
     Outcome,
-    _FakeGh,
+    _fake_vepyr,
     _stub_engine,
-    _tiny_ladder_toml,
     fresh_head,
 )
 from test_run_tests_cli import harness as harness  # re-exported pytest fixture
@@ -191,7 +190,7 @@ def test_only_still_guarded(
         "0.7.0",
         "--only",
         str(only),
-        gh_api=_FakeGh(_tiny_ladder_toml()),
+        vepyr_git=_fake_vepyr(fetched_env).url,
         head_resolver=newer_head,
     )
     assert result.code == int(Exit.STALE_CACHE), result.stderr

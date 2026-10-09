@@ -385,7 +385,7 @@ def _run_data_tests(
     cache_root: Path,
     targets: Sequence[str],
     cargo_runner: CargoRunner,
-    gh_api: engine.GhApi | None,
+    vepyr_git: str,
 ) -> tuple[Exit, str | None, str | None]:
     """Precheck + engine + cargo. Returns ``(code, detail, vepyr_resolved)``.
 
@@ -395,7 +395,9 @@ def _run_data_tests(
     repo = _repo_root()
     pins_toml = repo / "PINS.toml"
     tests.precheck_cache(cache_root, pins_toml=pins_toml)
-    plan, config_path = engine.materialise(inv.vepyr_ref, repo_root=repo, api=gh_api)
+    plan, config_path = engine.materialise(
+        inv.vepyr_ref, repo_root=repo, vepyr_git=vepyr_git
+    )
     argv = tests.cargo_argv(targets, config=config_path, exact=bool(inv.only))
     env = {tests.CACHE_ENV: str(cache_root)}
     with ExitStack() as stack:
@@ -423,7 +425,7 @@ def _run_via_cli(
     targets: Sequence[str],
     cli_runner: via_cli.CliRunner,
     vepyr_builder: via_cli.VepyrBuilder,
-    gh_api: engine.GhApi | None,
+    vepyr_git: str,
 ) -> tuple[Exit, str | None, str | None]:
     """Precheck + resolve REF + build the CLI + annotate. ``(code, detail, sha)``."""
     repo = _repo_root()
@@ -432,7 +434,7 @@ def _run_via_cli(
     _, fasta_pin = fetch.load_dataset_pins(pins_toml)
     assert fasta_pin is not None  # precheck_cache refuses a PINS.toml without it
     fasta = cache_root / fetch.FASTA_DIR / fasta_pin.fa_name
-    sha = engine.resolve_sha(gh_api or engine.GhCli(), inv.vepyr_ref)
+    sha = engine.resolve_sha(inv.vepyr_ref, vepyr_git=vepyr_git)
     build = vepyr_builder(sha, cache_root)
     dirs = inv.only or tuple(repo / tests.DATA_DIR / name for name in targets)
     report = via_cli.run_dirs(
@@ -448,7 +450,7 @@ def _via_cli_phase(
     targets: Sequence[str],
     cli_runner: via_cli.CliRunner,
     vepyr_builder: via_cli.VepyrBuilder,
-    gh_api: engine.GhApi | None,
+    vepyr_git: str,
 ) -> int:
     """``--via-cli``: like :func:`_data_test_phase`, through the vepyr CLI (#231)."""
     vepyr_resolved: str | None = None
@@ -459,7 +461,7 @@ def _via_cli_phase(
             targets=targets,
             cli_runner=cli_runner,
             vepyr_builder=vepyr_builder,
-            gh_api=gh_api,
+            vepyr_git=vepyr_git,
         )
     except RunTestsError as exc:
         code, detail = exc.code, str(exc)
@@ -583,7 +585,7 @@ def _data_test_phase(
     cache_root: Path,
     targets: Sequence[str],
     cargo_runner: CargoRunner,
-    gh_api: engine.GhApi | None,
+    vepyr_git: str,
 ) -> int:
     """Run the discovered data-tests under the patched engine ladder.
 
@@ -598,7 +600,7 @@ def _data_test_phase(
             cache_root=cache_root,
             targets=targets,
             cargo_runner=cargo_runner,
-            gh_api=gh_api,
+            vepyr_git=vepyr_git,
         )
     except RunTestsError as exc:
         code, detail = exc.code, str(exc)
@@ -689,7 +691,7 @@ def main(
     downloader: fetch.Downloader = fetch.hub_downloader,
     fasta_fetcher: Callable[[str, Path], None] = fetch.url_fetcher,
     cargo_runner: CargoRunner = _default_cargo,
-    gh_api: engine.GhApi | None = None,
+    vepyr_git: str = engine.VEPYR_GIT,
     cli_runner: via_cli.CliRunner = via_cli.default_runner,
     vepyr_builder: via_cli.VepyrBuilder = via_cli.build_vepyr,
     head_resolver: fetch.HeadResolver = fetch.hub_head_resolver,
@@ -761,12 +763,12 @@ def main(
             targets=targets,
             cli_runner=cli_runner,
             vepyr_builder=vepyr_builder,
-            gh_api=gh_api,
+            vepyr_git=vepyr_git,
         )
     return _data_test_phase(
         inv,
         cache_root=cache_root,
         targets=targets,
         cargo_runner=cargo_runner,
-        gh_api=gh_api,
+        vepyr_git=vepyr_git,
     )

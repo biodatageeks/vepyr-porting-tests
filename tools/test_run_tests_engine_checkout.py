@@ -1,15 +1,15 @@
 """Engine-checkout tests: no stale tree on branch refs, and ``--`` hardening (#22).
 
 Everything here runs against throwaway local git repositories standing in for
-``biodatageeks/datafusion-bio-*``; the GitHub side is a stub. The regression under
-test is that ``_checkout_repo`` used to ``git checkout --detach <rev>`` *after*
-fetching, so a cached clone kept resolving ``<rev>`` against its clone-time local
-branch ref and silently tested a stale revision.
+``biodatageeks/datafusion-bio-*``; vepyr is a local origin too (plain git, #69).
+The regression under test is that ``_checkout_repo`` used to
+``git checkout --detach <rev>`` *after* fetching, so a cached clone kept resolving
+``<rev>`` against its clone-time local branch ref and silently tested a stale
+revision.
 """
 
 from __future__ import annotations
 
-import base64
 import os
 import shutil
 import subprocess
@@ -19,6 +19,7 @@ from pathlib import Path
 from typing import Any, Final
 
 import pytest
+from test_engine_vepyr_mirror import make_vepyr_origin
 
 import run_tests.engine as engine
 
@@ -72,52 +73,44 @@ def _advance(root: Path, members: Sequence[str], marker: str) -> str:
     return _git(root, "rev-parse", "HEAD")
 
 
-class _FakeGh:
-    """GhApi stub returning a vepyr ``Cargo.toml`` pinned at ``dfbf``/``fmt`` refs."""
-
-    def __init__(
-        self,
-        *,
-        dfbf: Path,
-        fmt: Path,
-        rev_key: str,
-        dfbf_rev: str,
-        fmt_rev: str | None = None,
-    ) -> None:
-        fmt_rev = dfbf_rev if fmt_rev is None else fmt_rev
-        self.cargo_toml = (
-            '[package]\nname = "vepyr"\nversion = "0.0.0"\n\n[dependencies]\n'
-            f'{_DFBF_MEMBERS[0]} = {{ git = "{dfbf}", {rev_key} = "{dfbf_rev}" }}\n'
-            f'{_FMT_MEMBERS[0]} = {{ git = "{fmt}", {rev_key} = "{fmt_rev}" }}\n'
-            f'{_FMT_MEMBERS[1]} = {{ git = "{fmt}", {rev_key} = "{fmt_rev}" }}\n'
-        )
-
-    def get(self, path: str) -> Any:
-        if path.startswith(f"repos/{engine.VEPYR_REPO}/commits/"):
-            return {"sha": "a" * 40}
-        if "contents/Cargo.toml" in path:
-            return {
-                "encoding": "base64",
-                "content": base64.b64encode(self.cargo_toml.encode()).decode(),
-            }
-        raise engine.GhError(path, "unexpected")
+def _vepyr(
+    tmp_path: Path,
+    *,
+    dfbf: Path,
+    fmt: Path,
+    rev_key: str,
+    dfbf_rev: str,
+    fmt_rev: str | None = None,
+) -> str:
+    """Local vepyr origin whose ``ref`` and ``main`` pin ``dfbf``/``fmt``; its URL."""
+    fmt_rev = dfbf_rev if fmt_rev is None else fmt_rev
+    cargo_toml = (
+        '[package]\nname = "vepyr"\nversion = "0.0.0"\n\n[dependencies]\n'
+        f'{_DFBF_MEMBERS[0]} = {{ git = "{dfbf}", {rev_key} = "{dfbf_rev}" }}\n'
+        f'{_FMT_MEMBERS[0]} = {{ git = "{fmt}", {rev_key} = "{fmt_rev}" }}\n'
+        f'{_FMT_MEMBERS[1]} = {{ git = "{fmt}", {rev_key} = "{fmt_rev}" }}\n'
+    )
+    origin = make_vepyr_origin(
+        tmp_path / "remote-vepyr", {"main": cargo_toml, "ref": cargo_toml}
+    )
+    return origin.url
 
 
 def test_branch_ref_rechecks_out_new_head(tmp_path: Path) -> None:
     """A second run on a tracked branch tests the *new* head, not the cached one."""
     dfbf = _make_remote(tmp_path / "remote-dfbf", _DFBF_MEMBERS)
     fmt = _make_remote(tmp_path / "remote-fmt", _FMT_MEMBERS)
-    api = _FakeGh(dfbf=dfbf, fmt=fmt, rev_key="branch", dfbf_rev="main")
+    url = _vepyr(tmp_path, dfbf=dfbf, fmt=fmt, rev_key="branch", dfbf_rev="main")
     src_root = tmp_path / "src"
 
-    first = engine.resolve("main", api=api, src_root=src_root)
+    first = engine.resolve("main", vepyr_git=url, src_root=src_root)
     assert first.dfbf.head == _git(dfbf, "rev-parse", "HEAD")
 
     dfbf_new = _advance(dfbf, _DFBF_MEMBERS, "c2")
     fmt_new = _advance(fmt, _FMT_MEMBERS, "c2")
     assert dfbf_new != first.dfbf.head
 
-    second = engine.resolve("main", api=api, src_root=src_root)
+    second = engine.resolve("main", vepyr_git=url, src_root=src_root)
     # Both the reported sha and the tree actually on disk must be the new head.
     assert second.dfbf.head == dfbf_new
     assert _git(second.dfbf.path, "rev-parse", "HEAD") == dfbf_new
@@ -136,9 +129,11 @@ def test_ref_kinds_resolve_to_the_tip(tmp_path: Path, rev_key: str) -> None:
     _git(fmt, "tag", "v0.0.0")
     rev = {"rev": head_dfbf, "tag": "v0.0.0", "branch": "main"}[rev_key]
     fmt_rev = {"rev": head_fmt, "tag": "v0.0.0", "branch": "main"}[rev_key]
-    api = _FakeGh(dfbf=dfbf, fmt=fmt, rev_key=rev_key, dfbf_rev=rev, fmt_rev=fmt_rev)
+    url = _vepyr(
+        tmp_path, dfbf=dfbf, fmt=fmt, rev_key=rev_key, dfbf_rev=rev, fmt_rev=fmt_rev
+    )
 
-    plan = engine.resolve("ref", api=api, src_root=tmp_path / "src")
+    plan = engine.resolve("ref", vepyr_git=url, src_root=tmp_path / "src")
     assert plan.dfbf.head == head_dfbf
     assert _git(plan.dfbf.path, "rev-parse", "HEAD") == head_dfbf
     assert plan.formats.head == head_fmt
@@ -209,7 +204,8 @@ def test_checkout_leaves_lfs_files_as_pointers(tmp_path: Path) -> None:
     fmt = _make_remote(tmp_path / "remote-fmt", _FMT_MEMBERS)
     _add_lfs_blob(dfbf, rel, real)
     head = _git(dfbf, "rev-parse", "HEAD")
-    api = _FakeGh(
+    url = _vepyr(
+        tmp_path,
         dfbf=dfbf,
         fmt=fmt,
         rev_key="rev",
@@ -217,7 +213,7 @@ def test_checkout_leaves_lfs_files_as_pointers(tmp_path: Path) -> None:
         fmt_rev=_git(fmt, "rev-parse", "HEAD"),
     )
 
-    plan = engine.resolve("ref", api=api, src_root=tmp_path / "src")
+    plan = engine.resolve("ref", vepyr_git=url, src_root=tmp_path / "src")
     assert plan.dfbf.head == head
     blob = plan.dfbf.path / rel
     assert blob.exists()

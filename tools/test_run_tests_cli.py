@@ -2,8 +2,8 @@
 
 The fetch path is exercised end to end through :func:`run_tests.cli.main` with the
 ``lister`` / ``downloader`` / ``fasta_fetcher`` seams filled by the synthetic Hub of
-:mod:`test_fetch`. Cargo and GitHub are injected so nothing here touches the network
-or spawns a real ``cargo``.
+:mod:`test_fetch`. Cargo is injected and biodatageeks/vepyr is a local git
+origin, so nothing here touches the network or spawns a real ``cargo``.
 """
 
 from __future__ import annotations
@@ -19,6 +19,7 @@ from dataclasses import dataclass, field
 from pathlib import Path
 
 import pytest
+from test_engine_vepyr_mirror import VepyrOrigin, make_vepyr_origin
 from test_fetch import PINS_TOML, REVISIONS, TINY_FA, FakeHub, build_hub
 
 from run_tests import cli, engine, tests
@@ -74,7 +75,7 @@ class Harness:
     def run(
         self,
         *argv: str,
-        gh_api: engine.GhApi | None = None,
+        vepyr_git: str = engine.VEPYR_GIT,
         head_resolver: HeadResolver = fresh_head,
     ) -> Outcome:
         out, err = io.StringIO(), io.StringIO()
@@ -85,7 +86,7 @@ class Harness:
                 downloader=self.hub.downloader,
                 fasta_fetcher=self._fasta_fetcher,
                 cargo_runner=self.cargo,
-                gh_api=gh_api,
+                vepyr_git=vepyr_git,
                 head_resolver=head_resolver,
             )
         return Outcome(code=code, stdout=out.getvalue(), stderr=err.getvalue())
@@ -400,24 +401,16 @@ def test_fast_exports_the_env_before_the_first_hub_call(
     assert seen == [None]
 
 
-class _FakeGh:
-    """Minimal GhApi: returns a fixed vepyr Cargo.toml ladder."""
+def _fake_vepyr(h: Harness) -> VepyrOrigin:
+    """Local stand-in for biodatageeks/vepyr next to ``h``'s cache (plain git, #69).
 
-    def __init__(self, cargo_toml: str, sha: str = "a" * 40) -> None:
-        self.sha = sha
-        self.cargo_toml = cargo_toml
-
-    def get(self, path: str) -> object:
-        if path.startswith(f"repos/{engine.VEPYR_REPO}/commits/"):
-            return {"sha": self.sha}
-        if "contents/Cargo.toml" in path:
-            import base64
-
-            return {
-                "encoding": "base64",
-                "content": base64.b64encode(self.cargo_toml.encode()).decode(),
-            }
-        raise engine.GhError(path, "unexpected")
+    Branches ``master`` and ``0.7.0`` carry :func:`_tiny_ladder_toml` on distinct
+    commits; repeated calls in one test reuse the same origin.
+    """
+    toml = _tiny_ladder_toml()
+    return make_vepyr_origin(
+        h.root.parent / "vepyr-origin", {"master": toml, "0.7.0": toml}
+    )
 
 
 def _tiny_ladder_toml() -> str:
@@ -494,7 +487,7 @@ def test_vepyr_run_invokes_cargo_with_cache_env(
         "ensembl",
         "--vepyr",
         "0.7.0",
-        gh_api=_FakeGh(_tiny_ladder_toml()),
+        vepyr_git=_fake_vepyr(harness).url,
     )
     assert result.code == int(Exit.OK), result.stderr
     assert harness.cargo.calls, "cargo should have been invoked"
@@ -570,7 +563,7 @@ def test_cargo_failure_is_exit_1(
         "ensembl",
         "--vepyr",
         "0.7.0",
-        gh_api=_FakeGh(_tiny_ladder_toml()),
+        vepyr_git=_fake_vepyr(harness).url,
     )
     assert result.code == int(Exit.TESTS_FAILED)
     assert "outcome          : tests_failed (exit 1)" in result.summary
@@ -668,7 +661,7 @@ def test_relative_cache_dir_prechecks_the_directory_cargo_is_given(
         "ensembl",
         "--vepyr",
         "0.7.0",
-        gh_api=_FakeGh(_tiny_ladder_toml()),
+        vepyr_git=_fake_vepyr(harness).url,
     )
     assert result.code == int(Exit.OK), result.stderr
 
@@ -744,23 +737,19 @@ def test_omitted_vepyr_resolves_master_head_and_prints_the_sha(
     _add_data_dir(harness.repo, "pilot")
     _stub_engine(tmp_path / "src", monkeypatch)
 
-    master_sha = "b" * 40
-    gh = _FakeGh(_tiny_ladder_toml(), sha=master_sha)
-    asked: list[str] = []
-    inner_get = gh.get
-
-    def spy(path: str) -> object:
-        asked.append(path)
-        return inner_get(path)
-
-    monkeypatch.setattr(gh, "get", spy)
+    origin = _fake_vepyr(harness)
+    master_sha = origin.shas[DEFAULT_VEPYR_REF]
+    assert master_sha != origin.shas["0.7.0"]
 
     result = harness.run(
-        "--cache-dir", str(harness.root), "--flavours", "ensembl", gh_api=gh
+        "--cache-dir",
+        str(harness.root),
+        "--flavours",
+        "ensembl",
+        vepyr_git=origin.url,
     )
 
     assert result.code == int(Exit.OK), result.stderr
-    assert f"repos/{engine.VEPYR_REPO}/commits/{DEFAULT_VEPYR_REF}" in asked
     assert [c for c in harness.cargo.calls if c[0][:2] == ["cargo", "test"]]
     assert f"vepyr sha        : {master_sha}" in result.summary
     assert DEFAULT_VEPYR_REF in result.summary
@@ -782,7 +771,8 @@ def test_explicit_vepyr_ref_is_not_marked_default(
     _add_data_dir(harness.repo, "pilot")
     _stub_engine(tmp_path / "src", monkeypatch)
 
-    pinned = "c" * 40
+    origin = _fake_vepyr(harness)
+    pinned = origin.shas["0.7.0"]
     result = harness.run(
         "--cache-dir",
         str(harness.root),
@@ -790,19 +780,12 @@ def test_explicit_vepyr_ref_is_not_marked_default(
         "ensembl",
         "--vepyr",
         "0.7.0",
-        gh_api=_FakeGh(_tiny_ladder_toml(), sha=pinned),
+        vepyr_git=origin.url,
     )
     assert result.code == int(Exit.OK), result.stderr
     assert "vepyr            : 0.7.0" in result.summary
     assert f"vepyr sha        : {pinned}" in result.summary
     assert summary_mod.DEFAULT_MARK not in result.summary
-
-
-class _UnresolvableGh(_FakeGh):
-    """A GhApi on which no vepyr ref resolves: every call raises GhError."""
-
-    def get(self, path: str) -> object:
-        raise engine.GhError(path, "No commit found for SHA: no-such-ref")
 
 
 def test_unresolvable_vepyr_ref_exits_6(
@@ -827,7 +810,7 @@ def test_unresolvable_vepyr_ref_exits_6(
         "ensembl",
         "--vepyr",
         "no-such-ref",
-        gh_api=_UnresolvableGh(_tiny_ladder_toml()),
+        vepyr_git=_fake_vepyr(harness).url,
     )
     assert result.code == int(Exit.ENGINE), result.stderr
     assert "run_tests: error (engine, exit 6):" in result.stderr
