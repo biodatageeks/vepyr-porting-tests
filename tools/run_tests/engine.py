@@ -9,7 +9,6 @@ with path ``[patch]`` tables. ``Cargo.lock`` is restored from git around the run
 
 from __future__ import annotations
 
-import base64
 import json
 import os
 import re
@@ -19,18 +18,17 @@ from collections.abc import Callable, Iterator, Mapping, Sequence
 from contextlib import contextmanager
 from dataclasses import dataclass
 from pathlib import Path
-from typing import Any, Final, Protocol
+from typing import Any, Final
 
 from run_tests.verdict import Exit, RunTestsError
 
 __all__ = [
     "DFBF_GIT",
     "FORMATS_GIT",
+    "VEPYR_GIT",
     "VEPYR_REPO",
     "Checkout",
     "EnginePlan",
-    "GhApi",
-    "GhCli",
     "LockGuard",
     "default_src_root",
     "engine_toml",
@@ -42,6 +40,8 @@ __all__ = [
 ]
 
 VEPYR_REPO: Final[str] = "biodatageeks/vepyr"
+#: Public clone URL of :data:`VEPYR_REPO`; read anonymously, no credentials needed.
+VEPYR_GIT: Final[str] = f"https://github.com/{VEPYR_REPO}.git"
 DFBF_GIT: Final[str] = "https://github.com/biodatageeks/datafusion-bio-functions.git"
 FORMATS_GIT: Final[str] = "https://github.com/biodatageeks/datafusion-bio-formats.git"
 _DFBF_CRATE: Final[str] = "datafusion-bio-function-vep"
@@ -60,12 +60,11 @@ _TIMEOUT: Final[int] = 180
 # workspace crate reads; smudging them made a transient LFS download failure abort the
 # whole `--vepyr` run (issue #61). Leave every LFS path as its pointer file instead.
 _NO_SMUDGE: Final[Mapping[str, str]] = {"GIT_LFS_SKIP_SMUDGE": "1"}
-_SHA: Final[re.Pattern[str]] = re.compile(r"^[0-9a-f]{7,40}$")
 
 #: Characters a git ref may consist of. ``/`` is deliberately allowed —
-#: ``feature/x`` is the common case — but every shape that could redirect the
-#: ``repos/<repo>/commits/<ref>`` API path elsewhere (``..``, ``?``, ``#``,
-#: a leading ``-``) is rejected by :func:`validate_ref` below.
+#: ``feature/x`` is the common case — but every shape that git could read as
+#: an option or a range (``..``, a leading ``-``) or that is not a plain ref
+#: (``?``, ``#``) is rejected by :func:`validate_ref` below.
 _REF_CHARS: Final[re.Pattern[str]] = re.compile(r"\A[A-Za-z0-9._/+-]+\Z")
 _REF_MAX: Final[int] = 255
 
@@ -73,8 +72,8 @@ _REF_MAX: Final[int] = 255
 def validate_ref(ref: str) -> str:
     """Return ``ref`` if it is a well-formed git ref, else raise a usage error.
 
-    The allowlist follows ``git check-ref-format`` closely enough to keep the
-    GitHub API path ``repos/<repo>/commits/<ref>`` intact: slashes are legal
+    The allowlist follows ``git check-ref-format`` closely enough that the
+    ref reaches the ``git`` argv as one plain revision: slashes are legal
     (``feature/x``), while path traversal (``..``), a leading ``-``, and any
     URL-significant character (``?``, ``#``, ``%``, ``&``, whitespace) are not.
 
@@ -111,41 +110,6 @@ def validate_ref(ref: str) -> str:
         if part.startswith(".") or part.endswith(".lock"):
             raise reject(f"bad path component {part!r}")
     return ref
-
-
-class GhApi(Protocol):
-    """Minimal GitHub contents/commits API used by :func:`resolve`."""
-
-    def get(self, path: str) -> Any: ...
-
-
-class GhError(Exception):
-    """A GitHub API failure with a short message."""
-
-    def __init__(self, path: str, message: str) -> None:
-        super().__init__(f"{path}: {message}")
-        self.path = path
-        self.message = message
-
-
-@dataclass(frozen=True, slots=True)
-class GhCli:
-    """``gh api`` backed :class:`GhApi` (default production client)."""
-
-    run: Callable[[Sequence[str]], subprocess.CompletedProcess[str]] = subprocess.run
-
-    def get(self, path: str) -> Any:
-        completed = self.run(
-            ["gh", "api", path],
-            capture_output=True,
-            text=True,
-            timeout=_TIMEOUT,
-            check=False,
-        )
-        if completed.returncode != 0:
-            err = (completed.stderr or completed.stdout or "gh api failed").strip()
-            raise GhError(path, err[:300])
-        return json.loads(completed.stdout)
 
 
 def _default_run(
@@ -216,51 +180,6 @@ def _git(
         err = (completed.stderr or completed.stdout or "git failed").strip()
         raise RunTestsError(Exit.ENGINE, f"git {' '.join(argv[1:4])}…: {err[:300]}")
     return completed.stdout.strip()
-
-
-def _resolve_sha(api: GhApi, ref: str) -> str:
-    """Dereference ``ref`` (tag / branch / sha) on biodatageeks/vepyr."""
-    validate_ref(ref)
-    try:
-        payload = api.get(f"repos/{VEPYR_REPO}/commits/{ref}")
-    except GhError as exc:
-        raise RunTestsError(
-            Exit.ENGINE, f"--vepyr {ref}: cannot resolve on {VEPYR_REPO}: {exc.message}"
-        ) from exc
-    sha = payload.get("sha") if isinstance(payload, dict) else None
-    if not isinstance(sha, str) or not _SHA.match(sha):
-        raise RunTestsError(Exit.ENGINE, f"--vepyr {ref}: commits API returned no sha")
-    return sha
-
-
-def resolve_sha(api: GhApi, ref: str) -> str:
-    """Public :func:`_resolve_sha`: the 40-char sha ``ref`` names on biodatageeks/vepyr.
-
-    Raises:
-        RunTestsError: exit 2 for a malformed ref, exit 6 when it does not resolve.
-    """
-    return _resolve_sha(api, ref)
-
-
-def _read_cargo_toml(api: GhApi, sha: str) -> dict[str, Any]:
-    try:
-        payload = api.get(f"repos/{VEPYR_REPO}/contents/Cargo.toml?ref={sha}")
-    except GhError as exc:
-        raise RunTestsError(
-            Exit.ENGINE, f"--vepyr: Cargo.toml@{sha[:12]} unreadable: {exc.message}"
-        ) from exc
-    if not isinstance(payload, dict) or payload.get("encoding") != "base64":
-        raise RunTestsError(
-            Exit.ENGINE,
-            f"--vepyr: Cargo.toml@{sha[:12]} not base64 content",
-        )
-    raw = base64.b64decode(payload["content"]).decode("utf-8")
-    try:
-        return tomllib.loads(raw)
-    except tomllib.TOMLDecodeError as exc:
-        raise RunTestsError(
-            Exit.ENGINE, f"--vepyr: Cargo.toml@{sha[:12]} does not parse: {exc}"
-        ) from exc
 
 
 def _dep_spec(manifest: Mapping[str, Any], name: str, *, ref: str) -> dict[str, Any]:
@@ -348,7 +267,8 @@ def _mirror_sha(
         mirror.parent.mkdir(parents=True, exist_ok=True)
         _git(run, ["git", "clone", "--quiet", "--mirror", git_url, str(mirror)])
     git = ["git", "-C", str(mirror)]
-    verify = [*git, "rev-parse", "--verify", "--quiet", f"{rev}^{{commit}}"]
+    verify = [*git, "rev-parse", "--verify", "--quiet", "--end-of-options"]
+    verify.append(f"{rev}^{{commit}}")
     # A mirror fetch updates every ref, so named branches/tags cannot go stale.
     _git(run, [*git, "fetch", "--quiet", "--prune", "--tags", "origin"])
     try:
@@ -368,6 +288,78 @@ def _mirror_sha(
     except RunTestsError as exc:
         raise RunTestsError(
             Exit.ENGINE, f"{name}: cannot resolve rev {rev!r} in {mirror}: {exc}"
+        ) from exc
+
+
+def _vepyr_mirror(src_root: Path) -> Path:
+    """Bare mirror of biodatageeks/vepyr inside the checkout cache ``src_root``."""
+    return src_root / "vepyr" / "git"
+
+
+def _resolve_sha(ref: str, *, vepyr_git: str, src_root: Path, run: Runner) -> str:
+    """Dereference ``ref`` (branch / tag / sha) on biodatageeks/vepyr via plain git.
+
+    Goes through the shared bare mirror (:func:`_mirror_sha`), so a branch, an
+    annotated tag (peeled to its commit) and a literal sha on no ref take one path.
+
+    Raises:
+        RunTestsError: exit 2 for a malformed ref, exit 6 when it does not resolve.
+    """
+    validate_ref(ref)
+    try:
+        return _mirror_sha(
+            name="vepyr",
+            git_url=vepyr_git,
+            rev=ref,
+            mirror=_vepyr_mirror(src_root),
+            run=run,
+        )
+    except RunTestsError as exc:
+        raise RunTestsError(
+            Exit.ENGINE, f"--vepyr {ref}: cannot resolve on {VEPYR_REPO}: {exc}"
+        ) from exc
+
+
+def resolve_sha(
+    ref: str,
+    *,
+    vepyr_git: str = VEPYR_GIT,
+    src_root: Path | None = None,
+    run: Runner | None = None,
+) -> str:
+    """The 40-char commit sha ``ref`` names on biodatageeks/vepyr (git only, no gh).
+
+    Args:
+        ref: Branch, tag or (possibly unadvertised) commit sha.
+        vepyr_git: Clone URL of the vepyr repository; tests point it at a local repo.
+        src_root: Checkout cache holding the mirror; default :func:`default_src_root`.
+        run: Subprocess runner; default :func:`subprocess.run`.
+
+    Raises:
+        RunTestsError: exit 2 for a malformed ref, exit 6 when it does not resolve.
+    """
+    return _resolve_sha(
+        ref,
+        vepyr_git=vepyr_git,
+        src_root=default_src_root() if src_root is None else src_root,
+        run=run or _default_run,
+    )
+
+
+def _read_cargo_toml(sha: str, *, src_root: Path, run: Runner) -> dict[str, Any]:
+    """Parse ``Cargo.toml`` of vepyr commit ``sha`` from the mirror (``git show``)."""
+    mirror = _vepyr_mirror(src_root)
+    try:
+        raw = _git(run, ["git", "-C", str(mirror), "show", f"{sha}:Cargo.toml"])
+    except RunTestsError as exc:
+        raise RunTestsError(
+            Exit.ENGINE, f"--vepyr: Cargo.toml@{sha[:12]} unreadable: {exc}"
+        ) from exc
+    try:
+        return tomllib.loads(raw)
+    except tomllib.TOMLDecodeError as exc:
+        raise RunTestsError(
+            Exit.ENGINE, f"--vepyr: Cargo.toml@{sha[:12]} does not parse: {exc}"
         ) from exc
 
 
@@ -458,15 +450,19 @@ def engine_toml(*, dfbf: Checkout, formats: Checkout) -> str:
 def resolve(
     ref: str,
     *,
-    api: GhApi,
     src_root: Path,
     run: Runner | None = None,
+    vepyr_git: str = VEPYR_GIT,
 ) -> EnginePlan:
-    """Resolve ``ref``, checkout the ladder, and build the cargo config text."""
+    """Resolve ``ref``, checkout the ladder, and build the cargo config text.
+
+    Every read of biodatageeks/vepyr goes through plain ``git`` against
+    ``vepyr_git`` (a bare mirror under ``src_root/vepyr``); no gh, no token.
+    """
     runner: Runner = run or _default_run
     validate_ref(ref)
-    sha = _resolve_sha(api, ref)
-    manifest = _read_cargo_toml(api, sha)
+    sha = _resolve_sha(ref, vepyr_git=vepyr_git, src_root=src_root, run=runner)
+    manifest = _read_cargo_toml(sha, src_root=src_root, run=runner)
     dfbf_entry = _dep_spec(manifest, _DFBF_CRATE, ref=ref)
     # Formats: prefer ensembl-cache entry's git/rev; vcf must agree.
     fmt_entry = _dep_spec(manifest, _FORMATS_CRATES[0], ref=ref)
@@ -507,16 +503,16 @@ def materialise(
     ref: str,
     *,
     repo_root: Path,
-    api: GhApi | None = None,
     src_root: Path | None = None,
     run: Runner | None = None,
+    vepyr_git: str = VEPYR_GIT,
 ) -> tuple[EnginePlan, Path]:
     """Write ``<repo>/.run_tests/engine.toml``; return ``(plan, config_path)``."""
     plan = resolve(
         ref,
-        api=api or GhCli(),
         src_root=src_root or default_src_root(),
         run=run,
+        vepyr_git=vepyr_git,
     )
     report = repo_root / ".run_tests"
     report.mkdir(parents=True, exist_ok=True)

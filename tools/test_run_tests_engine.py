@@ -14,6 +14,7 @@ from pathlib import Path
 from typing import Any, Final
 
 import pytest
+from test_engine_vepyr_mirror import make_vepyr_origin
 
 from run_tests import engine
 
@@ -69,30 +70,6 @@ def _origin(tmp_path: Path, kind: str) -> tuple[Path, str, str]:
     return root, shas[0], shas[1]
 
 
-class _FakeGh:
-    """GitHub stub: vepyr sha per ref, and a Cargo.toml pinning local origins."""
-
-    def __init__(self, *, shas: dict[str, str], manifest: dict[str, str]) -> None:
-        self.shas = shas
-        self.manifest = manifest
-
-    def get(self, path: str) -> Any:
-        if path.startswith(f"repos/{engine.VEPYR_REPO}/commits/"):
-            ref = path.rsplit("/", 1)[1]
-            return {"sha": self.shas[ref]}
-        if "contents/Cargo.toml" in path:
-            ref = path.rsplit("ref=", 1)[1]
-            import base64
-
-            return {
-                "encoding": "base64",
-                "content": base64.b64encode(
-                    self.manifest[ref].encode("utf-8")
-                ).decode("ascii"),
-            }
-        raise engine.GhError(path, "unexpected")
-
-
 def _dep(crate: str, url: Path, rev: str) -> str:
     return f"{crate} = {{ git = {json.dumps(url.as_uri())}, rev = {json.dumps(rev)} }}"
 
@@ -113,13 +90,15 @@ def _manifest(*, dfbf_url: Path, dfbf_rev: str, fmt_url: Path, fmt_rev: str) -> 
 def ladder(tmp_path: Path) -> dict[str, Any]:
     dfbf, dfbf1, dfbf2 = _origin(tmp_path, "dfbf")
     fmt, fmt1, fmt2 = _origin(tmp_path, "formats")
-    manifests = {
-        "a" * 40: _manifest(dfbf_url=dfbf, dfbf_rev=dfbf1, fmt_url=fmt, fmt_rev=fmt1),
-        "b" * 40: _manifest(dfbf_url=dfbf, dfbf_rev=dfbf2, fmt_url=fmt, fmt_rev=fmt2),
-    }
-    api = _FakeGh(shas={"old": "a" * 40, "new": "b" * 40}, manifest=manifests)
+    vepyr = make_vepyr_origin(
+        tmp_path / "origin-vepyr",
+        {
+            "old": _manifest(dfbf_url=dfbf, dfbf_rev=dfbf1, fmt_url=fmt, fmt_rev=fmt1),
+            "new": _manifest(dfbf_url=dfbf, dfbf_rev=dfbf2, fmt_url=fmt, fmt_rev=fmt2),
+        },
+    )
     return {
-        "api": api,
+        "vepyr": vepyr,
         "src_root": tmp_path / "src",
         "dfbf": (dfbf1, dfbf2),
         "formats": (fmt1, fmt2),
@@ -135,9 +114,13 @@ def test_sequential_runs_of_different_revs_keep_independent_trees(
 ) -> None:
     """AC1: two runs, different shas → two trees, neither mutated by the other."""
     src_root: Path = ladder["src_root"]
-    old = engine.resolve("old", api=ladder["api"], src_root=src_root, run=_run)
+    old = engine.resolve(
+        "old", vepyr_git=ladder["vepyr"].url, src_root=src_root, run=_run
+    )
     old_dfbf_head = _git(old.dfbf.path, "rev-parse", "HEAD")
-    new = engine.resolve("new", api=ladder["api"], src_root=src_root, run=_run)
+    new = engine.resolve(
+        "new", vepyr_git=ladder["vepyr"].url, src_root=src_root, run=_run
+    )
 
     assert old.dfbf.path != new.dfbf.path
     assert old.formats.path != new.formats.path
@@ -160,9 +143,9 @@ def test_reported_head_matches_the_checkout_that_was_compiled(
     ladder checkouts named in ``plan.config_text``.
     """
     plan = engine.resolve(
-        "new", api=ladder["api"], src_root=ladder["src_root"], run=_run
+        "new", vepyr_git=ladder["vepyr"].url, src_root=ladder["src_root"], run=_run
     )
-    assert plan.vepyr_sha == "b" * 40
+    assert plan.vepyr_sha == ladder["vepyr"].shas["new"]
     for checkout, expected in (
         (plan.dfbf, ladder["dfbf"][1]),
         (plan.formats, ladder["formats"][1]),
@@ -176,9 +159,13 @@ def test_reported_head_matches_the_checkout_that_was_compiled(
 def test_same_rev_reuses_its_tree(ladder: dict[str, Any]) -> None:
     """Re-running the same revision reuses the per-sha tree instead of re-cloning."""
     src_root: Path = ladder["src_root"]
-    first = engine.resolve("old", api=ladder["api"], src_root=src_root, run=_run)
+    first = engine.resolve(
+        "old", vepyr_git=ladder["vepyr"].url, src_root=src_root, run=_run
+    )
     stamp = first.dfbf.path / "BUILD_ARTIFACT"
     stamp.write_text("kept", encoding="utf-8")
-    second = engine.resolve("old", api=ladder["api"], src_root=src_root, run=_run)
+    second = engine.resolve(
+        "old", vepyr_git=ladder["vepyr"].url, src_root=src_root, run=_run
+    )
     assert second.dfbf.path == first.dfbf.path
     assert stamp.read_text(encoding="utf-8") == "kept"

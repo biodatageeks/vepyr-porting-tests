@@ -1,7 +1,7 @@
 """``./run_tests --via-cli`` offline: fake vepyr CLI runner and builder (#231).
 
 The cache is the synthetic one of :mod:`test_run_tests_cli` (fake Hub, no
-network); GitHub is a fake that resolves every REF to ``"a" * 40``; the vepyr CLI
+network); biodatageeks/vepyr is a local git origin (plain git, #69); the vepyr CLI
 is a callable that writes a chosen VCF to ``--output_file`` (no vepyr, no cache).
 """
 
@@ -20,13 +20,12 @@ import pytest
 from test_run_tests_cli import (
     Harness,
     Outcome,
-    _FakeGh,
-    _tiny_ladder_toml,
+    _fake_vepyr,
     fresh_head,
 )
 from test_run_tests_cli import harness as harness  # re-exported pytest fixture
 
-from run_tests import cli, tests, via_cli
+from run_tests import cli, engine, tests, via_cli
 from run_tests.fetch import HeadResolver
 from run_tests.verdict import Exit, RunTestsError
 from run_tests.via_cli import CliBuild, VepyrBuilder, body_md5
@@ -62,7 +61,6 @@ class FakeCli:
 
 
 def _builder(sha: str, root: Path) -> CliBuild:
-    assert sha == "a" * 40
     return BUILD
 
 
@@ -81,8 +79,14 @@ def _data_test(parent: Path, name: str, *, extra: str = "") -> Path:
 
 
 @pytest.fixture
-def ready(harness: Harness, monkeypatch: pytest.MonkeyPatch) -> Harness:
-    """A fetched synthetic cache exported as ``$VEPYR_CACHE_ROOT``."""
+def ready(harness: Harness, monkeypatch: pytest.MonkeyPatch, tmp_path: Path) -> Harness:
+    """A fetched synthetic cache exported as ``$VEPYR_CACHE_ROOT``.
+
+    The vepyr mirror goes to a scratch ``src`` root, never the repo's own.
+    """
+    monkeypatch.setattr(
+        engine, "default_src_root", lambda environ=None: tmp_path / "src"
+    )
     fetched = harness.run(
         "--cache-dir",
         str(harness.root),
@@ -106,6 +110,12 @@ def _run(
     argv = ["--via-cli", "--vepyr", "0.7.0", "--flavours", "ensembl"]
     for d in dirs:
         argv += ["--only", str(d)]
+    origin = _fake_vepyr(h)
+
+    def checked(sha: str, root: Path) -> CliBuild:
+        assert sha == origin.shas["0.7.0"], "builder must get the resolved REF sha"
+        return builder(sha, root)
+
     out, err = io.StringIO(), io.StringIO()
     with redirect_stdout(out), redirect_stderr(err):
         code = cli.main(
@@ -113,9 +123,9 @@ def _run(
             lister=h.hub.lister,
             downloader=h.hub.downloader,
             cargo_runner=h.cargo,
-            gh_api=_FakeGh(_tiny_ladder_toml()),
+            vepyr_git=origin.url,
             cli_runner=fake,
-            vepyr_builder=builder,
+            vepyr_builder=checked,
             head_resolver=head_resolver,
         )
     return Outcome(code=code, stdout=out.getvalue(), stderr=err.getvalue())
@@ -159,7 +169,8 @@ def test_c_match_exit_0(ready: Harness, tmp_path: Path) -> None:
     assert argv[argv.index("--dir_cache") + 1] == str(
         ready.root.resolve() / "116_GRCh38_ensembl"
     )
-    assert re.search(r"vepyr sha +: a{40}", got.stdout)
+    sha = _fake_vepyr(ready).shas["0.7.0"]
+    assert re.search(rf"vepyr sha +: {sha}", got.stdout)
 
 
 def test_d_unmappable_wins_over_mismatch(ready: Harness, tmp_path: Path) -> None:
